@@ -8,6 +8,8 @@
     "start": "node dist/index.js",
     "dev": "nodemon src/index.ts",
     "db:init": "ts-node src/config/initDb.ts",
+    "test": "ts-node src/test-suite.ts",
+    "test:gateway": "ts-node src/test-multi-gateway.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev"
   },

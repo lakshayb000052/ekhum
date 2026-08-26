@@ -2,6 +2,9 @@
 node_modules/
 backend/node_modules/
 frontend/node_modules/
+evolution-go-whatsapp/node_modules/
+evolution-go-whatsapp/sessions/
+finmantra-landing/node_modules/
 
 # Production build outputs
 dist/
@@ -13,6 +16,7 @@ frontend/dist/
 .env
 .env.local
 backend/.env
+evolution-go-whatsapp/.env
 
 # System & IDE files
 .DS_Store

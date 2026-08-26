@@ -1,0 +1,31 @@
+{
+  "name": "evolution-go-whatsapp",
+  "version": "1.0.0",
+  "description": "<p align=\"center\">\r   <a href=\"https://evolutionfoundation.com.br\">\r     <img src=\"./public/hover-evolution.png\" alt=\"Evolution Foundation\" />\r   </a>\r </p>",
+  "main": "server.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lakshayb057/evolution-go-whatsapp.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Lakshayb057/evolution-go-whatsapp/issues"
+  },
+  "homepage": "https://github.com/Lakshayb057/evolution-go-whatsapp#readme",
+  "dependencies": {
+    "@whiskeysockets/baileys": "^7.0.0-rc14",
+    "pino": "^10.3.1",
+    "qrcode": "^1.5.4",
+    "ws": "^8.21.3"
+  }
+}

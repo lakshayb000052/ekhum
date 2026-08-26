@@ -4,6 +4,8 @@ import crypto from 'crypto';
 import pool from '../config/db';
 import { broadcast, broadcastDonationEvent } from '../websocket';
 import { sendWhatsAppNotification, sendAWSEmailNotification } from '../services/notification';
+import { triggerDonationSuccessEventsAndNotifications } from '../services/journeyExecutor';
+import { initiateMultiGatewayPayment } from '../services/paymentRouter';
 
 const router = Router();
 
@@ -17,7 +19,10 @@ import { authenticate, AuthenticatedRequest } from '../middleware/auth';
 // Get transaction history querying Postgres with rich Razorpay donor details
 router.get('/', authenticate, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    let targetOrgId = req.query.organizationId as string | undefined;
+    const user = req.user;
+    const targetOrgId = user?.role === 'superadmin' 
+      ? (req.query.organizationId as string | undefined) 
+      : (user?.organizationId || (user as any)?.organization_id);
 
     // Auto-reconcile stale initiated transactions older than 25 minutes to 'failed' status
     await pool.query(`
@@ -119,125 +124,119 @@ router.post('/initiate', async (req: Request, res: Response) => {
     const donorId = donorResult.rows[0].id;
     const donorPhone = donorResult.rows[0].phone;
 
-    // 3. FCRA Segregation Routing
-    let settlementGateway = 'stripe';
-    let isFCRA = false;
-
-    if (currency === 'INR') {
-      settlementGateway = 'razorpay';
-      console.log(`[Payment Router] Routing ₹${amount} to Domestic Indian Gateway (Razorpay)`);
-    } else {
-      settlementGateway = 'stripe';
-      isFCRA = true;
-      console.log(`[Payment Router] Foreign contribution detected: Routing ${currency} ${amount} to FCRA Settlement Gateway (Stripe)`);
-    }
-
-    // 4. Calculate commissions & fees (100% Free Platform: 0.00 feePercent)
+    // 3. Initiate payment via Unified Multi-Gateway Engine
     const donationAmount = Number(amount);
-    const feePercent = 0.00; // Platform fee commission (Free Platform)
+    const feePercent = 0.00; // Free Platform
     const platformFee = coverFee ? 0.00 : (donationAmount * feePercent);
     const donorFeeCovered = coverFee ? (donationAmount * feePercent) : 0.00;
     const netPayoutAmount = donationAmount - platformFee;
     const totalChargeAmount = donationAmount + donorFeeCovered;
 
-    // Priority 1: Campaign Specific Razorpay credentials
-    // Priority 2: Organization default Razorpay credentials
-    // Priority 3: System-wide default settings
-    const campPayment = campRow.camp_payment_config || {};
-    const orgPayment = campRow.org_payment_config || {};
+    const paymentResult = await initiateMultiGatewayPayment({
+      campaignId: campRow.id || campaignId,
+      campaignTitle: campRow.title,
+      campaignSlug: campRow.slug || 'campaign',
+      organizationId: orgId,
+      orgName: campRow.org_name,
+      amount: totalChargeAmount,
+      currency: currency.toUpperCase(),
+      donorName: name,
+      donorEmail: email,
+      donorPhone: phone || donorPhone,
+      donorTaxId: taxId,
+      paymentConfig: campRow.camp_payment_config,
+      orgPaymentConfig: campRow.org_payment_config,
+      requestedGateway: req.body.gateway || req.body.requestedGateway,
+      forceSandbox: req.body.forceSandbox
+    });
 
-    let rzpKeyId = campPayment.razorpay_key_id || orgPayment.razorpay_key_id || '';
-    let rzpKeySecret = campPayment.razorpay_key_secret || orgPayment.razorpay_key_secret || '';
+    const isSandboxDirect = paymentResult.mode === 'sandbox' || req.body.forceSandbox;
 
-    if (!rzpKeyId || !rzpKeySecret) {
-      // Fallback to system settings
-      const settingsResult = await client.query("SELECT key, value FROM system_settings WHERE key IN ('RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET')");
-      settingsResult.rows.forEach((row: any) => {
-        if (row.key === 'RAZORPAY_KEY_ID' && !rzpKeyId) rzpKeyId = row.value;
-        if (row.key === 'RAZORPAY_KEY_SECRET' && !rzpKeySecret) rzpKeySecret = row.value;
+    if (isSandboxDirect) {
+      const txnId = paymentResult.orderId || `txn_sandbox_${Math.random().toString(36).substring(2, 11)}`;
+      const donationQuery = `
+        INSERT INTO donations (
+          organization_id, campaign_id, donor_id, amount, currency, 
+          net_amount, fee_covered, payment_gateway, gateway_transaction_id, 
+          status, payment_method, tax_receipt_status, custom_form_data
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'completed', $10, 'generated', $11)
+        RETURNING id
+      `;
+      const donationResult = await client.query(donationQuery, [
+        orgId,
+        campaignId,
+        donorId,
+        totalChargeAmount,
+        currency.toUpperCase(),
+        netPayoutAmount,
+        donorFeeCovered,
+        paymentResult.gateway || 'sandbox',
+        txnId,
+        paymentMethod || 'upi',
+        JSON.stringify({ isFallback: paymentResult.isFallback, failoverReason: paymentResult.failoverReason })
+      ]);
+      const donationId = donationResult.rows[0].id;
+      await client.query('COMMIT');
+
+      // 80G Receipt PDF Record
+      const receiptNum = `80G-${(paymentResult.gateway || 'DIR').toUpperCase().slice(0, 3)}-${Date.now().toString().slice(-6)}`;
+      const pdfUrl = `http://localhost:5000/receipts/${receiptNum}.pdf`;
+      await pool.query(
+        `INSERT INTO compliance_receipts (donation_id, receipt_number, tax_regime, receipt_pdf_url, transaction_hash, metadata)
+         VALUES ($1, $2, '80G', $3, md5($4), $5)
+         ON CONFLICT (donation_id) DO UPDATE SET metadata = EXCLUDED.metadata`,
+        [donationId, receiptNum, pdfUrl, txnId, JSON.stringify({ source: 'direct_checkout', gateway: paymentResult.gateway })]
+      );
+
+      broadcast('donation_completed', {
+        donationId,
+        amount: totalChargeAmount,
+        currency: currency.toUpperCase(),
+        donorName: name,
+        donorEmail: email,
+        donorPhone: donorPhone,
+        paymentGateway: paymentResult.gateway,
+        receiptNumber: receiptNum,
+        campaignTitle,
+        organizationId: orgId
+      });
+
+      triggerDonationSuccessEventsAndNotifications({
+        donationId,
+        organizationId: orgId,
+        donorId,
+        donorName: name,
+        donorEmail: email,
+        donorPhone: donorPhone || null,
+        campaignTitle,
+        amount: totalChargeAmount,
+        currency: currency.toUpperCase(),
+        transactionId: txnId,
+        receiptNumber: receiptNum,
+        receiptPdfUrl: pdfUrl,
+        orgName,
+        gateway: paymentResult.gateway || 'direct'
+      });
+
+      return res.status(200).json({
+        success: true,
+        mode: 'sandbox_completed',
+        message: 'Transaction completed successfully.',
+        donationId,
+        transactionId: txnId,
+        gateway: paymentResult.gateway,
+        receiptNumber: receiptNum,
+        amountPaid: totalChargeAmount
       });
     }
 
-    if (!rzpKeyId) rzpKeyId = process.env.RAZORPAY_KEY_ID || 'rzp_test_mock';
-    if (!rzpKeySecret) rzpKeySecret = process.env.RAZORPAY_KEY_SECRET || 'mock_secret';
-
-    const isRealRazorpay = currency === 'INR' && rzpKeyId !== 'rzp_test_mock' && !req.body.forceSandbox;
-
-    if (isRealRazorpay) {
-      let rzpOrder: any = null;
-      let orderCreationError: string | null = null;
-
-      try {
-        const dynamicRazorpay = new Razorpay({
-          key_id: rzpKeyId,
-          key_secret: rzpKeySecret
-        });
-
-        const orderPromise = dynamicRazorpay.orders.create({
-          amount: Math.round(totalChargeAmount * 100), // in paise
-          currency: 'INR',
-          receipt: `rcpt_${Date.now().toString().slice(-8)}`
-        });
-
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Razorpay Order API Timeout')), 3000)
-        );
-
-        rzpOrder = await Promise.race([orderPromise, timeoutPromise]);
-      } catch (orderErr: any) {
-        orderCreationError = orderErr.message || 'Razorpay Key Authentication Failure';
-        console.warn(`[Razorpay Order Fallback] ${orderCreationError}. Switching to Sandbox Mode.`);
-        rzpOrder = null;
-      }
-
-      if (rzpOrder && rzpOrder.id) {
-        // Valid Razorpay key & order created: Save pending donation for live checkout
-        const donationQuery = `
-          INSERT INTO donations (
-            organization_id, campaign_id, donor_id, amount, currency, 
-            net_amount, fee_covered, payment_gateway, gateway_transaction_id, 
-            status, payment_method, tax_receipt_status
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending', $10, 'not_generated')
-          RETURNING id
-        `;
-        const donationResult = await client.query(donationQuery, [
-          orgId,
-          campaignId,
-          donorId,
-          totalChargeAmount,
-          currency,
-          netPayoutAmount,
-          donorFeeCovered,
-          'razorpay',
-          rzpOrder.id,
-          paymentMethod || 'upi'
-        ]);
-        const donationId = donationResult.rows[0].id;
-
-        await client.query('COMMIT');
-        return res.status(200).json({
-          success: true,
-          mode: 'razorpay_checkout',
-          orderId: rzpOrder.id,
-          amount: Math.round(totalChargeAmount * 100),
-          currency: 'INR',
-          keyId: rzpKeyId,
-          donationId,
-          amountPaid: totalChargeAmount
-        });
-      }
-      
-      // If Razorpay order creation failed (e.g. invalid test key), seamlessly fall through to Sandbox completion below!
-    }
-
-    // Sandbox Flow (Instantly complete simulated payment)
-    const txnId = `txn_sandbox_${Math.random().toString(36).substring(2, 11)}`;
+    // Live Gateway Flow (Cashfree, Razorpay, PayU, CCAvenue, Worldline)
     const donationQuery = `
       INSERT INTO donations (
         organization_id, campaign_id, donor_id, amount, currency, 
         net_amount, fee_covered, payment_gateway, gateway_transaction_id, 
-        status, payment_method, tax_receipt_status
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'completed', $10, 'generating')
+        status, payment_method, tax_receipt_status, custom_form_data
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending', $10, 'not_generated', $11)
       RETURNING id
     `;
     const donationResult = await client.query(donationQuery, [
@@ -245,41 +244,44 @@ router.post('/initiate', async (req: Request, res: Response) => {
       campaignId,
       donorId,
       totalChargeAmount,
-      currency,
+      currency.toUpperCase(),
       netPayoutAmount,
       donorFeeCovered,
-      settlementGateway,
-      txnId,
-      paymentMethod || 'upi'
+      paymentResult.gateway,
+      paymentResult.orderId,
+      paymentMethod || 'upi',
+      JSON.stringify({ isFallback: paymentResult.isFallback, failoverReason: paymentResult.failoverReason })
     ]);
     const donationId = donationResult.rows[0].id;
-
     await client.query('COMMIT');
 
-    // Broadcast completed donation via WebSocket
-    broadcast('donation_completed', {
+    // Broadcast live donation_initiated event to all dashboards
+    broadcast('donation_initiated', {
       donationId,
       amount: totalChargeAmount,
-      currency,
+      currency: currency.toUpperCase(),
       donorName: name,
       donorEmail: email,
       campaignTitle,
-      organizationId: orgId
+      organizationId: orgId,
+      paymentGateway: paymentResult.gateway,
+      status: 'initiated'
     });
-
-    // Trigger alerts instantly
-    sendWhatsAppNotification(orgId, name, donorPhone || null, campaignTitle, totalChargeAmount, currency, true);
-    sendAWSEmailNotification(email, name, campaignTitle, totalChargeAmount, currency, true, txnId, orgName);
 
     return res.status(200).json({
       success: true,
-      mode: 'sandbox_completed',
-      message: 'Transaction completed successfully on Sandbox Mode.',
+      mode: paymentResult.mode,
+      gateway: paymentResult.gateway,
+      orderId: paymentResult.orderId,
+      amount: Math.round(totalChargeAmount * 100),
+      currency: currency.toUpperCase(),
+      keyId: paymentResult.checkoutPayload?.keyId || paymentResult.checkoutPayload?.appId || '',
       donationId,
-      transactionId: txnId,
-      settlementMode: isFCRA ? 'FCRA Account' : 'Domestic Account',
-      gatewayUsed: settlementGateway,
-      amountPaid: totalChargeAmount
+      amountPaid: totalChargeAmount,
+      checkoutPayload: paymentResult.checkoutPayload,
+      availableRails: paymentResult.availableRails,
+      isFallback: paymentResult.isFallback,
+      failoverReason: paymentResult.failoverReason
     });
 
   } catch (error: any) {
@@ -291,15 +293,26 @@ router.post('/initiate', async (req: Request, res: Response) => {
   }
 });
 
-// Verification Route for Razorpay payments
+// Verification Route for Multi-Gateway payments
 router.post('/verify', async (req: Request, res: Response) => {
-  const { donationId, razorpayPaymentId, razorpayOrderId, razorpaySignature } = req.body;
+  const { 
+    donationId, 
+    paymentGateway,
+    razorpayPaymentId, 
+    razorpayOrderId, 
+    razorpaySignature,
+    cashfreePaymentId,
+    payuPaymentId,
+    worldlineTransactionId,
+    ccavenueTrackingId
+  } = req.body;
+
   try {
-    console.log(`[Razorpay verification] Verifying payment for donation: ${donationId}`);
+    console.log(`[Payment Verification] Verifying payment for donation: ${donationId}`);
     
     // Query donation and retrieve organization & campaign payment details
     const donationQuery = `
-      SELECT d.organization_id, d.donor_id, d.amount, d.currency, 
+      SELECT d.organization_id, d.donor_id, d.amount, d.currency, d.payment_gateway,
              c.title AS "campaignTitle", c.payment_config AS camp_payment_config,
              o.name AS "orgName", o.payment_gateways_config AS org_payment_config,
              dn.name AS "donorName", dn.email AS "donorEmail", dn.phone AS "donorPhone"
@@ -315,78 +328,54 @@ router.post('/verify', async (req: Request, res: Response) => {
     }
     const row = donationRes.rows[0];
     const { organization_id: orgId, donor_id: donorId, amount, currency, campaignTitle, donorName, donorEmail, donorPhone, orgName } = row;
+    const resolvedGateway = paymentGateway || row.payment_gateway || 'razorpay';
+    const txnId = cashfreePaymentId || payuPaymentId || razorpayPaymentId || worldlineTransactionId || ccavenueTrackingId || `pay_${resolvedGateway}_${Date.now()}`;
 
-    const campPayment = row.camp_payment_config || {};
-    const orgPayment = row.org_payment_config || {};
-    let keyId = campPayment.razorpay_key_id || orgPayment.razorpay_key_id || process.env.RAZORPAY_KEY_ID || 'rzp_test_mock';
-    let keySecret = campPayment.razorpay_key_secret || orgPayment.razorpay_key_secret || process.env.RAZORPAY_KEY_SECRET || 'mock_secret';
+    // Razorpay signature validation if razorpay
+    if (resolvedGateway === 'razorpay' && razorpaySignature && razorpayOrderId && razorpayPaymentId) {
+      const campPayment = row.camp_payment_config || {};
+      const orgPayment = row.org_payment_config || {};
+      let keySecret = campPayment.razorpay_key_secret || orgPayment.razorpay_key_secret || process.env.RAZORPAY_KEY_SECRET || 'mock_secret';
 
-    if (keySecret === 'mock_secret') {
-      const settingsResult = await pool.query("SELECT key, value FROM system_settings WHERE key IN ('RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET')");
-      settingsResult.rows.forEach((r: any) => {
-        if (r.key === 'RAZORPAY_KEY_ID' && keyId === 'rzp_test_mock') keyId = r.value;
-        if (r.key === 'RAZORPAY_KEY_SECRET' && keySecret === 'mock_secret') keySecret = r.value;
-      });
-    }
+      if (keySecret !== 'mock_secret') {
+        const hash = crypto
+          .createHmac('sha256', keySecret)
+          .update(razorpayOrderId + '|' + razorpayPaymentId)
+          .digest('hex');
 
-    const isMock = keySecret === 'mock_secret' || !razorpaySignature || keyId.startsWith('rzp_test_');
-    if (!isMock) {
-      const hash = crypto
-        .createHmac('sha256', keySecret)
-        .update(razorpayOrderId + '|' + razorpayPaymentId)
-        .digest('hex');
-
-      if (hash !== razorpaySignature) {
-        return res.status(400).json({ success: false, message: 'Payment verification failed: Signature mismatch.' });
-      }
-    }
-
-    // Fetch full donor and payment details directly from Razorpay API
-    let rzpDetails: any = null;
-    let paymentMethod = 'upi';
-    if (razorpayPaymentId && !razorpayPaymentId.startsWith('pay_mock_') && keyId !== 'rzp_test_mock') {
-      try {
-        const dynamicRazorpay = new Razorpay({ key_id: keyId, key_secret: keySecret });
-        rzpDetails = await dynamicRazorpay.payments.fetch(razorpayPaymentId);
-        console.log(`[Razorpay API Fetch] Successfully fetched donor & payment payload for ${razorpayPaymentId}`);
-        if (rzpDetails.method) paymentMethod = rzpDetails.method;
-
-        // Sync donor contact info if returned by Razorpay
-        if (rzpDetails.contact || rzpDetails.email) {
-          await pool.query(
-            `UPDATE donors SET 
-               phone = COALESCE($1, phone),
-               email = COALESCE($2, email)
-             WHERE id = $3`,
-            [rzpDetails.contact || null, rzpDetails.email || null, donorId]
-          );
+        if (hash !== razorpaySignature) {
+          return res.status(400).json({ success: false, message: 'Payment verification failed: Signature mismatch.' });
         }
-      } catch (rzpErr: any) {
-        console.warn(`[Razorpay API Fetch Warning] ${rzpErr.message}`);
       }
     }
 
-    const rawPayload = rzpDetails || {
-      razorpay_payment_id: razorpayPaymentId || `pay_mock_${Date.now()}`,
-      razorpay_order_id: razorpayOrderId,
+    const rawPayload = {
+      gateway: resolvedGateway,
+      transactionId: txnId,
+      razorpayPaymentId,
+      razorpayOrderId,
+      cashfreePaymentId,
+      payuPaymentId,
       verification_status: 'verified',
       verified_at: new Date().toISOString()
     };
 
-    // Update donation status to completed and store full raw gateway response
+    // Update donation status to completed
     const query = `
       UPDATE donations 
       SET status = 'completed', 
-          gateway_transaction_id = $1, 
-          payment_method = $2,
-          tax_receipt_status = 'generating',
-          raw_gateway_response = $3
+          payment_gateway = $1,
+          gateway_transaction_id = $2, 
+          payment_method = 'upi',
+          tax_receipt_status = 'generated',
+          raw_gateway_response = $3,
+          updated_at = NOW()
       WHERE id = $4
       RETURNING id
     `;
     const { rows } = await pool.query(query, [
-      razorpayPaymentId || `pay_mock_${Date.now()}`,
-      paymentMethod,
+      resolvedGateway,
+      txnId,
       JSON.stringify(rawPayload),
       donationId
     ]);
@@ -395,6 +384,16 @@ router.post('/verify', async (req: Request, res: Response) => {
       return res.status(404).json({ success: false, message: 'Donation not found.' });
     }
 
+    // 80G Receipt PDF Record
+    const receiptNum = `80G-${resolvedGateway.toUpperCase().slice(0, 3)}-${Date.now().toString().slice(-6)}`;
+    const pdfUrl = `http://localhost:5000/receipts/${receiptNum}.pdf`;
+    await pool.query(
+      `INSERT INTO compliance_receipts (donation_id, receipt_number, tax_regime, receipt_pdf_url, transaction_hash, metadata)
+       VALUES ($1, $2, '80G', $3, md5($4), $5)
+       ON CONFLICT (donation_id) DO UPDATE SET metadata = EXCLUDED.metadata`,
+      [donationId, receiptNum, pdfUrl, txnId, JSON.stringify({ source: 'direct_checkout', gateway: resolvedGateway })]
+    );
+
     // Broadcast completed donation via WebSocket
     broadcast('donation_completed', {
       donationId,
@@ -402,19 +401,35 @@ router.post('/verify', async (req: Request, res: Response) => {
       currency,
       donorName,
       donorEmail,
+      paymentGateway: resolvedGateway,
+      receiptNumber: receiptNum,
       campaignTitle,
       organizationId: orgId
     });
 
-    // Send successful notifications
-    sendWhatsAppNotification(orgId, donorName, rzpDetails?.contact || donorPhone, campaignTitle, Number(amount), currency, true);
-    sendAWSEmailNotification(donorEmail, donorName, campaignTitle, Number(amount), currency, true, razorpayPaymentId || donationId, orgName);
+    // Trigger events, journey auto-enrolment, and multi-channel notifications
+    triggerDonationSuccessEventsAndNotifications({
+      donationId,
+      organizationId: orgId,
+      donorName,
+      donorEmail,
+      donorPhone: donorPhone || null,
+      campaignTitle,
+      amount: Number(amount),
+      currency: currency.toUpperCase(),
+      transactionId: txnId,
+      receiptNumber: receiptNum,
+      receiptPdfUrl: pdfUrl,
+      orgName,
+      gateway: resolvedGateway
+    });
 
     return res.status(200).json({
       success: true,
-      message: 'Razorpay payment verified, full donor details synchronized, and completed.',
+      message: `Payment verified via ${resolvedGateway.toUpperCase()} and 80G Tax Receipt generated successfully.`,
       donationId: rows[0].id,
-      razorpayDetails: rzpDetails
+      paymentGateway: resolvedGateway,
+      receiptNumber: receiptNum
     });
   } catch (error: any) {
     console.error('Payment verification failed:', error);
@@ -422,16 +437,21 @@ router.post('/verify', async (req: Request, res: Response) => {
   }
 });
 
-// On-demand Razorpay Live Sync Endpoint for a specific donation or payment ID
-router.get('/:id/razorpay-sync', async (req: Request, res: Response) => {
+
+// On-demand Multi-Gateway Live Sync Endpoint for Cashfree, Razorpay, PayU, etc.
+router.get(['/:id/sync', '/:id/gateway-sync', '/:id/razorpay-sync'], async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const donationRes = await pool.query(
       `SELECT d.id, d.gateway_transaction_id, d.organization_id, d.campaign_id, d.raw_gateway_response,
-              c.payment_config AS camp_payment_config, o.payment_gateways_config AS org_payment_config
+              d.payment_gateway, d.status, d.amount, d.currency,
+              c.title AS campaign_title, c.payment_config AS camp_payment_config, 
+              o.name AS org_name, o.payment_gateways_config AS org_payment_config,
+              dn.name AS donor_name, dn.email AS donor_email, dn.phone AS donor_phone
        FROM donations d
        JOIN campaigns c ON d.campaign_id = c.id
        JOIN organizations o ON d.organization_id = o.id
+       JOIN donors dn ON d.donor_id = dn.id
        WHERE (d.id::text = $1 OR d.gateway_transaction_id = $1)`,
       [id]
     );
@@ -442,55 +462,162 @@ router.get('/:id/razorpay-sync', async (req: Request, res: Response) => {
 
     const dRow = donationRes.rows[0];
     const txnId = dRow.gateway_transaction_id;
+    const gateway = (dRow.payment_gateway || 'razorpay').toLowerCase();
+    const campPayment = dRow.camp_payment_config || {};
+    const orgPayment = dRow.org_payment_config || {};
 
     if (!txnId || txnId.startsWith('pay_mock_') || txnId.startsWith('txn_sandbox_')) {
       return res.status(200).json({
         success: true,
+        gateway,
         message: 'Sandbox transaction details retrieved.',
         donationId: dRow.id,
-        rawGatewayResponse: dRow.raw_gateway_response
+        rawGatewayResponse: dRow.raw_gateway_response || { id: txnId, status: dRow.status, gateway }
       });
     }
 
-    const campPayment = dRow.camp_payment_config || {};
-    const orgPayment = dRow.org_payment_config || {};
-    let keyId = campPayment.razorpay_key_id || orgPayment.razorpay_key_id || process.env.RAZORPAY_KEY_ID;
-    let keySecret = campPayment.razorpay_key_secret || orgPayment.razorpay_key_secret || process.env.RAZORPAY_KEY_SECRET;
+    // 1. CASHFREE LIVE SYNC
+    if (gateway === 'cashfree') {
+      const activeRails = orgPayment.gateways || [];
+      const cfRail = activeRails.find((r: any) => r.type === 'cashfree') || {};
+      const appId = cfRail.app_id || orgPayment.cashfree_app_id || process.env.CASHFREE_APP_ID;
+      const secretKey = cfRail.secret_key || orgPayment.cashfree_secret_key || process.env.CASHFREE_SECRET_KEY;
+      const isLive = cfRail.mode === 'production' || process.env.CASHFREE_MODE === 'production';
+      const cfBaseUrl = isLive ? 'https://api.cashfree.com/pg' : 'https://sandbox.cashfree.com/pg';
 
-    if (!keySecret) {
-      const settingsResult = await pool.query("SELECT key, value FROM system_settings WHERE key IN ('RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET')");
-      settingsResult.rows.forEach((r: any) => {
-        if (r.key === 'RAZORPAY_KEY_ID') keyId = r.value;
-        if (r.key === 'RAZORPAY_KEY_SECRET') keySecret = r.value;
-      });
-    }
+      if (appId && secretKey && !appId.includes('mock')) {
+        try {
+          const cfRes = await fetch(`${cfBaseUrl}/orders/${txnId}/payments`, {
+            method: 'GET',
+            headers: {
+              'x-client-id': appId,
+              'x-client-secret': secretKey,
+              'x-api-version': '2023-08-01'
+            }
+          });
 
-    try {
-      const dynamicRazorpay = new Razorpay({ key_id: keyId, key_secret: keySecret });
-      const liveRazorpayPayload = await dynamicRazorpay.payments.fetch(txnId);
+          if (cfRes.ok) {
+            const cfPayments: any = await cfRes.json();
+            const latestPay = Array.isArray(cfPayments) && cfPayments.length > 0 ? cfPayments[0] : null;
 
-      // Save fresh live details to database
-      await pool.query('UPDATE donations SET raw_gateway_response = $1 WHERE id = $2', [JSON.stringify(liveRazorpayPayload), dRow.id]);
+            if (latestPay) {
+              const payStatus = (latestPay.payment_status || 'SUCCESS').toUpperCase();
+              const newStatus = (payStatus === 'SUCCESS' || payStatus === 'PAID') ? 'completed' : (payStatus === 'FAILED' || payStatus === 'USER_DROPPED') ? 'failed' : dRow.status;
+
+              await pool.query(
+                `UPDATE donations 
+                 SET status = $1, 
+                     raw_gateway_response = $2, 
+                     payment_method = COALESCE($3, payment_method),
+                     updated_at = NOW() 
+                 WHERE id = $4`,
+                [newStatus, JSON.stringify(latestPay), latestPay.payment_group || latestPay.payment_method?.type || 'upi', dRow.id]
+              );
+
+              // Broadcast status update
+              broadcast(newStatus === 'completed' ? 'donation_completed' : newStatus === 'failed' ? 'donation_failed' : 'donation_initiated', {
+                donationId: dRow.id,
+                amount: Number(dRow.amount),
+                currency: dRow.currency,
+                donorName: dRow.donor_name,
+                donorEmail: dRow.donor_email,
+                campaignTitle: dRow.campaign_title,
+                organizationId: dRow.organization_id,
+                paymentGateway: 'cashfree',
+                status: newStatus
+              });
+
+              return res.status(200).json({
+                success: true,
+                gateway: 'cashfree',
+                message: `Live Cashfree payment synchronized (Status: ${newStatus}).`,
+                donationId: dRow.id,
+                paymentId: latestPay.cf_payment_id || txnId,
+                rawGatewayResponse: latestPay
+              });
+            }
+          }
+        } catch (cfErr: any) {
+          console.warn('[Cashfree Live Sync Notice]:', cfErr.message);
+        }
+      }
 
       return res.status(200).json({
         success: true,
-        message: 'Fresh donor and transaction payload fetched directly from Razorpay API.',
+        gateway: 'cashfree',
+        message: 'Cashfree transaction details retrieved.',
         donationId: dRow.id,
         paymentId: txnId,
-        rawGatewayResponse: liveRazorpayPayload
-      });
-    } catch (apiErr: any) {
-      console.warn('[Razorpay Live Sync Warning]: Could not fetch from live API endpoint (Unverified test key or sandbox mode). Returning stored payload:', apiErr?.message || apiErr);
-      return res.status(200).json({
-        success: true,
-        message: 'Retrieved stored transaction payload.',
-        donationId: dRow.id,
-        paymentId: txnId,
-        rawGatewayResponse: dRow.raw_gateway_response || { id: txnId, status: 'captured', method: 'upi', verifiedVia: 'external_api' }
+        rawGatewayResponse: dRow.raw_gateway_response || { order_id: txnId, gateway: 'cashfree', status: dRow.status }
       });
     }
+
+    // 2. RAZORPAY LIVE SYNC
+    if (gateway === 'razorpay') {
+      let keyId = campPayment.razorpay_key_id || orgPayment.razorpay_key_id || process.env.RAZORPAY_KEY_ID;
+      let keySecret = campPayment.razorpay_key_secret || orgPayment.razorpay_key_secret || process.env.RAZORPAY_KEY_SECRET;
+
+      if (!keySecret) {
+        const settingsResult = await pool.query("SELECT key, value FROM system_settings WHERE key IN ('RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET')");
+        settingsResult.rows.forEach((r: any) => {
+          if (r.key === 'RAZORPAY_KEY_ID') keyId = r.value;
+          if (r.key === 'RAZORPAY_KEY_SECRET') keySecret = r.value;
+        });
+      }
+
+      try {
+        const dynamicRazorpay = new Razorpay({ key_id: keyId, key_secret: keySecret });
+        const liveRazorpayPayload = await dynamicRazorpay.payments.fetch(txnId);
+
+        const newStatus = liveRazorpayPayload.status === 'captured' ? 'completed' : liveRazorpayPayload.status === 'failed' ? 'failed' : dRow.status;
+
+        // Save fresh live details to database
+        await pool.query('UPDATE donations SET status = $1, raw_gateway_response = $2, updated_at = NOW() WHERE id = $3', [newStatus, JSON.stringify(liveRazorpayPayload), dRow.id]);
+
+        broadcast(newStatus === 'completed' ? 'donation_completed' : newStatus === 'failed' ? 'donation_failed' : 'donation_initiated', {
+          donationId: dRow.id,
+          amount: Number(dRow.amount),
+          currency: dRow.currency,
+          donorName: dRow.donor_name,
+          donorEmail: dRow.donor_email,
+          campaignTitle: dRow.campaign_title,
+          organizationId: dRow.organization_id,
+          paymentGateway: 'razorpay',
+          status: newStatus
+        });
+
+        return res.status(200).json({
+          success: true,
+          gateway: 'razorpay',
+          message: 'Fresh donor and transaction payload fetched directly from Razorpay API.',
+          donationId: dRow.id,
+          paymentId: txnId,
+          rawGatewayResponse: liveRazorpayPayload
+        });
+      } catch (apiErr: any) {
+        console.warn('[Razorpay Live Sync Warning]:', apiErr?.message);
+        return res.status(200).json({
+          success: true,
+          gateway: 'razorpay',
+          message: 'Retrieved stored transaction payload.',
+          donationId: dRow.id,
+          paymentId: txnId,
+          rawGatewayResponse: dRow.raw_gateway_response || { id: txnId, status: dRow.status, gateway: 'razorpay' }
+        });
+      }
+    }
+
+    // 3. OTHER GATEWAYS (PayU, CCAvenue, Worldline)
+    return res.status(200).json({
+      success: true,
+      gateway,
+      message: `Retrieved ${gateway.toUpperCase()} transaction details.`,
+      donationId: dRow.id,
+      paymentId: txnId,
+      rawGatewayResponse: dRow.raw_gateway_response || { id: txnId, status: dRow.status, gateway }
+    });
   } catch (error: any) {
-    console.error('Razorpay sync error:', error);
+    console.error('Payment sync error:', error);
     return res.status(500).json({ success: false, message: error.message });
   }
 });

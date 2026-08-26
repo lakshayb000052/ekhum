@@ -5,6 +5,7 @@ import path from 'path';
 import PDFDocument from 'pdfkit';
 import pool from '../config/db';
 import { getResolvedTemplate, renderTemplateContent, WhitelistVariables } from './templateEngine';
+import { dispatchWhatsAppMessage, dispatchEmailMessage } from './messagingRouter';
 
 export async function sendWhatsAppNotification(
   organizationId: string,
@@ -16,26 +17,29 @@ export async function sendWhatsAppNotification(
   isSuccess: boolean,
   transactionId?: string,
   receiptUrl?: string,
-  donorTaxId?: string
+  donorTaxId?: string,
+  paymentState: 'success' | 'initiated' | 'declined' = 'success',
+  extraParams: { paymentLink?: string; declineReason?: string; retryUrl?: string } = {}
 ) {
   try {
-    // 1. Fetch organization meta config
     const orgResult = await pool.query(
-      'SELECT name, certificate_80g_config, whatsapp_meta_config FROM organizations WHERE id = $1',
+      'SELECT name, certificate_80g_config, whatsapp_config, whatsapp_meta_config FROM organizations WHERE id = $1',
       [organizationId]
     );
     if (orgResult.rows.length === 0) return;
 
-    const { name: orgName, certificate_80g_config: c80g, whatsapp_meta_config: waba } = orgResult.rows[0];
-    const { waba_id, phone_id, token } = waba || {};
+    const { name: orgName, certificate_80g_config: c80g } = orgResult.rows[0];
 
-    if (!waba_id || !phone_id || !token) {
-      console.log(`[WhatsApp Service] Skipping notification for "${orgName}": Meta API credentials not configured.`);
-      return;
-    }
+    // Determine target template type based on state
+    const templateTypeMap: Record<string, any> = {
+      success: 'whatsapp_success',
+      initiated: 'whatsapp_initiated',
+      declined: 'whatsapp_declined'
+    };
+    const targetType = templateTypeMap[paymentState] || 'whatsapp_success';
 
     // Resolve template from templates engine
-    const tmpl = await getResolvedTemplate(organizationId, 'whatsapp_message');
+    const tmpl = await getResolvedTemplate(organizationId, targetType);
     const vars: WhitelistVariables = {
       donor_name: donorName,
       donor_phone: donorPhone || '',
@@ -44,6 +48,10 @@ export async function sendWhatsAppNotification(
       donation_currency: currency,
       donation_date: new Date().toISOString().split('T')[0],
       transaction_id: transactionId || 'TXN_LOCAL',
+      payment_status: paymentState.toUpperCase(),
+      payment_link: extraParams.paymentLink || 'https://danapro.org/pay',
+      decline_reason: extraParams.declineReason || 'Transaction declined by issuer bank',
+      retry_url: extraParams.retryUrl || extraParams.paymentLink || 'https://danapro.org/retry',
       campaign_title: campaignTitle,
       ngo_name: orgName,
       ngo_urn: c80g?.urn || '',
@@ -53,44 +61,59 @@ export async function sendWhatsAppNotification(
 
     const parsedMessageText = renderTemplateContent(tmpl.content, vars);
 
-    // Format phone number to clean string (only digits)
-    let recipientPhone = donorPhone ? donorPhone.replace(/\D/g, '') : '';
-    if (!recipientPhone) {
-      recipientPhone = '919999999999'; // Default sandbox testing number
-    }
-    if (recipientPhone.length === 10) {
-      recipientPhone = '91' + recipientPhone;
-    }
-
-    const url = `https://graph.facebook.com/v19.0/${phone_id}/messages`;
-    
-    // Prepare standard text payload or template message payload
-    const payload = {
-      messaging_product: 'whatsapp',
-      recipient_type: 'individual',
-      to: recipientPhone,
-      type: 'text',
-      text: { body: parsedMessageText }
-    };
-
-    console.log(`[WhatsApp Service] Dispatching parsed whitelist message to ${recipientPhone}...`);
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify(payload)
+    const result = await dispatchWhatsAppMessage({
+      organizationId,
+      recipientPhone: donorPhone || '',
+      messageText: parsedMessageText,
+      templateName: targetType
     });
 
-    const resData = await response.json();
-    console.log(`[WhatsApp Service] Meta response:`, resData);
+    console.log(`[WhatsApp Notification Engine] Dispatch result for ${donorPhone} (${orgName}):`, result);
+
+    // Resolve or insert donor contact to link log
+    let contactId: string | null = null;
+    if (donorPhone) {
+      try {
+        const dRes = await pool.query(
+          'SELECT id FROM donors WHERE phone = $1 AND (organization_id = $2 OR organization_id IS NULL) LIMIT 1',
+          [donorPhone, organizationId]
+        );
+        if (dRes.rows.length > 0) {
+          contactId = dRes.rows[0].id;
+        } else if (organizationId) {
+          const newD = await pool.query(
+            'INSERT INTO donors (organization_id, name, phone, tax_id) VALUES ($1, $2, $3, $4) RETURNING id',
+            [organizationId, donorName, donorPhone, donorTaxId || null]
+          );
+          contactId = newD.rows[0]?.id || null;
+        }
+      } catch (e) {}
+    }
+
+    if (contactId && organizationId) {
+      await pool.query(
+        `INSERT INTO whatsapp_communications (
+           organization_id, contact_id, recipient_number, template_name,
+           communication_type, trigger_type, status, meta_message_id, sent_at, delivered_at, failure_reason
+         )
+         VALUES ($1, $2, $3, $4, 'direct_alert', 'payment', $5, $6, NOW(), $7, $8)`,
+        [
+          organizationId,
+          contactId,
+          donorPhone || '',
+          targetType,
+          result.success ? 'delivered' : 'failed',
+          result.messageId || null,
+          result.success ? new Date() : null,
+          result.error || null
+        ]
+      ).catch(e => console.error('[WhatsApp Log Error]:', e));
+    }
 
   } catch (error) {
     console.error(`[WhatsApp Service] Error dispatching alert:`, error);
   }
 }
-
 
 export async function sendAWSEmailNotification(
   donorEmail: string,
@@ -103,7 +126,9 @@ export async function sendAWSEmailNotification(
   orgName: string,
   organizationId?: string,
   donorTaxId?: string,
-  receiptUrl?: string
+  receiptUrl?: string,
+  paymentState: 'success' | 'initiated' | 'declined' = 'success',
+  extraParams: { paymentLink?: string; declineReason?: string; retryUrl?: string } = {}
 ) {
   let awsAccessKey = process.env.AWS_ACCESS_KEY_ID;
   let awsSecretKey = process.env.AWS_SECRET_ACCESS_KEY;
@@ -125,7 +150,7 @@ export async function sendAWSEmailNotification(
     }
   }
 
-  // 1. Resolve Organization-Specific Verified Sender Email (e.g. donations@finmantra.org, donations@ladlifoundation.org, donations@wegive.in)
+  // 1. Resolve Organization-Specific Verified Sender Email
   if (organizationId) {
     try {
       const orgRes = await pool.query('SELECT verified_sender_email FROM organizations WHERE id = $1', [organizationId]);
@@ -137,8 +162,16 @@ export async function sendAWSEmailNotification(
     }
   }
 
+  // Determine target email template type based on payment state
+  const templateTypeMap: Record<string, any> = {
+    success: 'email_success',
+    initiated: 'email_initiated',
+    declined: 'email_declined'
+  };
+  const targetType = templateTypeMap[paymentState] || 'email_success';
+
   // Resolve template from templates engine
-  const tmpl = await getResolvedTemplate(organizationId || null, 'email_thankyou');
+  const tmpl = await getResolvedTemplate(organizationId || null, targetType);
   const vars: WhitelistVariables = {
     donor_name: donorName,
     donor_email: donorEmail,
@@ -147,74 +180,77 @@ export async function sendAWSEmailNotification(
     donation_currency: currency,
     donation_date: new Date().toISOString().split('T')[0],
     transaction_id: transactionId,
+    payment_status: paymentState.toUpperCase(),
+    payment_link: extraParams.paymentLink || 'https://danapro.org/pay',
+    decline_reason: extraParams.declineReason || 'Payment declined by card issuing bank',
+    retry_url: extraParams.retryUrl || extraParams.paymentLink || 'https://danapro.org/retry',
     campaign_title: campaignTitle,
     ngo_name: orgName,
     receipt_url: receiptUrl || 'http://localhost:5000/receipts/80G-DEFAULT.pdf'
   };
 
-  const subject = renderTemplateContent(tmpl.subject || `Thank you for your generous donation to ${orgName}!`, vars);
+  const subject = renderTemplateContent(tmpl.subject || `Notification from ${orgName}`, vars);
   const bodyHtml = renderTemplateContent(tmpl.content, vars);
 
+  // Helper function to generate PDF on-the-fly if missing
+  function generateSample80GPdf(pdfPath: string, recipientName: string, amount: number, currency: string, txnId: string, orgName: string) {
+    const dir = path.dirname(pdfPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
 
-// Helper function to generate PDF on-the-fly if missing
-function generateSample80GPdf(pdfPath: string, recipientName: string, amount: number, currency: string, txnId: string, orgName: string) {
-  const dir = path.dirname(pdfPath);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
+    const doc = new PDFDocument({ margin: 50 });
+    const writeStream = fs.createWriteStream(pdfPath);
+    doc.pipe(writeStream);
+
+    // Header Banner
+    doc.fillColor('#059669').rect(0, 0, 612, 16).fill();
+    doc.moveDown(2);
+
+    // Title
+    doc.fillColor('#0F172A')
+       .font('Helvetica-Bold')
+       .fontSize(22)
+       .text('DONATION RECEIPT & 80G TAX CERTIFICATE', { align: 'center' });
+    doc.moveDown(0.8);
+
+    doc.strokeColor('#CBD5E1').lineWidth(1).moveTo(50, doc.y).lineTo(562, doc.y).stroke();
+    doc.moveDown(1.5);
+
+    // Recipient Organization & Details
+    const initialY = doc.y;
+    doc.font('Helvetica-Bold').fontSize(11).fillColor('#1E293B').text('ISSUING ORGANISATION', 50, initialY);
+    doc.font('Helvetica').fontSize(10).fillColor('#334155').text(orgName, 50, initialY + 18);
+    doc.text(`Status: 80G Registered Charitable NGO`, 50, initialY + 32);
+    doc.text(`URN: 80G/WEGIVE/2026/99812`, 50, initialY + 46);
+    doc.text(`PAN: AAATD0192K`, 50, initialY + 60);
+
+    doc.font('Helvetica-Bold').fontSize(11).fillColor('#1E293B').text('RECEIPT INFORMATION', 340, initialY);
+    doc.font('Helvetica').fontSize(10).fillColor('#334155').text(`Receipt No: ${path.basename(pdfPath, '.pdf')}`, 340, initialY + 18);
+    doc.text(`Date of Issue: ${new Date().toLocaleDateString('en-IN')}`, 340, initialY + 32);
+    doc.text(`Transaction ID: ${txnId}`, 340, initialY + 46);
+    doc.text(`Tax Deduction: Eligible under 80G`, 340, initialY + 60);
+
+    doc.moveDown(4);
+
+    // Donor Box
+    const boxTop = doc.y + 10;
+    doc.fillColor('#F8FAFC').rect(50, boxTop, 512, 85).fill();
+    doc.strokeColor('#E2E8F0').rect(50, boxTop, 512, 85).stroke();
+    
+    doc.fillColor('#0F172A').font('Helvetica-Bold').fontSize(11).text('DONOR DETAILS', 65, boxTop + 14);
+    doc.fillColor('#334155').font('Helvetica').fontSize(10).text(`Name: ${recipientName}`, 65, boxTop + 32);
+    doc.text(`Contribution Amount: ${currency === 'INR' ? 'Rs. ' : currency + ' '}${amount.toLocaleString()}`, 65, boxTop + 48);
+    doc.text(`Tax Status: 50% Tax Exemption Verified`, 65, boxTop + 64);
+
+    doc.moveDown(6);
+
+    // Footnote
+    doc.fillColor('#64748B').font('Helvetica-Oblique').fontSize(9)
+       .text('This is a computer-generated tax receipt issued by WeGive Global NGO Platform. No physical signature is required.', 50, doc.y, { align: 'center', width: 512 });
+
+    doc.end();
   }
-
-  const doc = new PDFDocument({ margin: 50 });
-  const writeStream = fs.createWriteStream(pdfPath);
-  doc.pipe(writeStream);
-
-  // Header Banner
-  doc.fillColor('#059669').rect(0, 0, 612, 16).fill();
-  doc.moveDown(2);
-
-  // Title
-  doc.fillColor('#0F172A')
-     .font('Helvetica-Bold')
-     .fontSize(22)
-     .text('DONATION RECEIPT & 80G TAX CERTIFICATE', { align: 'center' });
-  doc.moveDown(0.8);
-
-  doc.strokeColor('#CBD5E1').lineWidth(1).moveTo(50, doc.y).lineTo(562, doc.y).stroke();
-  doc.moveDown(1.5);
-
-  // Recipient Organization & Details
-  const initialY = doc.y;
-  doc.font('Helvetica-Bold').fontSize(11).fillColor('#1E293B').text('ISSUING ORGANISATION', 50, initialY);
-  doc.font('Helvetica').fontSize(10).fillColor('#334155').text(orgName, 50, initialY + 18);
-  doc.text(`Status: 80G Registered Charitable NGO`, 50, initialY + 32);
-  doc.text(`URN: 80G/WEGIVE/2026/99812`, 50, initialY + 46);
-  doc.text(`PAN: AAATD0192K`, 50, initialY + 60);
-
-  doc.font('Helvetica-Bold').fontSize(11).fillColor('#1E293B').text('RECEIPT INFORMATION', 340, initialY);
-  doc.font('Helvetica').fontSize(10).fillColor('#334155').text(`Receipt No: ${path.basename(pdfPath, '.pdf')}`, 340, initialY + 18);
-  doc.text(`Date of Issue: ${new Date().toLocaleDateString('en-IN')}`, 340, initialY + 32);
-  doc.text(`Transaction ID: ${txnId}`, 340, initialY + 46);
-  doc.text(`Tax Deduction: Eligible under 80G`, 340, initialY + 60);
-
-  doc.moveDown(4);
-
-  // Donor Box
-  const boxTop = doc.y + 10;
-  doc.fillColor('#F8FAFC').rect(50, boxTop, 512, 85).fill();
-  doc.strokeColor('#E2E8F0').rect(50, boxTop, 512, 85).stroke();
-  
-  doc.fillColor('#0F172A').font('Helvetica-Bold').fontSize(11).text('DONOR DETAILS', 65, boxTop + 14);
-  doc.fillColor('#334155').font('Helvetica').fontSize(10).text(`Name: ${recipientName}`, 65, boxTop + 32);
-  doc.text(`Contribution Amount: ${currency === 'INR' ? 'Rs. ' : currency + ' '}${amount.toLocaleString()}`, 65, boxTop + 48);
-  doc.text(`Tax Status: 50% Tax Exemption Verified`, 65, boxTop + 64);
-
-  doc.moveDown(6);
-
-  // Footnote
-  doc.fillColor('#64748B').font('Helvetica-Oblique').fontSize(9)
-     .text('This is a computer-generated tax receipt issued by WeGive Global NGO Platform. No physical signature is required.', 50, doc.y, { align: 'center', width: 512 });
-
-  doc.end();
-}
 
   // Prepare 80G Tax Receipt PDF Attachment
   const attachments: any[] = [];
@@ -231,68 +267,114 @@ function generateSample80GPdf(pdfPath: string, recipientName: string, amount: nu
     generateSample80GPdf(localPdfPath, donorName, amount, currency, transactionId || 'TXN_LOCAL', orgName);
   }
 
-  // Brief pause to allow PDF write stream to complete if generated
-  attachments.push({
-    filename: filename,
-    path: localPdfPath,
-    contentType: 'application/pdf'
-  });
-  console.log(`[Email Notification Engine] 📎 Attached 80G Tax Receipt PDF: ${filename}`);
-
-  // Primary Dispatch: Gmail SMTP using user's App Password (angzefnwaziwmlzz)
-  const smtpUser = process.env.SMTP_USER || 'lakshayb057@gmail.com';
-  const smtpPass = process.env.SMTP_PASS || 'angzefnwaziwmlzz';
-
+  // Load PDF content buffer
+  let pdfBuffer: Buffer | undefined;
   try {
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: smtpUser,
-        pass: smtpPass
-      }
-    });
-
-    console.log(`[Gmail SMTP Service] 📧 Dispatching email & 80G receipt attachment to ${donorEmail} via Gmail SMTP...`);
-    const info = await transporter.sendMail({
-      from: `"${orgName} via WeGive" <${smtpUser}>`,
-      to: donorEmail,
-      subject: subject,
-      html: bodyHtml,
-      attachments: attachments
-    });
-
-    console.log(`[Gmail SMTP Service] 🎉 Email & 80G Receipt PDF sent successfully to ${donorEmail}! MessageId: ${info.messageId}`);
-    return;
-  } catch (smtpErr: any) {
-    console.error(`[Gmail SMTP Service Error]:`, smtpErr?.message || smtpErr);
+    if (fs.existsSync(localPdfPath)) {
+      pdfBuffer = fs.readFileSync(localPdfPath);
+      attachments.push({
+        filename: filename,
+        content: pdfBuffer,
+        contentType: 'application/pdf'
+      });
+      console.log(`[Email Notification Engine] 📎 Attached 80G Tax Receipt PDF: ${filename}`);
+    }
+  } catch (err: any) {
+    console.error(`[Email Notification Engine] Error reading PDF attachment:`, err.message);
   }
 
-  // Fallback Dispatch: AWS SES Client
-  if (awsAccessKey && awsSecretKey) {
+  // Resolve or create contact in donors table for communications logging
+  let contactId: string | null = null;
+  if (donorEmail) {
     try {
-      const sesClient = new SESClient({
-        region: awsRegion,
-        credentials: {
-          accessKeyId: awsAccessKey,
-          secretAccessKey: awsSecretKey
-        }
-      });
+      const dRes = await pool.query(
+        'SELECT id FROM donors WHERE email = $1 AND (organization_id = $2 OR organization_id IS NULL) LIMIT 1',
+        [donorEmail, organizationId || null]
+      );
+      if (dRes.rows.length > 0) {
+        contactId = dRes.rows[0].id;
+      } else if (organizationId) {
+        const newD = await pool.query(
+          'INSERT INTO donors (organization_id, name, email, tax_id) VALUES ($1, $2, $3, $4) RETURNING id',
+          [organizationId, donorName, donorEmail, donorTaxId || null]
+        );
+        contactId = newD.rows[0]?.id || null;
+      }
+    } catch (e) {}
+  }
 
-      const command = new SendEmailCommand({
-        Destination: { ToAddresses: [donorEmail] },
-        Message: {
-          Body: { Html: { Data: bodyHtml, Charset: 'UTF-8' } },
-          Subject: { Data: subject, Charset: 'UTF-8' }
-        },
-        Source: senderEmail
-      });
+  let emailDispatched = false;
+  let dispatchMessageId: string | null = null;
+  let dispatchError: string | null = null;
 
-      console.log(`[AWS SES Service] Dispatching SES email to ${donorEmail}...`);
-      const result = await sesClient.send(command);
-      console.log(`[AWS SES Service] 🎉 Email sent via AWS SES! MessageId: ${result.MessageId}`);
-    } catch (sesErr: any) {
-      console.error(`[AWS SES Service Error]:`, sesErr?.message || sesErr);
+  // Dispatch Email using NGO's assigned provider (SMTP or SES) via messagingRouter
+  if (organizationId) {
+    const dispatchRes = await dispatchEmailMessage({
+      organizationId,
+      recipientEmail: donorEmail,
+      recipientName: donorName,
+      subject: subject,
+      htmlBody: bodyHtml,
+      attachments: attachments.length > 0 ? attachments : undefined
+    });
+
+    console.log(`[Email Notification Engine] Dispatch result for ${donorEmail} (${orgName}):`, dispatchRes);
+    if (dispatchRes.success) {
+      emailDispatched = true;
+      dispatchMessageId = dispatchRes.messageId || null;
+    } else {
+      dispatchError = dispatchRes.error || null;
     }
+  }
+
+  // Fallback: Dispatch using system SES or default SMTP if not dispatched yet
+  if (!emailDispatched) {
+    try {
+      const smtpUser = process.env.SMTP_USER || 'lakshayb057@gmail.com';
+      const smtpPass = process.env.SMTP_PASS || 'angzefnwaziwmlzz';
+
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: { user: smtpUser, pass: smtpPass }
+      });
+
+      const info = await transporter.sendMail({
+        from: `"${orgName} via DanaPro" <${smtpUser}>`,
+        to: donorEmail,
+        subject: subject,
+        html: bodyHtml,
+        attachments: attachments.length > 0 ? [{ filename, path: localPdfPath, contentType: 'application/pdf' }] : undefined
+      });
+
+      console.log(`[Email Notification Engine] Fallback sent to ${donorEmail}. MessageId: ${info.messageId}`);
+      emailDispatched = true;
+      dispatchMessageId = info.messageId || null;
+      dispatchError = null;
+    } catch (fallbackErr: any) {
+      console.error(`[Email Notification Engine] Fallback dispatch error:`, fallbackErr.message);
+      dispatchError = fallbackErr.message;
+    }
+  }
+
+  // Log to email_communications table
+  if (organizationId && contactId) {
+    await pool.query(
+      `INSERT INTO email_communications (
+         organization_id, contact_id, subject_line, communication_type,
+         trigger_type, status, ses_message_id, sent_at, delivered_at, attachment_ref, error
+       )
+       VALUES ($1, $2, $3, 'transactional_receipt', 'payment', $4, $5, NOW(), $6, $7, $8)`,
+      [
+        organizationId,
+        contactId,
+        subject,
+        emailDispatched ? 'delivered' : 'failed',
+        dispatchMessageId,
+        emailDispatched ? new Date() : null,
+        filename,
+        dispatchError
+      ]
+    ).catch(e => console.error('[Email Log Error]:', e));
   }
 }
 

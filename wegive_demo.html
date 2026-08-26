@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EKhum · Creative Automation (module demo)</title>
+<style>
+  :root{
+    --ink:#14161C;
+    --ink-2:#4A5060;
+    --ink-3:#7B8296;
+    --paper:#FBFAF7;
+    --panel:#FFFFFF;
+    --line:#E4E1D9;
+    --line-2:#F0EEE7;
+    --indigo:#2E3A8C;
+    --indigo-soft:#EEF0FA;
+    --marigold:#E0A012;
+    --marigold-soft:#FCF3DE;
+    --teal:#1B6B58;
+    --teal-soft:#E7F2EE;
+    --clay:#AE4127;
+    --clay-soft:#FAEDE9;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --serif: "Iowan Old Style", "Charter", Georgia, "Times New Roman", serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--sans);
+    font-size:14px;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--indigo)}
+  .wrap{max-width:1220px;margin:0 auto;padding:0 20px}
+
+  /* ---------- top bar ---------- */
+  .topbar{
+    background:var(--ink);color:#fff;
+    position:sticky;top:0;z-index:40;
+    border-bottom:1px solid #000;
+  }
+  .topbar-in{display:flex;align-items:center;gap:16px;height:52px}
+  .mark{font-family:var(--serif);font-size:19px;letter-spacing:-.01em}
+  .mark em{font-style:normal;color:var(--marigold)}
+  .modname{
+    font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+    color:#B9BDC9;border-left:1px solid #33384A;padding-left:16px;
+  }
+  .spacer{flex:1}
+  .orgpick{
+    display:flex;align-items:center;gap:8px;background:#20232E;border:1px solid #333849;
+    border-radius:6px;padding:5px 10px;font-size:12.5px;color:#E7E9EF;
+  }
+  .orgdot{width:18px;height:18px;border-radius:4px;background:var(--marigold);color:#3a2a00;
+    font-size:10px;font-weight:700;display:grid;place-items:center;font-family:var(--mono)}
+  .demobadge{
+    font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+    background:var(--marigold-soft);color:#6B4A00;padding:4px 8px;border-radius:4px;font-weight:600;
+  }
+
+  /* ---------- job header ---------- */
+  .jobhead{background:var(--panel);border-bottom:1px solid var(--line)}
+  .jobrow{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-end;padding:22px 0 16px}
+  .jobtitle{font-family:var(--serif);font-size:27px;line-height:1.15;letter-spacing:-.015em;margin:0}
+  .jobmeta{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);margin-top:6px;letter-spacing:.02em}
+  .jobmeta b{color:var(--ink-2);font-weight:500}
+  .jobfacts{display:flex;gap:26px;margin-left:auto}
+  .fact-l{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
+  .fact-v{font-family:var(--mono);font-size:15px;margin-top:2px}
+
+  /* ---------- stage rail ---------- */
+  .rail{display:flex;overflow-x:auto;border-top:1px solid var(--line-2);scrollbar-width:none}
+  .rail::-webkit-scrollbar{display:none}
+  .stage{
+    appearance:none;background:none;border:0;border-bottom:2px solid transparent;
+    padding:11px 16px 10px;cursor:pointer;white-space:nowrap;color:var(--ink-3);
+    font-family:var(--sans);font-size:13px;display:flex;align-items:center;gap:8px;
+  }
+  .stage:hover{color:var(--ink)}
+  .stage .num{font-family:var(--mono);font-size:10.5px;border:1px solid var(--line);
+    border-radius:3px;padding:1px 5px;color:var(--ink-3)}
+  .stage[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--indigo);font-weight:600}
+  .stage[aria-selected="true"] .num{background:var(--indigo);border-color:var(--indigo);color:#fff}
+  .stage[data-done="1"] .num{background:var(--teal-soft);border-color:#C6E0D7;color:var(--teal)}
+  .stage:focus-visible{outline:2px solid var(--indigo);outline-offset:-2px}
+
+  /* ---------- layout ---------- */
+  .body{display:grid;grid-template-columns:minmax(0,1fr) 296px;gap:24px;padding:24px 0 60px;align-items:start}
+  @media(max-width:940px){.body{grid-template-columns:minmax(0,1fr)}}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px}
+  .card + .card{margin-top:18px}
+  .card-h{padding:14px 18px;border-bottom:1px solid var(--line-2);display:flex;align-items:center;gap:12px}
+  .card-t{font-size:14px;font-weight:600;margin:0}
+  .card-b{padding:18px}
+  .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+  .lede{color:var(--ink-2);max-width:64ch;margin:0 0 16px}
+  h3.sec{font-family:var(--serif);font-size:19px;margin:0 0 4px;letter-spacing:-.01em}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  @media(max-width:760px){.grid2,.grid3{grid-template-columns:1fr}}
+
+  /* ---------- form bits ---------- */
+  .field{margin-bottom:13px}
+  .lab{display:block;font-size:11.5px;color:var(--ink-2);margin-bottom:4px;font-weight:600}
+  .inp{
+    width:100%;border:1px solid var(--line);border-radius:6px;padding:8px 10px;
+    font-family:var(--sans);font-size:13px;background:#fff;color:var(--ink);
+  }
+  .inp[readonly]{background:#FCFBF8;color:var(--ink-2)}
+  .inp:focus{outline:2px solid var(--indigo);outline-offset:-1px;border-color:var(--indigo)}
+  .chiprow{display:flex;flex-wrap:wrap;gap:7px}
+  .chk{
+    display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:20px;
+    padding:5px 11px;font-size:12.5px;cursor:pointer;background:#fff;user-select:none;
+  }
+  .chk input{accent-color:var(--indigo);margin:0}
+  .chk.on{background:var(--indigo-soft);border-color:#C7CEEC;color:var(--indigo);font-weight:600}
+
+  /* ---------- pills ---------- */
+  .pill{font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;
+    padding:3px 7px;border-radius:4px;border:1px solid transparent;white-space:nowrap}
+  .p-ok{background:var(--teal-soft);color:var(--teal);border-color:#CBE3DB}
+  .p-warn{background:var(--marigold-soft);color:#7A5300;border-color:#EFDCAE}
+  .p-risk{background:var(--clay-soft);color:var(--clay);border-color:#F0D2C8}
+  .p-mute{background:#F4F3EF;color:var(--ink-3);border-color:var(--line)}
+  .p-ind{background:var(--indigo-soft);color:var(--indigo);border-color:#CBD2EE}
+
+  /* ---------- buttons ---------- */
+  .btn{
+    appearance:none;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;
+    border-radius:7px;padding:9px 15px;border:1px solid var(--line);background:#fff;color:var(--ink);
+  }
+  .btn:hover{border-color:var(--ink-3)}
+  .btn-pri{background:var(--indigo);border-color:var(--indigo);color:#fff}
+  .btn-pri:hover{background:#26307a;border-color:#26307a}
+  .btn-ghost{border-color:transparent;color:var(--indigo);padding-left:6px;padding-right:6px}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .btn:focus-visible{outline:2px solid var(--marigold);outline-offset:2px}
+  .btnrow{display:flex;flex-wrap:wrap;gap:9px;align-items:center;margin-top:16px}
+
+  /* ---------- tables ---------- */
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th{text-align:left;font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--ink-3);font-weight:500;padding:0 10px 8px;border-bottom:1px solid var(--line)}
+  td{padding:9px 10px;border-bottom:1px solid var(--line-2);vertical-align:middle}
+  td.num,th.num{text-align:right;font-family:var(--mono)}
+  tr.off td{opacity:.4}
+  .kw{font-weight:500}
+
+  /* ---------- approach cards ---------- */
+  .app-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  @media(max-width:900px){.app-grid{grid-template-columns:1fr}}
+  .approach{
+    border:1px solid var(--line);border-radius:10px;background:#fff;padding:0;position:relative;
+    display:flex;flex-direction:column;overflow:hidden;
+  }
+  .approach.sel{border-color:var(--indigo);box-shadow:0 0 0 3px var(--indigo-soft)}
+  .approach.dim{opacity:.5}
+  .ap-top{padding:14px 15px 12px;border-bottom:1px dashed var(--line)}
+  .ap-code{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;color:var(--ink-3)}
+  .ap-name{font-family:var(--serif);font-size:18px;margin:3px 0 6px;letter-spacing:-.01em}
+  .ap-one{font-size:12.5px;color:var(--ink-2);margin:0}
+  .ap-body{padding:13px 15px;flex:1}
+  .kv{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid var(--line-2);font-size:12.5px}
+  .kv:last-child{border-bottom:0}
+  .kv span:first-child{color:var(--ink-3)}
+  .kv span:last-child{font-family:var(--mono);text-align:right}
+  .ap-note{font-size:11.5px;color:var(--ink-2);background:#FBFAF6;border-top:1px solid var(--line-2);padding:10px 15px}
+  .ap-note b{font-weight:600;color:var(--ink)}
+  .ap-foot{padding:12px 15px;border-top:1px solid var(--line-2)}
+  .stamp{
+    position:absolute;top:12px;right:12px;font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--teal);border:1.5px solid var(--teal);border-radius:4px;
+    padding:3px 7px;transform:rotate(-6deg);background:#fff;
+  }
+
+  /* ---------- device preview ---------- */
+  .preview-wrap{display:grid;grid-template-columns:1fr 300px;gap:20px}
+  @media(max-width:820px){.preview-wrap{grid-template-columns:1fr}}
+  .phone{
+    width:280px;margin:0 auto;border:9px solid #16181F;border-radius:32px;background:#fff;
+    overflow:hidden;box-shadow:0 12px 30px rgba(20,22,28,.16);
+  }
+  .phone-scr{height:520px;overflow-y:auto;font-size:12px}
+  .notch{height:20px;background:#16181F}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;flex-wrap:wrap}
+  .seg button{appearance:none;background:#fff;border:0;border-right:1px solid var(--line-2);
+    padding:7px 11px;font-size:12px;cursor:pointer;color:var(--ink-2);font-family:var(--sans)}
+  .seg button:last-child{border-right:0}
+  .seg button[aria-pressed="true"]{background:var(--ink);color:#fff}
+
+  /* landing page mock */
+  .lp-hero{background:linear-gradient(160deg,#2E3A8C,#4A57B8);color:#fff;padding:18px 14px}
+  .lp-h1{font-family:var(--serif);font-size:19px;line-height:1.2;margin:6px 0 6px}
+  .lp-sub{font-size:11.5px;opacity:.9;margin:0}
+  .lp-body{padding:14px}
+  .lp-amt{display:flex;gap:6px;margin:8px 0}
+  .lp-amt button{flex:1;border:1px solid var(--line);background:#fff;border-radius:6px;padding:7px 0;
+    font-family:var(--mono);font-size:12px;cursor:pointer}
+  .lp-amt button[aria-pressed="true"]{background:var(--indigo);border-color:var(--indigo);color:#fff}
+  .lp-in{width:100%;border:1px solid var(--line);border-radius:6px;padding:7px 9px;font-size:11.5px;margin-bottom:7px}
+  .lp-toggle{display:flex;gap:8px;align-items:center;background:var(--marigold-soft);
+    border:1px solid #EFDCAE;border-radius:7px;padding:8px 10px;font-size:11.5px;margin:8px 0}
+  .lp-cta{width:100%;background:var(--marigold);border:0;color:#3B2A00;font-weight:700;
+    border-radius:7px;padding:11px;font-size:13px;cursor:pointer}
+  .lp-legal{font-size:9.5px;color:var(--ink-3);margin-top:9px;line-height:1.45}
+  .lp-consent{display:flex;gap:7px;font-size:10.5px;color:var(--ink-2);margin:7px 0;align-items:flex-start}
+  .lp-consent input{margin:2px 0 0;accent-color:var(--indigo)}
+
+  /* reel / story */
+  .reel{background:#0E1014;color:#fff;height:100%;position:relative;padding:0}
+  .reel-img{height:330px;background:
+    radial-gradient(120% 90% at 30% 20%, #4A57B8 0%, #1D2450 60%, #0E1014 100%);
+    display:grid;place-items:center;padding:16px;text-align:center}
+  .reel-hook{font-family:var(--serif);font-size:22px;line-height:1.15}
+  .reel-cap{padding:12px 14px;font-size:11.5px;line-height:1.5;color:#D7DAE4}
+  .reel-cta{margin:10px 14px;background:#fff;color:#14161C;border-radius:6px;padding:9px;
+    text-align:center;font-weight:700;font-size:12px}
+  .beats{display:flex;gap:8px;margin-top:12px}
+  .beat{flex:1;border:1px solid var(--line);border-radius:8px;padding:9px;background:#fff}
+  .beat-t{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;color:var(--ink-3);text-transform:uppercase}
+  .beat-c{font-size:11.5px;margin-top:5px;color:var(--ink-2)}
+
+  /* display ads */
+  .adshelf{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start}
+  .ad{border:1px solid var(--line);border-radius:6px;overflow:hidden;background:#fff;position:relative}
+  .ad-label{font-family:var(--mono);font-size:9.5px;color:var(--ink-3);margin-top:5px;display:block}
+  .ad-300{width:250px;height:208px}
+  .ad-728{width:100%;max-width:485px;height:60px}
+  .ad-160{width:120px;height:450px}
+  .ad-in{height:100%;background:linear-gradient(150deg,#2E3A8C,#3F4CA5);color:#fff;padding:11px;
+    display:flex;flex-direction:column;justify-content:space-between}
+  .ad-h{font-family:var(--serif);font-size:15px;line-height:1.15}
+  .ad-728 .ad-h{font-size:13px}
+  .ad-160 .ad-h{font-size:14px}
+  .ad-b{background:var(--marigold);color:#3B2A00;font-weight:700;font-size:10.5px;
+    border-radius:4px;padding:6px 8px;text-align:center}
+  .ad-728 .ad-in{flex-direction:row;align-items:center;gap:12px}
+  .ad-728 .ad-b{white-space:nowrap}
+  .ad-mand{font-size:8px;opacity:.8;line-height:1.3}
+
+  /* rsa */
+  .rsa{border:1px solid var(--line);border-radius:8px;padding:13px;background:#FCFCFA}
+  .rsa-url{color:var(--teal);font-size:11.5px;font-family:var(--mono)}
+  .rsa-h{color:#1a0dab;font-size:15px;margin:3px 0}
+  .rsa-d{color:var(--ink-2);font-size:12.5px}
+
+  /* ---------- approval ---------- */
+  .asset-row{display:flex;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid var(--line-2)}
+  .asset-row:last-child{border-bottom:0}
+  .thumb{width:42px;height:42px;border-radius:6px;flex:none;background:linear-gradient(150deg,#2E3A8C,#5563bd)}
+  .thumb.t2{background:linear-gradient(150deg,#1B6B58,#3f9d84)}
+  .thumb.t3{background:linear-gradient(150deg,#E0A012,#f0c45e)}
+  .thumb.t4{background:linear-gradient(150deg,#AE4127,#d47a63)}
+  .asset-n{font-weight:600;font-size:13px}
+  .asset-m{font-family:var(--mono);font-size:10.5px;color:var(--ink-3)}
+  .comment{border-left:2px solid var(--line);padding:2px 0 2px 11px;margin:10px 0;font-size:12.5px}
+  .comment b{font-size:12px}
+  .comment .t{font-family:var(--mono);font-size:10px;color:var(--ink-3);margin-left:6px}
+  .mailcard{border:1px solid var(--line);border-radius:8px;background:#FCFCFA;padding:13px;font-family:var(--mono);font-size:11.5px;line-height:1.7;color:var(--ink-2)}
+  .mailcard b{color:var(--ink)}
+
+  /* ---------- governance rail ---------- */
+  .rail-card{background:var(--panel);border:1px solid var(--line);border-radius:10px;margin-bottom:16px}
+  .rail-h{padding:11px 14px;border-bottom:1px solid var(--line-2);display:flex;align-items:center;justify-content:space-between}
+  .rail-t{font-family:var(--mono);font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-3)}
+  .check{display:flex;gap:9px;padding:9px 14px;border-bottom:1px solid var(--line-2);font-size:12px;align-items:flex-start}
+  .check:last-child{border-bottom:0}
+  .dot{width:7px;height:7px;border-radius:50%;margin-top:6px;flex:none}
+  .d-ok{background:var(--teal)}.d-warn{background:var(--marigold)}.d-risk{background:var(--clay)}
+  .check small{display:block;color:var(--ink-3);font-size:11px}
+  .log{padding:10px 14px;max-height:230px;overflow-y:auto}
+  .log-i{font-size:11.5px;padding:6px 0;border-bottom:1px solid var(--line-2);color:var(--ink-2)}
+  .log-i:last-child{border-bottom:0}
+  .log-i time{font-family:var(--mono);font-size:10px;color:var(--ink-3);display:block}
+
+  .note{background:#FBFAF6;border:1px solid var(--line);border-left:3px solid var(--marigold);
+    border-radius:0 8px 8px 0;padding:12px 14px;font-size:12.5px;color:var(--ink-2);margin-top:16px}
+  .note b{color:var(--ink)}
+  .hidden{display:none}
+  footer{border-top:1px solid var(--line);background:var(--panel);padding:22px 0;color:var(--ink-3);font-size:11.5px}
+  @media (prefers-reduced-motion:no-preference){
+    .panel-in{animation:fade .22s ease}
+    @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="wrap topbar-in">
+    <div class="mark">We<em>Give</em></div>
+    <div class="modname">Creative Automation</div>
+    <div class="spacer"></div>
+    <div class="orgpick"><span class="orgdot">CF</span> ChildFund India · Org #1042</div>
+    <span class="demobadge">Demo data</span>
+  </div>
+</div>
+
+<div class="jobhead">
+  <div class="wrap">
+    <div class="jobrow">
+      <div>
+        <h1 class="jobtitle">Winter kits for children in Jharkhand</h1>
+        <div class="jobmeta">JOB CA-2026-0117 · created by <b>Garima Agrawal</b> · approver <b>Arun Thangapadian</b> (Fundraising Director) · deadline <b>19 Aug 2026</b></div>
+      </div>
+      <div class="jobfacts">
+        <div><div class="fact-l">Goal</div><div class="fact-v">₹18,00,000</div></div>
+        <div><div class="fact-l">Window</div><div class="fact-v">01–30 Sep</div></div>
+        <div><div class="fact-l">80G</div><div class="fact-v">Eligible</div></div>
+      </div>
+    </div>
+    <div class="rail" role="tablist" aria-label="Campaign stages">
+      <button class="stage" role="tab" aria-selected="true" data-p="p1"><span class="num">1</span> Brief</button>
+      <button class="stage" role="tab" aria-selected="false" data-p="p2"><span class="num">2</span> Keywords</button>
+      <button class="stage" role="tab" aria-selected="false" data-p="p3"><span class="num">3</span> Approaches</button>
+      <button class="stage" role="tab" aria-selected="false" data-p="p4"><span class="num">4</span> Creative kit</button>
+      <button class="stage" role="tab" aria-selected="false" data-p="p5"><span class="num">5</span> Approval</button>
+      <button class="stage" role="tab" aria-selected="false" data-p="p6"><span class="num">6</span> Publish</button>
+      <button class="stage" role="tab" aria-selected="false" data-p="p7"><span class="num">i</span> What's real</button>
+    </div>
+  </div>
+</div>
+
+<div class="wrap body">
+  <main>
+
+  <!-- ============ 1 BRIEF ============ -->
+  <section id="p1" class="panel panel-in">
+    <div class="card">
+      <div class="card-h"><span class="eyebrow">Stage 1</span><h2 class="card-t">Campaign brief</h2>
+        <span class="spacer"></span><span class="pill p-ok">Approved 11 Aug</span></div>
+      <div class="card-b">
+        <h3 class="sec">One brief drives every asset</h3>
+        <p class="lede">Everything downstream — keywords, budget, landing page, reels, display ads — is generated from these fields. Change the cause or the ask and the whole kit regenerates.</p>
+        <div class="grid2">
+          <div>
+            <div class="field"><label class="lab" for="f-cause">Cause</label>
+              <input class="inp" id="f-cause" value="Winter kits — Jharkhand child protection programme" readonly></div>
+            <div class="field"><label class="lab" for="f-ask">Primary ask</label>
+              <input class="inp" id="f-ask" value="₹1,200 = one winter kit for one child" readonly></div>
+            <div class="field"><label class="lab" for="f-aud">Audience</label>
+              <input class="inp" id="f-aud" value="India, 28–55, metro + tier-1, salaried, tax-filing households" readonly></div>
+            <div class="field"><label class="lab" for="f-lang">Languages</label>
+              <input class="inp" id="f-lang" value="English, Hindi" readonly></div>
+          </div>
+          <div>
+            <div class="field"><label class="lab">Elements required</label>
+              <div class="chiprow">
+                <label class="chk on"><input type="checkbox" checked> Landing page</label>
+                <label class="chk on"><input type="checkbox" checked> Meta feed 4:5</label>
+                <label class="chk on"><input type="checkbox" checked> Reel 9:16</label>
+                <label class="chk on"><input type="checkbox" checked> Story 9:16</label>
+                <label class="chk on"><input type="checkbox" checked> Google Display</label>
+                <label class="chk on"><input type="checkbox" checked> Search RSA</label>
+                <label class="chk"><input type="checkbox"> WhatsApp broadcast</label>
+                <label class="chk"><input type="checkbox"> Email</label>
+              </div>
+            </div>
+            <div class="field"><label class="lab">Compliance flags set at brief</label>
+              <div class="chiprow">
+                <label class="chk on"><input type="checkbox" checked> 80G receipt on payment</label>
+                <label class="chk on"><input type="checkbox" checked> PAN capture required</label>
+                <label class="chk on"><input type="checkbox" checked> UPI Autopay for monthly</label>
+                <label class="chk"><input type="checkbox"> FCRA route (foreign donors)</label>
+              </div>
+            </div>
+            <div class="field"><label class="lab" for="f-fcra">Why FCRA is off</label>
+              <input class="inp" id="f-fcra" value="Domestic-only campaign. Foreign gifts route to the segregated FCRA account and are excluded from 80G copy." readonly></div>
+          </div>
+        </div>
+        <div class="note"><b>Design decision.</b> Compliance flags are set at the brief, not at the end. If PAN capture is off, the landing-page generator physically cannot produce a form claiming 80G — the mandatory line and the field are one template rule.</div>
+        <div class="btnrow"><button class="btn btn-pri" data-go="p2">Generate keyword set</button>
+          <button class="btn">Edit brief</button></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 2 KEYWORDS ============ -->
+  <section id="p2" class="panel hidden">
+    <div class="card">
+      <div class="card-h"><span class="eyebrow">Stage 2</span><h2 class="card-t">Keyword intelligence for this NGO</h2>
+        <span class="spacer"></span><span class="pill p-warn">Google Ads API: read pending</span></div>
+      <div class="card-b">
+        <h3 class="sec">Built from the NGO's own footprint, not a generic list</h3>
+        <p class="lede">Inputs: cause taxonomy from the brief, this org's past campaign copy and search terms, its NGO Darpan category, and the giving calendar. Deselect a row to drop it from every asset and from the bid plan.</p>
+
+        <table>
+          <thead><tr>
+            <th style="width:34px"></th><th>Keyword</th><th>Cluster</th><th>Intent</th>
+            <th class="num">Monthly searches</th><th class="num">Competition</th><th class="num">Est. CPC</th>
+          </tr></thead>
+          <tbody id="kwbody">
+            <tr><td><input type="checkbox" checked class="kwx"></td><td class="kw">80g donation tax exemption</td><td>Tax</td><td><span class="pill p-ind">High</span></td><td class="num">18,100</td><td class="num">High</td><td class="num">₹31</td></tr>
+            <tr><td><input type="checkbox" checked class="kwx"></td><td class="kw">donate for child education india</td><td>Cause</td><td><span class="pill p-ind">High</span></td><td class="num">9,900</td><td class="num">Med</td><td class="num">₹24</td></tr>
+            <tr><td><input type="checkbox" checked class="kwx"></td><td class="kw">winter clothes donation ngo</td><td>Cause · seasonal</td><td><span class="pill p-ind">High</span></td><td class="num">6,600</td><td class="num">Med</td><td class="num">₹19</td></tr>
+            <tr><td><input type="checkbox" checked class="kwx"></td><td class="kw">childfund india donate</td><td>Brand</td><td><span class="pill p-ind">High</span></td><td class="num">3,600</td><td class="num">Low</td><td class="num">₹8</td></tr>
+            <tr><td><input type="checkbox" checked class="kwx"></td><td class="kw">monthly donation to ngo india</td><td>Recurring</td><td><span class="pill p-ind">High</span></td><td class="num">2,900</td><td class="num">Med</td><td class="num">₹27</td></tr>
+            <tr><td><input type="checkbox" checked class="kwx"></td><td class="kw">tax saving donation section 80g</td><td>Tax</td><td><span class="pill p-ind">High</span></td><td class="num">2,400</td><td class="num">High</td><td class="num">₹34</td></tr>
+            <tr><td><input type="checkbox" class="kwx"></td><td class="kw">ngo jobs jharkhand</td><td>Off-intent</td><td><span class="pill p-mute">None</span></td><td class="num">5,400</td><td class="num">Low</td><td class="num">₹6</td></tr>
+            <tr><td><input type="checkbox" class="kwx"></td><td class="kw">free winter clothes distribution</td><td>Beneficiary-side</td><td><span class="pill p-mute">None</span></td><td class="num">4,400</td><td class="num">Low</td><td class="num">₹4</td></tr>
+          </tbody>
+        </table>
+
+        <div class="grid2" style="margin-top:18px">
+          <div>
+            <div class="eyebrow" style="margin-bottom:6px">Negative keywords (auto)</div>
+            <div class="chiprow">
+              <span class="pill p-risk">jobs</span><span class="pill p-risk">internship</span>
+              <span class="pill p-risk">free distribution</span><span class="pill p-risk">volunteer registration</span>
+              <span class="pill p-risk">80g certificate download</span><span class="pill p-risk">fraud</span>
+            </div>
+            <p style="font-size:12px;color:var(--ink-2);margin-top:9px">Beneficiary-side and job-seeker traffic is the largest wasted-spend category for Indian NGO search accounts. These are excluded before the plan is costed.</p>
+          </div>
+          <div>
+            <div class="eyebrow" style="margin-bottom:6px">Giving-calendar weighting</div>
+            <div class="kv"><span>Sep (campaign window)</span><span>baseline</span></div>
+            <div class="kv"><span>Oct–Nov · Diwali / Daan Utsav</span><span>+ demand</span></div>
+            <div class="kv"><span>Dec 20 – Jan 5 · year-end</span><span>+ demand</span></div>
+            <div class="kv"><span>Mar 1–31 · tax deadline</span><span>peak on tax cluster</span></div>
+            <p style="font-size:12px;color:var(--ink-2);margin-top:9px">The tax cluster is cheap in September and contested in March. The planner uses that to decide when to bid, not just what to bid on.</p>
+          </div>
+        </div>
+
+        <div class="note"><b>Data status.</b> Volume, competition and CPC above are placeholder values for the demo. Live figures require Google Ads API access at read level; write access for campaign creation is a separate, higher bar with a 2–4 week verification path that has to be started before the launch date is committed.</div>
+        <div class="btnrow"><button class="btn btn-pri" data-go="p3">Build approaches from this set</button>
+          <span class="pill p-mute" id="kwcount">6 keywords selected</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 3 APPROACHES ============ -->
+  <section id="p3" class="panel hidden">
+    <div class="card">
+      <div class="card-h"><span class="eyebrow">Stage 3</span><h2 class="card-t">Approaches for the fundraiser to choose from</h2>
+        <span class="spacer"></span><span class="pill p-mute" id="apstate">Awaiting selection</span></div>
+      <div class="card-b">
+        <h3 class="sec">Three ways to spend the same ₹1,50,000</h3>
+        <p class="lede">The tool does not pick. It builds three costed approaches — channel mix, bid strategy, creative count — and the fundraiser approves exactly one. The two rejected approaches stay on the record with the reason.</p>
+
+        <div class="app-grid">
+          <article class="approach" id="ap-A">
+            <div class="ap-top">
+              <div class="ap-code">APPROACH A</div>
+              <div class="ap-name">Tax-window capture</div>
+              <p class="ap-one">Search-led. Buy people already looking for an 80G-eligible gift and convert them in one session.</p>
+            </div>
+            <div class="ap-body">
+              <div class="kv"><span>Channel mix</span><span>Search 70 / Display 30</span></div>
+              <div class="kv"><span>Bid strategy</span><span>Max conv · tCPA</span></div>
+              <div class="kv"><span>Target CPA</span><span>₹450</span></div>
+              <div class="kv"><span>Daily budget</span><span>₹5,000 × 30d</span></div>
+              <div class="kv"><span>Gift type skew</span><span>One-time</span></div>
+              <div class="kv"><span>Creative units</span><span>1 LP · 15 RSA h/l · 3 display</span></div>
+            </div>
+            <div class="ap-note"><b>Wrong if:</b> September is off-peak for tax intent. Same plan in March would cost less per gift.</div>
+            <div class="ap-foot"><button class="btn btn-pri pick" data-ap="A" style="width:100%">Approve A</button></div>
+          </article>
+
+          <article class="approach" id="ap-B">
+            <div class="ap-top">
+              <div class="ap-code">APPROACH B</div>
+              <div class="ap-name">Recurring-first</div>
+              <p class="ap-one">Reels and stories carrying a ₹500/month UPI Autopay ask. Costs more per donor, keeps them longer.</p>
+            </div>
+            <div class="ap-body">
+              <div class="kv"><span>Channel mix</span><span>Meta 80 / Search 20</span></div>
+              <div class="kv"><span>Bid strategy</span><span>Max conv value · tROAS</span></div>
+              <div class="kv"><span>Target CPA</span><span>₹1,100 (first gift)</span></div>
+              <div class="kv"><span>Daily budget</span><span>₹5,000 × 30d</span></div>
+              <div class="kv"><span>Gift type skew</span><span>Monthly autopay</span></div>
+              <div class="kv"><span>Creative units</span><span>1 LP · 4 reels · 3 stories · 2 feed</span></div>
+            </div>
+            <div class="ap-note"><b>Wrong if:</b> autopay mandates drop off in months 2–4. We cannot claim a retention curve yet — this needs 4–6 months of our own observed data.</div>
+            <div class="ap-foot"><button class="btn btn-pri pick" data-ap="B" style="width:100%">Approve B</button></div>
+          </article>
+
+          <article class="approach" id="ap-C">
+            <div class="ap-top">
+              <div class="ap-code">APPROACH C</div>
+              <div class="ap-name">Lapsed-donor lift</div>
+              <p class="ap-one">Cheapest per rupee raised. WhatsApp plus display retargeting against donors who gave once and stopped.</p>
+            </div>
+            <div class="ap-body">
+              <div class="kv"><span>Channel mix</span><span>WhatsApp 50 / Display 50</span></div>
+              <div class="kv"><span>Bid strategy</span><span>Max conv · no tCPA</span></div>
+              <div class="kv"><span>Target CPA</span><span>₹180</span></div>
+              <div class="kv"><span>Daily budget</span><span>₹1,600 × 30d</span></div>
+              <div class="kv"><span>Gift type skew</span><span>One-time reactivation</span></div>
+              <div class="kv"><span>Creative units</span><span>1 LP · 2 templates · 3 display</span></div>
+            </div>
+            <div class="ap-note"><b>Wrong if:</b> the ceiling is the list. Audience is 4,100 lapsed donors — it cannot deliver the ₹18L goal alone.</div>
+            <div class="ap-foot"><button class="btn btn-pri pick" data-ap="C" style="width:100%">Approve C</button></div>
+          </article>
+        </div>
+
+        <div class="note"><b>Assumptions carried into every number above.</b> Average gift ₹1,800 and 0.9% display CTR are unsourced placeholders in this demo. Before any of this reaches ChildFund, each input needs a named source and a validation note — modelled projections presented as measured results are a diligence liability.</div>
+        <div class="btnrow"><button class="btn" data-go="p4" id="toKit" disabled>Generate the creative kit</button>
+          <button class="btn btn-ghost" id="rejectAll">Send all three back with a note</button></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 4 CREATIVE KIT ============ -->
+  <section id="p4" class="panel hidden">
+    <div class="card">
+      <div class="card-h"><span class="eyebrow">Stage 4</span><h2 class="card-t">Creative kit</h2>
+        <span class="spacer"></span><span class="pill p-ind" id="kitfor">From approach —</span></div>
+      <div class="card-b">
+        <h3 class="sec">One brief, one keyword set, every placement</h3>
+        <p class="lede">Same story, same mandatory lines, resized and rewritten per placement. Switch the preview to see each output.</p>
+
+        <div class="seg" role="group" aria-label="Preview surface" style="margin-bottom:16px">
+          <button data-v="lp" aria-pressed="true">Landing page</button>
+          <button data-v="reel" aria-pressed="false">Reel 9:16</button>
+          <button data-v="story" aria-pressed="false">Story</button>
+          <button data-v="display" aria-pressed="false">Display</button>
+          <button data-v="rsa" aria-pressed="false">Search</button>
+        </div>
+
+        <div class="preview-wrap">
+          <div id="stagearea">
+            <!-- LANDING PAGE -->
+            <div class="vw" data-v="lp">
+              <div class="phone">
+                <div class="notch"></div>
+                <div class="phone-scr">
+                  <div class="lp-hero">
+                    <div style="font-family:var(--mono);font-size:9px;letter-spacing:.14em;opacity:.85">CHILDFUND INDIA</div>
+                    <div class="lp-h1">A Jharkhand winter costs a child their school year.</div>
+                    <p class="lp-sub">₹1,200 sends one warm kit — jacket, socks, blanket — before the first cold week.</p>
+                  </div>
+                  <div class="lp-body">
+                    <div style="font-family:var(--mono);font-size:10px;color:var(--ink-3)">CHOOSE AN AMOUNT</div>
+                    <div class="lp-amt">
+                      <button aria-pressed="false">₹600</button>
+                      <button aria-pressed="true">₹1,200</button>
+                      <button aria-pressed="false">₹3,600</button>
+                    </div>
+                    <div class="lp-toggle"><input type="checkbox" checked style="accent-color:#E0A012">
+                      <span><b>Give ₹1,200 every month</b> by UPI Autopay. Cancel anytime in your UPI app.</span></div>
+                    <input class="lp-in" value="Full name" readonly>
+                    <input class="lp-in" value="Mobile number (for your WhatsApp receipt)" readonly>
+                    <input class="lp-in" value="Email" readonly>
+                    <input class="lp-in" value="PAN — required for your 80G receipt" readonly style="border-color:#EFDCAE;background:#FFFDF6">
+                    <label class="lp-consent"><input type="checkbox" checked>
+                      I allow ChildFund India to report this donation to the Income Tax Department so my 80G deduction is pre-filled.</label>
+                    <label class="lp-consent"><input type="checkbox" checked>
+                      Send my receipt on WhatsApp.</label>
+                    <button class="lp-cta">Donate ₹1,200 monthly</button>
+                    <p class="lp-legal">Payments by Razorpay · UPI, cards, netbanking. ChildFund India is registered under Section 80G. Your receipt is issued the moment payment succeeds; your annual statement follows the statutory filing.</p>
+                  </div>
+                </div>
+              </div>
+              <div class="beats">
+                <div class="beat"><div class="beat-t">Form → payment</div><div class="beat-c">Razorpay order created with <code>paymentRef</code>; recurring gifts open a UPI Autopay mandate.</div></div>
+                <div class="beat"><div class="beat-t">Webhook → receipt</div><div class="beat-c">Signed per-org webhook fires the 80G receipt job; PDF to WhatsApp and email.</div></div>
+                <div class="beat"><div class="beat-t">PAN → statement</div><div class="beat-c">PAN and consent land in the donation record the annual statutory statement is built from.</div></div>
+              </div>
+            </div>
+
+            <!-- REEL -->
+            <div class="vw hidden" data-v="reel">
+              <div class="phone">
+                <div class="notch"></div>
+                <div class="phone-scr reel">
+                  <div class="reel-img"><div class="reel-hook" id="reelhook">She walks 4 km to school. In December, that's the hard part.</div></div>
+                  <div class="reel-cap" id="reelcap">Winter in Jharkhand starts before the kits arrive. ₹1,200 changes that for one child. Link in bio → 80G receipt on WhatsApp, instantly.</div>
+                  <div class="reel-cta">Donate — 80G receipt in 60 seconds</div>
+                </div>
+              </div>
+              <div class="beats">
+                <div class="beat"><div class="beat-t">0–3s hook</div><div class="beat-c">One child, one specific detail. No logo, no mission statement.</div></div>
+                <div class="beat"><div class="beat-t">3–9s proof</div><div class="beat-c">What ₹1,200 buys, named item by item.</div></div>
+                <div class="beat"><div class="beat-t">9–15s ask</div><div class="beat-c">Monthly ask plus the instant-receipt reason to act now.</div></div>
+              </div>
+              <div class="btnrow"><button class="btn" id="hookswap">Show alternate hook</button>
+                <span class="pill p-mute">4 hooks generated · 2 approved for test</span></div>
+            </div>
+
+            <!-- STORY -->
+            <div class="vw hidden" data-v="story">
+              <div class="phone">
+                <div class="notch"></div>
+                <div class="phone-scr reel">
+                  <div class="reel-img" style="height:420px">
+                    <div>
+                      <div style="font-family:var(--mono);font-size:10px;letter-spacing:.14em;opacity:.8;margin-bottom:10px">CHILDFUND INDIA · SEPT</div>
+                      <div class="reel-hook">1 kit.<br>1 child.<br>₹1,200.</div>
+                      <div style="margin-top:16px;font-size:11.5px;opacity:.9">Swipe up before the first cold week</div>
+                      <div style="margin-top:14px;background:#fff;color:#14161C;border-radius:20px;padding:8px 14px;display:inline-block;font-weight:700;font-size:12px">Donate</div>
+                    </div>
+                  </div>
+                  <div class="reel-cap">Sticker CTA links to the same landing page with <code>utm_content=story_a</code> so the gift is attributed back to this exact frame.</div>
+                </div>
+              </div>
+              <div class="beats">
+                <div class="beat"><div class="beat-t">Safe area</div><div class="beat-c">Text held inside 250px top / 310px bottom margins.</div></div>
+                <div class="beat"><div class="beat-t">Attribution</div><div class="beat-c">Per-asset UTM issued at generation, not pasted in later.</div></div>
+                <div class="beat"><div class="beat-t">Governance</div><div class="beat-c">Logo lockup and 80G line checked against the brand rules before export.</div></div>
+              </div>
+            </div>
+
+            <!-- DISPLAY -->
+            <div class="vw hidden" data-v="display">
+              <div class="adshelf">
+                <div>
+                  <div class="ad ad-300"><div class="ad-in">
+                    <div><div class="ad-h">A winter kit costs ₹1,200.<br>A missed school year costs more.</div></div>
+                    <div><div class="ad-b">Donate — 80G eligible</div>
+                      <div class="ad-mand" style="margin-top:6px">ChildFund India · Reg. u/s 80G · Receipt issued instantly</div></div>
+                  </div></div><span class="ad-label">300 × 250 · medium rectangle</span>
+                </div>
+                <div>
+                  <div class="ad ad-160"><div class="ad-in">
+                    <div><div class="ad-h">₹1,200 = one warm winter for one child.</div></div>
+                    <div><div class="ad-b">Donate</div>
+                      <div class="ad-mand" style="margin-top:6px">80G eligible</div></div>
+                  </div></div><span class="ad-label">160 × 600 · skyscraper</span>
+                </div>
+                <div style="flex:1;min-width:280px">
+                  <div class="ad ad-728"><div class="ad-in">
+                    <div class="ad-h" style="flex:1">Jharkhand gets cold in November. The kits leave in September.</div>
+                    <div class="ad-b">Donate ₹1,200</div>
+                  </div></div><span class="ad-label">728 × 90 · leaderboard</span>
+                  <div class="note" style="margin-top:14px"><b>One master, many renditions.</b> Headline, image crop and the mandatory 80G line are bound to the master. Editing the master reissues all three; editing a rendition is blocked unless the fundraiser unlocks it.</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- RSA -->
+            <div class="vw hidden" data-v="rsa">
+              <div class="rsa">
+                <div style="font-family:var(--mono);font-size:10px;color:var(--ink-3);margin-bottom:8px">SPONSORED</div>
+                <div class="rsa-url">childfundindia.org/winter-kits</div>
+                <div class="rsa-h" id="rsah">Donate ₹1,200, Send a Winter Kit | 80G Receipt Instantly</div>
+                <div class="rsa-d" id="rsad">One kit — jacket, socks, blanket — reaches a child in Jharkhand before the cold sets in. PAN captured at checkout, 80G receipt on WhatsApp in seconds.</div>
+              </div>
+              <div class="btnrow"><button class="btn" id="rsaswap">Next headline variant</button>
+                <span class="pill p-mute" id="rsacount">Variant 1 of 4 · 15 headlines, 4 descriptions in the asset</span></div>
+              <div class="note"><b>Pinning rule.</b> The 80G phrase is pinned to headline position 2 so no machine-generated combination can run an ad claiming a tax benefit without it.</div>
+            </div>
+          </div>
+
+          <aside>
+            <div class="rail-card">
+              <div class="rail-h"><span class="rail-t">Brand governance</span></div>
+              <div class="check"><span class="dot d-ok"></span><div>Logo lockup and clear space<small>Checked on 11 of 11 assets</small></div></div>
+              <div class="check"><span class="dot d-ok"></span><div>Mandatory 80G line present<small>Pinned, cannot be removed by the editor</small></div></div>
+              <div class="check"><span class="dot d-ok"></span><div>Child-image consent on file<small>Release ref CF-IMG-2291</small></div></div>
+              <div class="check"><span class="dot d-warn"></span><div>Hindi copy not yet reviewed<small>Assigned to Ikshit Arora</small></div></div>
+            </div>
+            <div class="rail-card">
+              <div class="rail-h"><span class="rail-t">Asset count</span></div>
+              <div class="check"><span class="dot d-ok"></span><div>1 landing page<small>Form, payment, consent</small></div></div>
+              <div class="check"><span class="dot d-ok"></span><div>4 reels · 3 stories · 2 feed</div></div>
+              <div class="check"><span class="dot d-ok"></span><div>3 display renditions</div></div>
+              <div class="check"><span class="dot d-ok"></span><div>1 RSA · 15 headlines, 4 descriptions</div></div>
+            </div>
+          </aside>
+        </div>
+
+        <div class="btnrow"><button class="btn btn-pri" data-go="p5">Send kit for approval</button>
+          <button class="btn">Regenerate reels only</button></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 5 APPROVAL ============ -->
+  <section id="p5" class="panel hidden">
+    <div class="card">
+      <div class="card-h"><span class="eyebrow">Stage 5</span><h2 class="card-t">Fundraiser approval</h2>
+        <span class="spacer"></span><span class="pill p-warn" id="apprstate">3 of 4 pending</span></div>
+      <div class="card-b">
+        <h3 class="sec">Nothing publishes without a named approval</h3>
+        <p class="lede">Approvals are per asset, attributed and timestamped. The trail is exportable — it is the same evidence an institutional funder asks for during a review.</p>
+
+        <div id="assetlist">
+          <div class="asset-row" data-asset="Landing page"><div class="thumb"></div>
+            <div style="flex:1"><div class="asset-n">Landing page — winter-kits</div><div class="asset-m">LP-0117-01 · edited 2h ago</div></div>
+            <span class="pill p-ok st">Approved</span>
+            <button class="btn ap-btn" disabled>Approved</button></div>
+          <div class="asset-row" data-asset="Reel A"><div class="thumb t2"></div>
+            <div style="flex:1"><div class="asset-n">Reel A — “4 km to school”</div><div class="asset-m">RL-0117-01 · 15s · Hindi + English</div></div>
+            <span class="pill p-warn st">Pending</span>
+            <button class="btn ap-btn">Approve</button></div>
+          <div class="asset-row" data-asset="Story set"><div class="thumb t3"></div>
+            <div style="flex:1"><div class="asset-n">Story set — 3 frames</div><div class="asset-m">ST-0117-01 · sticker CTA</div></div>
+            <span class="pill p-warn st">Pending</span>
+            <button class="btn ap-btn">Approve</button></div>
+          <div class="asset-row" data-asset="Display set"><div class="thumb t4"></div>
+            <div style="flex:1"><div class="asset-n">Display set — 3 sizes</div><div class="asset-m">DP-0117-01 · from one master</div></div>
+            <span class="pill p-warn st">Pending</span>
+            <button class="btn ap-btn">Approve</button></div>
+        </div>
+
+        <div class="grid2" style="margin-top:20px">
+          <div>
+            <div class="eyebrow" style="margin-bottom:8px">Comments</div>
+            <div class="comment"><b>Arun Thangapadian</b><span class="t">11 Aug, 21:40</span><br>
+              The ₹1,200 ask has to match the kit cost in the programme budget exactly. If procurement moves, this copy moves.</div>
+            <div class="comment"><b>Vishal Chawla</b><span class="t">12 Aug, 08:12</span><br>
+              Reel A is fine. Don't run the second hook — it implies the child is unnamed and identifiable at once.</div>
+            <div class="field" style="margin-top:12px">
+              <input class="inp" id="newcomment" placeholder="Add a comment for the approver">
+            </div>
+            <button class="btn" id="addcomment">Add comment</button>
+          </div>
+          <div>
+            <div class="eyebrow" style="margin-bottom:8px">Approval notice sent to approver</div>
+            <div class="mailcard">
+              <b>Sub:</b> Winter Kits Jharkhand · Job CA-2026-0117<br>
+              <b>Action:</b> Approve 4 assets<br>
+              <b>Approach:</b> <span id="mailap">—</span><br>
+              <b>Created by:</b> garima@EKhum.in<br>
+              <b>Deadline:</b> 19 Aug 2026<br>
+              <b>Note:</b> Reply above this line to comment — replies post to the approval screen.
+            </div>
+            <p style="font-size:12px;color:var(--ink-2);margin-top:10px">Approvers who never open the product can still approve by email. The reply is parsed back onto this screen against the job number.</p>
+          </div>
+        </div>
+
+        <div class="btnrow"><button class="btn btn-pri" data-go="p6" id="toPub" disabled>Publish approved assets</button>
+          <button class="btn">Export approval trail (PDF)</button></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 6 PUBLISH ============ -->
+  <section id="p6" class="panel hidden">
+    <div class="card">
+      <div class="card-h"><span class="eyebrow">Stage 6</span><h2 class="card-t">Publish and attribute</h2>
+        <span class="spacer"></span><span class="pill p-ok">Landing page live</span></div>
+      <div class="card-b">
+        <h3 class="sec">Where each asset goes, and how the gift finds its way back</h3>
+        <div class="grid2">
+          <div>
+            <table>
+              <thead><tr><th>Destination</th><th>Status</th><th>Path</th></tr></thead>
+              <tbody>
+                <tr><td>Landing page</td><td><span class="pill p-ok">Live</span></td><td class="kw" style="font-family:var(--mono);font-size:11px">/donate/winter-kits</td></tr>
+                <tr><td>Razorpay checkout</td><td><span class="pill p-ok">Live</span></td><td style="font-family:var(--mono);font-size:11px">UPI Autopay + cards</td></tr>
+                <tr><td>80G receipt job</td><td><span class="pill p-ok">Live</span></td><td style="font-family:var(--mono);font-size:11px">webhook → queue → PDF</td></tr>
+                <tr><td>Meta Ads (reels, stories)</td><td><span class="pill p-warn">Manual export</span></td><td style="font-family:var(--mono);font-size:11px">API write pending</td></tr>
+                <tr><td>Google Ads (display, search)</td><td><span class="pill p-warn">Manual export</span></td><td style="font-family:var(--mono);font-size:11px">API write pending</td></tr>
+                <tr><td>WhatsApp templates</td><td><span class="pill p-warn">In review</span></td><td style="font-family:var(--mono);font-size:11px">Utility category</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div>
+            <div class="eyebrow" style="margin-bottom:8px">Attribution chain</div>
+            <div class="beat" style="margin-bottom:8px"><div class="beat-t">Asset</div><div class="beat-c">Every generated asset carries its own UTM set from the moment it is created.</div></div>
+            <div class="beat" style="margin-bottom:8px"><div class="beat-t">Session</div><div class="beat-c">Landing page writes the source onto the donation record, not just to analytics.</div></div>
+            <div class="beat" style="margin-bottom:8px"><div class="beat-t">Gift</div><div class="beat-c">Payment webhook closes the loop: this rupee came from Reel A, Hindi cut, story placement.</div></div>
+            <div class="beat"><div class="beat-t">Retention</div><div class="beat-c">Donor enters the churn model with acquisition source attached, so cost per <em>retained</em> donor becomes answerable later — not on day one.</div></div>
+          </div>
+        </div>
+        <div class="note"><b>The honest bit.</b> Cost per acquired donor is measurable from the first gift. Cost per retained donor is not — that needs several months of observed attrition on this org's own data. The dashboard shows the first and leaves the second blank rather than modelling it.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 7 WHAT'S REAL ============ -->
+  <section id="p7" class="panel hidden">
+    <div class="card">
+      <div class="card-h"><span class="eyebrow">Read me</span><h2 class="card-t">What is built, what is designed, what is invented</h2></div>
+      <div class="card-b">
+        <p class="lede">This screen exists so the demo can be shown to a design partner without anyone leaving with the wrong impression. Delete it before a sales meeting only if you have replaced it with something equally explicit.</p>
+        <div class="grid3">
+          <div>
+            <div class="eyebrow" style="margin-bottom:8px">Built and running</div>
+            <div class="check"><span class="dot d-ok"></span><div>NGO onboarding, org → cause → goals</div></div>
+            <div class="check"><span class="dot d-ok"></span><div>Razorpay payments, recurring subscriptions</div></div>
+            <div class="check"><span class="dot d-ok"></span><div>Signed per-org webhooks, idempotent by paymentRef</div></div>
+            <div class="check"><span class="dot d-ok"></span><div>80G receipt module specified end to end</div></div>
+          </div>
+          <div>
+            <div class="eyebrow" style="margin-bottom:8px">Designed, not built</div>
+            <div class="check"><span class="dot d-warn"></span><div>Keyword intelligence — needs Google Ads API read access</div></div>
+            <div class="check"><span class="dot d-warn"></span><div>Approach generation and bid planning</div></div>
+            <div class="check"><span class="dot d-warn"></span><div>Asset generation and resizing pipeline</div></div>
+            <div class="check"><span class="dot d-warn"></span><div>Publishing to Meta and Google — write access, 2–4 week verification</div></div>
+          </div>
+          <div>
+            <div class="eyebrow" style="margin-bottom:8px">Placeholder numbers</div>
+            <div class="check"><span class="dot d-risk"></span><div>Search volumes, CPCs, competition</div></div>
+            <div class="check"><span class="dot d-risk"></span><div>Target CPAs and projected gifts</div></div>
+            <div class="check"><span class="dot d-risk"></span><div>Average gift size and CTR assumptions</div></div>
+            <div class="check"><span class="dot d-risk"></span><div>The 4,100 lapsed-donor audience size</div></div>
+          </div>
+        </div>
+        <div class="note"><b>Carried over from the live MVP.</b> The public site currently claims 12,000+ organisations, ₹430 Cr+ raised and three named testimonials. None of that is real yet. It contradicts the design-partner framing this module is built to support and it is the first thing a funder's diligence will check.</div>
+      </div>
+    </div>
+  </section>
+
+  </main>
+
+  <!-- ============ GOVERNANCE RAIL ============ -->
+  <aside>
+    <div class="rail-card">
+      <div class="rail-h"><span class="rail-t">Compliance checks</span><span class="pill p-ok">4 / 5</span></div>
+      <div class="check"><span class="dot d-ok"></span><div>80G registration on file<small>Valid to 31 Mar 2027</small></div></div>
+      <div class="check"><span class="dot d-ok"></span><div>PAN field on donation form<small>Required · blocks submit</small></div></div>
+      <div class="check"><span class="dot d-ok"></span><div>Donor consent captured<small>Needed for the annual statement</small></div></div>
+      <div class="check"><span class="dot d-ok"></span><div>FCRA segregation<small>Not applicable — domestic campaign</small></div></div>
+      <div class="check"><span class="dot d-warn"></span><div>WhatsApp template approval<small>Utility category · submitted 09 Aug</small></div></div>
+    </div>
+
+    <div class="rail-card">
+      <div class="rail-h"><span class="rail-t">Approved approach</span></div>
+      <div class="check"><span class="dot d-warn" id="apdot"></span><div id="apsummary">None selected<small>Stage 3 decides the whole kit</small></div></div>
+    </div>
+
+    <div class="rail-card">
+      <div class="rail-h"><span class="rail-t">Audit trail</span></div>
+      <div class="log" id="log">
+        <div class="log-i"><time>12 Aug · 09:02</time>Keyword set generated — 8 candidates, 2 excluded</div>
+        <div class="log-i"><time>11 Aug · 21:40</time>Brief approved by Arun Thangapadian</div>
+        <div class="log-i"><time>11 Aug · 18:15</time>Job CA-2026-0117 created by Garima Agrawal</div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<footer><div class="wrap">
+  EKhum · Creative Automation module — interactive demo, 12 Aug 2026. All figures shown are placeholders for demonstration and are not measured results.
+</div></footer>
+
+<script>
+(function(){
+  var stages = Array.prototype.slice.call(document.querySelectorAll('.stage'));
+  var panels = Array.prototype.slice.call(document.querySelectorAll('.panel'));
+
+  function show(id){
+    panels.forEach(function(p){
+      var on = p.id === id;
+      p.classList.toggle('hidden', !on);
+      if(on){ p.classList.remove('panel-in'); void p.offsetWidth; p.classList.add('panel-in'); }
+    });
+    stages.forEach(function(s){ s.setAttribute('aria-selected', s.dataset.p === id ? 'true':'false'); });
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+  stages.forEach(function(s){ s.addEventListener('click', function(){ show(s.dataset.p); }); });
+  document.querySelectorAll('[data-go]').forEach(function(b){
+    b.addEventListener('click', function(){
+      if(b.disabled) return;
+      var target = b.dataset.go;
+      var idx = stages.findIndex(function(s){return s.dataset.p === target;});
+      if(idx > 0) stages[idx-1].dataset.done = '1';
+      show(target);
+    });
+  });
+
+  function stamp(){
+    var d = new Date();
+    return '12 Aug · ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+  }
+  function logIt(text){
+    var el = document.createElement('div');
+    el.className = 'log-i';
+    el.innerHTML = '<time>' + stamp() + '</time>' + text;
+    var log = document.getElementById('log');
+    log.insertBefore(el, log.firstChild);
+  }
+
+  /* keyword selection */
+  var kwx = Array.prototype.slice.call(document.querySelectorAll('.kwx'));
+  function kwcount(){
+    var n = kwx.filter(function(c){return c.checked;}).length;
+    document.getElementById('kwcount').textContent = n + ' keyword' + (n===1?'':'s') + ' selected';
+  }
+  kwx.forEach(function(c){
+    c.addEventListener('change', function(){
+      c.closest('tr').classList.toggle('off', !c.checked);
+      kwcount();
+    });
+    c.closest('tr').classList.toggle('off', !c.checked);
+  });
+  kwcount();
+
+  /* approach selection */
+  var names = {A:'Tax-window capture', B:'Recurring-first', C:'Lapsed-donor lift'};
+  document.querySelectorAll('.pick').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var k = btn.dataset.ap;
+      ['A','B','C'].forEach(function(x){
+        var card = document.getElementById('ap-'+x);
+        card.classList.toggle('sel', x===k);
+        card.classList.toggle('dim', x!==k);
+        var old = card.querySelector('.stamp'); if(old) old.remove();
+        var b = card.querySelector('.pick');
+        if(x===k){
+          var s = document.createElement('div'); s.className='stamp'; s.textContent='Approved';
+          card.appendChild(s);
+          b.textContent = 'Approved by Arun T.'; b.disabled = true;
+        } else {
+          b.textContent = 'Approve ' + x; b.disabled = false; b.className = 'btn pick';
+          b.style.width = '100%';
+        }
+      });
+      document.getElementById('apstate').textContent = 'Approach ' + k + ' approved';
+      document.getElementById('apstate').className = 'pill p-ok';
+      document.getElementById('toKit').disabled = false;
+      document.getElementById('toKit').className = 'btn btn-pri';
+      document.getElementById('kitfor').textContent = 'From approach ' + k + ' · ' + names[k];
+      document.getElementById('mailap').textContent = k + ' — ' + names[k];
+      document.getElementById('apdot').className = 'dot d-ok';
+      document.getElementById('apsummary').innerHTML = 'Approach ' + k + ' — ' + names[k] +
+        '<small>Approved by Arun Thangapadian</small>';
+      logIt('Approach ' + k + ' (' + names[k] + ') approved — B and C recorded as rejected');
+    });
+  });
+  document.getElementById('rejectAll').addEventListener('click', function(){
+    logIt('All three approaches returned to Garima Agrawal with a note');
+    this.textContent = 'Returned — awaiting rework';
+  });
+
+  /* creative previews */
+  var segBtns = Array.prototype.slice.call(document.querySelectorAll('.seg button'));
+  segBtns.forEach(function(b){
+    b.addEventListener('click', function(){
+      segBtns.forEach(function(x){ x.setAttribute('aria-pressed', x===b ? 'true':'false'); });
+      document.querySelectorAll('.vw').forEach(function(v){
+        v.classList.toggle('hidden', v.dataset.v !== b.dataset.v);
+      });
+    });
+  });
+
+  var hooks = [
+    ['She walks 4 km to school. In December, that\u2019s the hard part.',
+     'Winter in Jharkhand starts before the kits arrive. \u20B91,200 changes that for one child. Link in bio \u2192 80G receipt on WhatsApp, instantly.'],
+    ['A jacket, socks, a blanket. \u20B91,200. That\u2019s the whole list.',
+     'No overheads in the number \u2014 that is what one kit costs to deliver in Jharkhand. Give monthly by UPI Autopay and cancel any time.']
+  ];
+  var hookI = 0;
+  var hb = document.getElementById('hookswap');
+  if(hb) hb.addEventListener('click', function(){
+    hookI = (hookI+1) % hooks.length;
+    document.getElementById('reelhook').textContent = hooks[hookI][0];
+    document.getElementById('reelcap').textContent = hooks[hookI][1];
+    hb.textContent = hookI === 0 ? 'Show alternate hook' : 'Show original hook';
+  });
+
+  var rsas = [
+    ['Donate \u20B91,200, Send a Winter Kit | 80G Receipt Instantly',
+     'One kit \u2014 jacket, socks, blanket \u2014 reaches a child in Jharkhand before the cold sets in. PAN captured at checkout, 80G receipt on WhatsApp in seconds.'],
+    ['Give Monthly by UPI Autopay | 80G Eligible | ChildFund India',
+     '\u20B91,200 a month keeps a child warm and in school. Set it up once with UPI Autopay, cancel any time from your own app.'],
+    ['Winter Kits for Jharkhand Children | 80G Eligible Donation',
+     'Kits ship in September, before the first cold week. Your receipt is issued the moment the payment succeeds.'],
+    ['Section 80G Donation | Warm Kit for a Child | \u20B91,200',
+     'Claim your deduction without chasing paperwork \u2014 your PAN is recorded at checkout and reported in the annual statement.']
+  ];
+  var rsaI = 0;
+  var rb = document.getElementById('rsaswap');
+  if(rb) rb.addEventListener('click', function(){
+    rsaI = (rsaI+1) % rsas.length;
+    document.getElementById('rsah').textContent = rsas[rsaI][0];
+    document.getElementById('rsad').textContent = rsas[rsaI][1];
+    document.getElementById('rsacount').textContent = 'Variant ' + (rsaI+1) + ' of 4 · 15 headlines, 4 descriptions in the asset';
+  });
+
+  /* approvals */
+  function approvalState(){
+    var pend = document.querySelectorAll('#assetlist .ap-btn:not([disabled])').length;
+    var el = document.getElementById('apprstate');
+    if(pend === 0){
+      el.textContent = 'All 4 approved'; el.className = 'pill p-ok';
+      var pub = document.getElementById('toPub');
+      pub.disabled = false; pub.className = 'btn btn-pri';
+    } else {
+      el.textContent = pend + ' of 4 pending'; el.className = 'pill p-warn';
+    }
+  }
+  document.querySelectorAll('#assetlist .ap-btn').forEach(function(b){
+    b.addEventListener('click', function(){
+      var row = b.closest('.asset-row');
+      var st = row.querySelector('.st');
+      st.textContent = 'Approved'; st.className = 'pill p-ok st';
+      b.textContent = 'Approved'; b.disabled = true;
+      logIt(row.dataset.asset + ' approved by Arun Thangapadian');
+      approvalState();
+    });
+  });
+  approvalState();
+
+  document.getElementById('addcomment').addEventListener('click', function(){
+    var i = document.getElementById('newcomment');
+    if(!i.value.trim()) { i.focus(); return; }
+    var c = document.createElement('div');
+    c.className = 'comment';
+    c.innerHTML = '<b>Rajat</b><span class="t">' + stamp() + '</span><br>' + i.value.replace(/</g,'&lt;');
+    i.parentNode.parentNode.insertBefore(c, i.parentNode);
+    logIt('Comment added by Rajat');
+    i.value = '';
+  });
+})();
+</script>
+</body>
+</html>

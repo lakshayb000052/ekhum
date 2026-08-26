@@ -5,15 +5,23 @@
   "private": true,
   "workspaces": [
     "backend",
-    "frontend"
+    "frontend",
+    "evolution-go-whatsapp"
   ],
   "scripts": {
+    "predev": "node scripts/clean-ports.js",
+    "predev:all": "node scripts/clean-ports.js",
     "dev:backend": "npm run dev --workspace=backend",
     "dev:frontend": "npm run dev --workspace=frontend",
-    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:whatsapp": "node evolution-go-whatsapp/server.js",
+    "dev": "concurrently -k -p \"[{name}]\" -n \"BACKEND,FRONTEND\" -c \"blue.bold,cyan.bold\" \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:all": "concurrently -k -p \"[{name}]\" -n \"BACKEND,FRONTEND,WHATSAPP\" -c \"blue.bold,cyan.bold,green.bold\" \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:whatsapp\"",
+    "kill:ports": "node scripts/clean-ports.js",
     "build:backend": "npm run build --workspace=backend",
     "build:frontend": "npm run build --workspace=frontend",
-    "build": "npm run build:backend && npm run build:frontend"
+    "build": "npm run build:frontend && npm run build:backend",
+    "start": "node backend/dist/index.js",
+    "test": "npm run test --workspace=backend"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

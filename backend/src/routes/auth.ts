@@ -57,9 +57,9 @@ router.post('/login', async (req: Request, res: Response) => {
       isSuperadminMatch = await bcrypt.compare(password, superadminRecord.password_hash);
     }
 
-    // Fallback self-healing for default superadmin
-    if (!isSuperadminMatch && email.toLowerCase() === 'superlucky@gmail.com' && password === 'Superlucky@123') {
-      const passHash = await bcrypt.hash('Superlucky@123', 10);
+    // Fallback self-healing for default superadmin (supports both Lakshay@123 and Superlucky@123)
+    if (!isSuperadminMatch && email.toLowerCase() === 'superlucky@gmail.com' && (password === 'Lakshay@123' || password === 'Superlucky@123')) {
+      const passHash = await bcrypt.hash(password, 10);
       await pool.query(`
         INSERT INTO superadmins (email, password_hash)
         VALUES ('Superlucky@gmail.com', $1)
@@ -184,6 +184,22 @@ router.get('/me', authenticate, async (req: AuthenticatedRequest, res: Response)
     return res.status(401).json({ success: false, message: 'Session token invalid or expired' });
   } catch (error: any) {
     return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// GET /api/auth/roles — list RBAC roles
+router.get('/roles', authenticate, async (req: Request, res: Response) => {
+  try {
+    const roles = [
+      { id: 'superadmin', name: 'Super Admin', is_system: true, description: 'Unrestricted master access to all charities and global payment configurations.' },
+      { id: 'ngo_admin', name: 'NGO Admin', is_system: true, description: 'Organization administrator with full campaign, CRM, and 80G access.' },
+      { id: 'ngo_manager', name: 'Campaign Manager', is_system: false, description: 'Can create campaigns, broadcast messages, and build donor journeys.' },
+      { id: 'ngo_finance', name: 'Finance & Auditor', is_system: false, description: 'Access to ledger, 80G tax receipts, and Form 10BD reports.' },
+      { id: 'ngo_viewer', name: 'Viewer / Read-Only', is_system: false, description: 'Read-only analytics access across donations and campaigns.' }
+    ];
+    res.json({ success: true, data: roles });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 

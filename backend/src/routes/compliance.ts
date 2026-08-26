@@ -7,11 +7,253 @@ import pool from '../config/db';
 
 const router = Router();
 
+import { authenticate, AuthenticatedRequest } from '../middleware/auth';
+
 // Ensure receipts directory exists locally
 const receiptsDir = path.join(__dirname, '../../receipts');
 if (!fs.existsSync(receiptsDir)) {
   fs.mkdirSync(receiptsDir, { recursive: true });
 }
+
+// GET /api/compliance/stats — live metrics for 80G & 10BD
+router.get('/stats', authenticate, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const user = req.user;
+    const organization_id = user?.role === 'superadmin' 
+      ? (req.query.organizationId as string | undefined) 
+      : (user?.organizationId || (user as any)?.organization_id);
+
+    let orgFilter = '';
+    const params: any[] = [];
+    if (organization_id) {
+      orgFilter = ' AND d.organization_id = $1';
+      params.push(organization_id);
+    }
+
+    // Total and voided 80G receipts
+    const receiptsCountRes = await pool.query(`
+      SELECT 
+        COUNT(*) as total,
+        COUNT(*) FILTER (WHERE voided = true) as voided_count
+      FROM eighty_g_receipts 
+      WHERE 1=1 ${organization_id ? 'AND organization_id = $1' : ''}
+    `, params);
+
+    const totalReceipts = Number(receiptsCountRes.rows[0]?.total || 0);
+    const voidedCount = Number(receiptsCountRes.rows[0]?.voided_count || 0);
+
+    // Missing PAN count in completed donations
+    const missingPanDonationsRes = await pool.query(`
+      SELECT 
+        d.id, d.amount, d.currency, d.created_at,
+        dn.id as donor_id, dn.name as donor_name, dn.email, dn.phone, dn.tax_id
+      FROM donations d
+      JOIN donors dn ON d.donor_id = dn.id
+      WHERE d.status = 'completed' 
+        AND (dn.tax_id IS NULL OR TRIM(dn.tax_id) = '' OR UPPER(dn.tax_id) = 'PAN_PENDING')
+        ${orgFilter}
+      ORDER BY d.created_at DESC
+      LIMIT 100
+    `, params);
+
+    const missingPanCount = missingPanDonationsRes.rows.length;
+
+    // 10BD aggregate stats
+    const tenBdRes = await pool.query(`
+      SELECT 
+        COUNT(*) FILTER (WHERE dn.tax_id IS NOT NULL AND TRIM(dn.tax_id) != '' AND UPPER(dn.tax_id) != 'PAN_PENDING') as valid_pan_count,
+        COALESCE(SUM(d.amount) FILTER (WHERE dn.tax_id IS NOT NULL AND TRIM(dn.tax_id) != '' AND UPPER(dn.tax_id) != 'PAN_PENDING'), 0) as valid_pan_amount,
+        COUNT(*) FILTER (WHERE dn.tax_id IS NULL OR TRIM(dn.tax_id) = '' OR UPPER(dn.tax_id) = 'PAN_PENDING') as missing_pan_count
+      FROM donations d
+      JOIN donors dn ON d.donor_id = dn.id
+      WHERE d.currency = 'INR' AND d.status = 'completed'
+        ${orgFilter}
+    `, params);
+
+    const validPanCount = Number(tenBdRes.rows[0]?.valid_pan_count || 0);
+    const validPanAmount = Number(tenBdRes.rows[0]?.valid_pan_amount || 0);
+    const excludedCount = Number(tenBdRes.rows[0]?.missing_pan_count || 0);
+
+    // Latest filing status from ten_bd_exports
+    const latestFilingRes = await pool.query(`
+      SELECT filing_status FROM ten_bd_exports 
+      WHERE 1=1 ${organization_id ? 'AND organization_id = $1' : ''}
+      ORDER BY created_at DESC LIMIT 1
+    `, params);
+    const filingStatus = latestFilingRes.rows[0]?.filing_status || (validPanCount > 0 ? 'Draft' : 'Draft');
+
+    res.json({
+      success: true,
+      data: {
+        total_receipts: totalReceipts,
+        missing_pan_count: missingPanCount,
+        voided_count: voidedCount,
+        missing_pan_records: missingPanDonationsRes.rows,
+        current_fy_10bd: {
+          record_count: validPanCount,
+          total_amount: validPanAmount,
+          excluded_count: excludedCount,
+          filing_status: filingStatus
+        }
+      }
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// GET /api/compliance/10bd/history — export history
+router.get('/10bd/history', authenticate, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const user = req.user;
+    const organization_id = user?.role === 'superadmin' 
+      ? (req.query.organizationId as string | undefined) 
+      : (user?.organizationId || (user as any)?.organization_id);
+
+    const query = `
+      SELECT id, financial_year as fy, record_count, total_amount, filing_status as status, created_at as date, csv_file_url
+      FROM ten_bd_exports
+      WHERE 1=1 ${organization_id ? 'AND organization_id = $1' : ''}
+      ORDER BY created_at DESC
+    `;
+    const params = organization_id ? [organization_id] : [];
+    const result = await pool.query(query, params);
+    res.json({ success: true, data: result.rows });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// POST /api/compliance/10bd/generate — trigger new export record
+router.post('/10bd/generate', authenticate, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const user = req.user;
+    let organization_id = user?.role === 'superadmin' 
+      ? (req.body.organizationId)
+      : (user?.organizationId || (user as any)?.organization_id);
+
+    if (!organization_id) {
+      const orgLookup = await pool.query('SELECT id FROM organizations LIMIT 1');
+      organization_id = orgLookup.rows[0]?.id;
+    }
+
+    if (!organization_id) {
+      return res.status(400).json({ success: false, message: 'No organization registered yet.' });
+    }
+
+    const fy = req.body.fy || '2023-24';
+
+    const statsRes = await pool.query(`
+      SELECT 
+        COUNT(*) FILTER (WHERE dn.tax_id IS NOT NULL AND TRIM(dn.tax_id) != '' AND UPPER(dn.tax_id) != 'PAN_PENDING') as valid_count,
+        COALESCE(SUM(d.amount) FILTER (WHERE dn.tax_id IS NOT NULL AND TRIM(dn.tax_id) != '' AND UPPER(dn.tax_id) != 'PAN_PENDING'), 0) as valid_amount,
+        COUNT(*) FILTER (WHERE dn.tax_id IS NULL OR TRIM(dn.tax_id) = '' OR UPPER(dn.tax_id) = 'PAN_PENDING') as excluded_count
+      FROM donations d
+      JOIN donors dn ON d.donor_id = dn.id
+      WHERE d.currency = 'INR' AND d.status = 'completed' AND d.organization_id = $1
+    `, [organization_id]);
+
+    const count = Number(statsRes.rows[0]?.valid_count || 0);
+    const amount = Number(statsRes.rows[0]?.valid_amount || 0);
+    const excluded = Number(statsRes.rows[0]?.excluded_count || 0);
+
+    const insertRes = await pool.query(`
+      INSERT INTO ten_bd_exports (
+        organization_id, financial_year, record_count, total_amount, excluded_record_count, filing_status, csv_file_url
+      ) VALUES ($1, $2, $3, $4, $5, 'draft', '/api/compliance/export/10bd')
+      RETURNING *
+    `, [organization_id, fy, count, amount, excluded]);
+
+    res.json({ success: true, message: 'Form 10BD draft generated successfully.', data: insertRes.rows[0] });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// POST /api/compliance/receipts/:id/void — void 80G receipt
+router.post('/receipts/:id/void', authenticate, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { void_reason } = req.body;
+    await pool.query(`
+      UPDATE eighty_g_receipts 
+      SET voided = true, void_reason = $1 
+      WHERE id::text = $2 OR payment_id::text = $2
+    `, [void_reason || 'Voided by Administrator', id]);
+    res.json({ success: true, message: 'Receipt voided successfully.' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// GET /api/compliance/eighty_g OR /api/receipts — list 80G receipts
+router.get('/eighty_g', authenticate, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const user = req.user;
+    const organization_id = user?.role === 'superadmin' 
+      ? (req.query.organizationId as string | undefined) 
+      : (user?.organizationId || (user as any)?.organization_id);
+    const fy = req.query.fy as string;
+
+    let query = `
+      SELECT 
+        id, organization_id, contact_id, payment_id, monthly_donation_id,
+        receipt_number, financial_year, donation_date, amount,
+        COALESCE(donor_name_snapshot, 'Donor') as donor_name,
+        COALESCE(donor_pan_snapshot, 'PAN_PENDING') as donor_pan,
+        donor_address_snapshot as donor_address,
+        pdf_url, generated_at as created_at, generated_at,
+        email_delivery_status as email_status,
+        whatsapp_delivery_status as whatsapp_status,
+        voided as is_voided, voided, void_reason,
+        included_in_10bd
+      FROM eighty_g_receipts 
+      WHERE 1=1
+    `;
+    const params: any[] = [];
+    let paramIndex = 1;
+
+    if (organization_id) {
+      query += ` AND organization_id = $${paramIndex++}`;
+      params.push(organization_id);
+    }
+    if (fy) {
+      query += ` AND financial_year = $${paramIndex++}`;
+      params.push(fy);
+    }
+    query += ` ORDER BY generated_at DESC LIMIT 100`;
+
+    const result = await pool.query(query, params);
+    res.json({ success: true, data: result.rows });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// GET /api/compliance/consents — list consents
+router.get('/consents', authenticate, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const user = req.user;
+    const organization_id = user?.role === 'superadmin' 
+      ? (req.query.organizationId as string | undefined) 
+      : (user?.organizationId || (user as any)?.organization_id);
+    let query = `
+      SELECT c.*, d.name as contact_name, d.email as contact_email, d.phone as contact_phone
+      FROM consents c
+      LEFT JOIN donors d ON c.contact_id = d.id
+    `;
+    const params: any[] = [];
+    if (organization_id) {
+      query += ` WHERE c.organization_id = $1`;
+      params.push(organization_id);
+    }
+    query += ` ORDER BY c.created_at DESC LIMIT 100`;
+    const result = await pool.query(query, params);
+    res.json({ success: true, data: result.rows });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
 
 // Generate/Retrieve Tax Receipt PDF dynamically
 router.get('/receipts/:donationId', async (req: Request, res: Response) => {
@@ -206,10 +448,15 @@ router.get('/receipts/:donationId', async (req: Request, res: Response) => {
 });
 
 // Compile and Export real Form 10BD CSV for Indian Tax Department
-router.get('/export/10bd', async (req: Request, res: Response) => {
+router.get('/export/10bd', authenticate, async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const user = req.user;
+    const organization_id = user?.role === 'superadmin' 
+      ? (req.query.organizationId as string | undefined) 
+      : (user?.organizationId || (user as any)?.organization_id);
+
     // Query completed Indian donations
-    const query = `
+    let query = `
       SELECT 
         d.id,
         dn.tax_id,
@@ -220,10 +467,15 @@ router.get('/export/10bd', async (req: Request, res: Response) => {
       FROM donations d
       JOIN donors dn ON d.donor_id = dn.id
       WHERE d.currency = 'INR' AND d.status = 'completed'
-      ORDER BY d.created_at ASC
     `;
+    const params: any[] = [];
+    if (organization_id) {
+      query += ` AND d.organization_id = $1`;
+      params.push(organization_id);
+    }
+    query += ` ORDER BY d.created_at ASC`;
 
-    const { rows } = await pool.query(query);
+    const { rows } = await pool.query(query, params);
 
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', `attachment; filename=Form10BD_Export_${new Date().getFullYear()}.csv`);

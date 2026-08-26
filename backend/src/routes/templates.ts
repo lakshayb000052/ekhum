@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import pool from '../config/db';
-import { authenticate, AuthenticatedRequest } from '../middleware/auth';
+import { authenticate, authorizeRole, AuthenticatedRequest } from '../middleware/auth';
 import { renderTemplateContent, WHITELIST_VAR_DESCRIPTIONS, WhitelistVariables } from '../services/templateEngine';
 
 const router = Router();
@@ -15,7 +15,8 @@ router.get('/variables', (req: Request, res: Response) => {
 
 // GET /api/templates - List templates
 router.get('/', authenticate, async (req: AuthenticatedRequest, res: Response) => {
-  const { organizationId, type } = req.query;
+  const { organizationId, orgId, type } = req.query;
+  const targetOrg = (organizationId || orgId) as string | undefined;
 
   try {
     let query = `
@@ -27,15 +28,16 @@ router.get('/', authenticate, async (req: AuthenticatedRequest, res: Response) =
     const params: any[] = [];
 
     // Filter by organization if provided, or if non-superadmin
-    if (req.user?.role === 'admin') {
-      params.push(req.user.organizationId);
+    const userOrgId = (req.user as any)?.organization_id || req.user?.organizationId;
+    if (req.user?.role !== 'superadmin' && userOrgId) {
+      params.push(userOrgId);
       query += ` AND (t.organization_id = $${params.length} OR t.is_default = TRUE)`;
-    } else if (organizationId) {
-      if (organizationId === 'default') {
-        query += ` AND t.organization_id IS NULL`;
+    } else if (targetOrg) {
+      if (targetOrg === 'default') {
+        query += ` AND (t.organization_id IS NULL OR t.is_default = TRUE)`;
       } else {
-        params.push(organizationId);
-        query += ` AND t.organization_id = $${params.length}`;
+        params.push(targetOrg);
+        query += ` AND (t.organization_id = $${params.length} OR t.is_default = TRUE)`;
       }
     }
 
@@ -49,6 +51,7 @@ router.get('/', authenticate, async (req: AuthenticatedRequest, res: Response) =
     const { rows } = await pool.query(query, params);
     return res.status(200).json({
       success: true,
+      data: rows,
       templates: rows
     });
   } catch (error: any) {
@@ -185,19 +188,14 @@ router.put('/:id', authenticate, async (req: AuthenticatedRequest, res: Response
   }
 });
 
-// DELETE /api/templates/:id - Delete Template
-router.delete('/:id', authenticate, async (req: AuthenticatedRequest, res: Response) => {
+// DELETE /api/templates/:id - Delete Template (Superadmin Only)
+router.delete('/:id', authenticate, authorizeRole(['superadmin']), async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
 
   try {
     const existing = await pool.query('SELECT * FROM templates WHERE id = $1', [id]);
     if (existing.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Template not found.' });
-    }
-
-    const tmpl = existing.rows[0];
-    if (req.user?.role !== 'superadmin' && tmpl.organization_id !== req.user?.organizationId) {
-      return res.status(403).json({ success: false, message: 'Forbidden: Cannot delete another organization template.' });
     }
 
     await pool.query('DELETE FROM templates WHERE id = $1', [id]);

@@ -1,5 +1,6 @@
 import { Pool } from 'pg';
 import dotenv from 'dotenv';
+import runMigrations from './migrations';
 
 dotenv.config();
 
@@ -225,18 +226,58 @@ pool.connect((err, client, release) => {
             'system'
           ),
           (
-            'whatsapp_message', 
-            'Default WhatsApp Donation Success Alert', 
-            'WhatsApp Donation Alert', 
-            'Dear {{donor_name}},\n\nThank you for your generous contribution of {{donation_currency}} {{donation_amount}} to support "{{campaign_title}}" by {{ngo_name}}.\n\nTransaction Ref: {{transaction_id}}\nPAN / Tax ID: {{donor_tax_id}}\n\nYour 80G Tax Exemption Receipt can be downloaded here: {{receipt_url}}\n\nWith gratitude,\n{{ngo_name}}', 
+            '80g_receipt', 
+            'Default 80G Statutory Certificate Layout', 
+            'Official 80G Tax Exemption Certificate', 
+            '<div style="font-family: sans-serif; padding: 24px; color: #1E293B;">\n  <h1 style="color: #0D9488; text-align: center;">DONATION RECEIPT & CERTIFICATE</h1>\n  <hr style="border: none; border-top: 2px solid #0D9488; margin: 16px 0;" />\n  <div style="display: flex; justify-content: space-between;">\n    <div>\n      <h3>RECIPIENT ORGANISATION</h3>\n      <p><strong>{{ngo_name}}</strong></p>\n      <p>URN: URN-{{ngo_urn}}</p>\n      <p>Signatory: {{ngo_signatory}}</p>\n    </div>\n    <div>\n      <h3>DONOR DETAILS</h3>\n      <p>Name: <strong>{{donor_name}}</strong></p>\n      <p>Email: {{donor_email}}</p>\n      <p>PAN: {{donor_tax_id}}</p>\n    </div>\n  </div>\n  <div style="margin-top: 20px; padding: 16px; background-color: #F8FAFC; border-radius: 8px;">\n    <p>Campaign: <strong>{{campaign_title}}</strong></p>\n    <p>Amount Donated: <strong style="font-size: 1.2rem; color: #059669;">{{donation_currency}} {{donation_amount}}</strong></p>\n    <p>Date: {{donation_date}}</p>\n    <p>Transaction ID: <code>{{transaction_id}}</code></p>\n  </div>\n  <p style="font-size: 0.8rem; color: #64748B; margin-top: 24px; text-align: center;">\n    Statutory Declaration: Donations qualify for 80G tax benefits under Income Tax Act, 1961.\n  </p>\n</div>', 
             TRUE, 
             'system'
           ),
           (
-            'email_thankyou', 
-            'Default Email Thank-You Notification', 
-            'Thank you for your contribution to {{ngo_name}}!', 
-            '<div style="font-family: Arial, sans-serif; padding: 24px; max-width: 600px; margin: auto; border: 1px solid #E2E8F0; border-radius: 12px; color: #0F172A;">\n  <h2 style="color: #2563EB; margin-top: 0;">Thank You for Your Generous Contribution!</h2>\n  <p>Dear <strong>{{donor_name}}</strong>,</p>\n  <p>We gratefully acknowledge your contribution of <strong>{{donation_currency}} {{donation_amount}}</strong> in support of <strong>"{{campaign_title}}"</strong> organized by <strong>{{ngo_name}}</strong>.</p>\n  <div style="background: #F1F5F9; padding: 16px; border-radius: 8px; margin: 16px 0; font-size: 0.9rem;">\n    <div><strong>Transaction Reference:</strong> <code>{{transaction_id}}</code></div>\n    <div><strong>Date of Payment:</strong> {{donation_date}}</div>\n    <div><strong>Tax Identification (PAN):</strong> {{donor_tax_id}}</div>\n  </div>\n  <p>Your official tax exemption receipt is ready for download:</p>\n  <p style="text-align: center; margin: 20px 0;">\n    <a href="{{receipt_url}}" style="background: #2563EB; color: #ffffff; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold; display: inline-block;">📥 Download 80G PDF Receipt</a>\n  </p>\n  <hr style="border: none; border-top: 1px solid #E2E8F0; margin: 20px 0;" />\n  <p style="font-size: 0.78rem; color: #64748B; text-align: center;">This notification was dispatched automatically by DanaPro on behalf of {{ngo_name}} (80G URN: {{ngo_urn}}).</p>\n</div>', 
+            'whatsapp_success', 
+            'Default WhatsApp Payment Success Alert', 
+            'WhatsApp Payment Success Alert', 
+            '✅ *Donation Successfully Confirmed!*\n\nDear {{donor_name}},\n\nThank you for your generous contribution of *{{donation_currency}} {{donation_amount}}* to support "{{campaign_title}}" by {{ngo_name}}.\n\n*Transaction ID:* {{transaction_id}}\n*PAN / Tax ID:* {{donor_tax_id}}\n\n📥 *Download 80G Tax Receipt:* {{receipt_url}}\n\nWith gratitude,\n*{{ngo_name}}*', 
+            TRUE, 
+            'system'
+          ),
+          (
+            'whatsapp_initiated', 
+            'Default WhatsApp Payment Initiated Alert', 
+            'WhatsApp Payment Initiated Alert', 
+            '⌛ *Payment Checkout Started*\n\nDear {{donor_name}},\n\nYou started a donation of *{{donation_currency}} {{donation_amount}}* for "{{campaign_title}}" by {{ngo_name}}.\n\nTo complete your payment securely, click below:\n👉 {{payment_link}}\n\nThank you for supporting {{ngo_name}}!', 
+            TRUE, 
+            'system'
+          ),
+          (
+            'whatsapp_declined', 
+            'Default WhatsApp Payment Declined Alert', 
+            'WhatsApp Payment Declined Alert', 
+            '⚠️ *Payment Declined / Failed*\n\nDear {{donor_name}},\n\nYour recent donation of *{{donation_currency}} {{donation_amount}}* for "{{campaign_title}}" could not be completed.\n\n*Reason:* {{decline_reason}}\n\nYou can easily retry your payment here:\n👉 {{retry_url}}\n\nNeed help? Contact support@{{ngo_name}}.', 
+            TRUE, 
+            'system'
+          ),
+          (
+            'email_success', 
+            'Default Email Payment Success Notification', 
+            'Thank you for supporting {{ngo_name}}!', 
+            '<div style="font-family: Arial, sans-serif; padding: 24px; max-width: 600px; margin: auto; border: 1px solid #E2E8F0; border-radius: 12px; color: #0F172A; background: #FFFFFF;">\n  <div style="text-align: center; margin-bottom: 20px;">\n    <span style="background: #D1FAE5; color: #059669; padding: 6px 14px; border-radius: 20px; font-weight: bold; font-size: 0.85rem;">✅ Payment Successful</span>\n  </div>\n  <h2 style="color: #059669; margin-top: 0; text-align: center;">Thank You for Your Generous Contribution!</h2>\n  <p>Dear <strong>{{donor_name}}</strong>,</p>\n  <p>We gratefully acknowledge your contribution of <strong>{{donation_currency}} {{donation_amount}}</strong> in support of <strong>"{{campaign_title}}"</strong> organized by <strong>{{ngo_name}}</strong>.</p>\n  <div style="background: #F1F5F9; padding: 16px; border-radius: 8px; margin: 20px 0; font-size: 0.9rem;">\n    <div><strong>Transaction Reference:</strong> <code>{{transaction_id}}</code></div>\n    <div><strong>Date of Payment:</strong> {{donation_date}}</div>\n    <div><strong>Tax Identification (PAN):</strong> {{donor_tax_id}}</div>\n  </div>\n  <p>Your official 80G tax exemption receipt is attached to this email and available for instant download:</p>\n  <p style="text-align: center; margin: 24px 0;">\n    <a href="{{receipt_url}}" style="background: #059669; color: #ffffff; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: bold; display: inline-block; font-size: 1rem; box-shadow: 0 4px 6px -1px rgba(5, 150, 105, 0.2);">📥 Download 80G PDF Receipt</a>\n  </p>\n  <hr style="border: none; border-top: 1px solid #E2E8F0; margin: 20px 0;" />\n  <p style="font-size: 0.78rem; color: #64748B; text-align: center;">This notification was dispatched automatically by WeGive on behalf of {{ngo_name}} (80G URN: {{ngo_urn}}).</p>\n</div>', 
+            TRUE, 
+            'system'
+          ),
+          (
+            'email_initiated', 
+            'Default Email Payment Initiated Notification', 
+            'Complete your donation to {{campaign_title}} - {{ngo_name}}', 
+            '<div style="font-family: Arial, sans-serif; padding: 24px; max-width: 600px; margin: auto; border: 1px solid #E2E8F0; border-radius: 12px; color: #0F172A; background: #FFFFFF;">\n  <div style="text-align: center; margin-bottom: 20px;">\n    <span style="background: #FEF3C7; color: #D97706; padding: 6px 14px; border-radius: 20px; font-weight: bold; font-size: 0.85rem;">⏳ Payment Initiated</span>\n  </div>\n  <h2 style="color: #D97706; margin-top: 0; text-align: center;">Finish Your Contribution to {{campaign_title}}</h2>\n  <p>Dear <strong>{{donor_name}}</strong>,</p>\n  <p>You recently initiated a donation of <strong>{{donation_currency}} {{donation_amount}}</strong> to support <strong>"{{campaign_title}}"</strong> organized by <strong>{{ngo_name}}</strong>.</p>\n  <div style="background: #FFFBEB; padding: 16px; border: 1px solid #FCD34D; border-radius: 8px; margin: 20px 0; font-size: 0.9rem;">\n    <div><strong>Organization:</strong> {{ngo_name}}</div>\n    <div><strong>Campaign:</strong> {{campaign_title}}</div>\n    <div><strong>Amount:</strong> <strong style="color: #D97706;">{{donation_currency}} {{donation_amount}}</strong></div>\n  </div>\n  <p style="text-align: center; margin: 24px 0;">\n    <a href="{{payment_link}}" style="background: #D97706; color: #ffffff; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: bold; display: inline-block; font-size: 1rem; box-shadow: 0 4px 6px -1px rgba(217, 119, 6, 0.2);">💳 Complete Payment Now</a>\n  </p>\n  <hr style="border: none; border-top: 1px solid #E2E8F0; margin: 20px 0;" />\n  <p style="font-size: 0.78rem; color: #64748B; text-align: center;">This notification was generated automatically by WeGive on behalf of {{ngo_name}}.</p>\n</div>', 
+            TRUE, 
+            'system'
+          ),
+          (
+            'email_declined', 
+            'Default Email Payment Declined Notification', 
+            'Payment Failed: Action required for your donation to {{ngo_name}}', 
+            '<div style="font-family: Arial, sans-serif; padding: 24px; max-width: 600px; margin: auto; border: 1px solid #FECDD3; border-radius: 12px; color: #0F172A; background: #FFFFFF;">\n  <div style="text-align: center; margin-bottom: 20px;">\n    <span style="background: #FFE4E6; color: #E11D48; padding: 6px 14px; border-radius: 20px; font-weight: bold; font-size: 0.85rem;">⚠️ Payment Declined</span>\n  </div>\n  <h2 style="color: #E11D48; margin-top: 0; text-align: center;">Your Payment Could Not Be Processed</h2>\n  <p>Dear <strong>{{donor_name}}</strong>,</p>\n  <p>We attempted to process your donation of <strong>{{donation_currency}} {{donation_amount}}</strong> for <strong>"{{campaign_title}}"</strong>, but the transaction was declined by your bank or payment gateway.</p>\n  <div style="background: #FFF1F2; padding: 16px; border: 1px solid #FECDD3; border-radius: 8px; margin: 20px 0; font-size: 0.9rem;">\n    <div><strong>Decline Reason:</strong> <span style="color: #E11D48; font-weight: bold;">{{decline_reason}}</span></div>\n    <div><strong>Campaign:</strong> {{campaign_title}}</div>\n    <div><strong>Attempted Amount:</strong> {{donation_currency}} {{donation_amount}}</div>\n  </div>\n  <p>Don\'t worry! You can retry your donation using a different payment method (UPI, Card, Netbanking):</p>\n  <p style="text-align: center; margin: 24px 0;">\n    <a href="{{retry_url}}" style="background: #E11D48; color: #ffffff; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: bold; display: inline-block; font-size: 1rem; box-shadow: 0 4px 6px -1px rgba(225, 29, 72, 0.2);">🔄 Retry Payment Now</a>\n  </p>\n  <hr style="border: none; border-top: 1px solid #E2E8F0; margin: 20px 0;" />\n  <p style="font-size: 0.78rem; color: #64748B; text-align: center;">If you continue experiencing issues, please contact {{ngo_name}} support.</p>\n</div>', 
             TRUE, 
             'system'
           );
@@ -244,6 +285,15 @@ pool.connect((err, client, release) => {
       }
     } catch (e: any) {
       console.error('Failed to auto-verify templates table:', e.message);
+    }
+
+    // Run EKhum Individual Giving Suite migrations
+    try {
+      console.log(' Running EKhum schema migrations...');
+      await runMigrations(pool);
+      console.log(' EKhum migrations completed successfully.');
+    } catch (e: any) {
+      console.error(' EKhum migration error:', e.message);
     }
   });
 });

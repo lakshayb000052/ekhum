@@ -10,9 +10,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
 
-  <!-- 1. Include Razorpay SDK & WeGive Live Production Embed SDK -->
+  <!-- 1. Include Razorpay SDK & EKhum Live Production Embed SDK -->
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-  <script src="https://wegive-backend-mvxa.onrender.com/api/v1/external/embed.js"></script>
+  <script src="https://EKhum-backend-mvxa.onrender.com/api/v1/external/embed.js"></script>
 
   <style>
     :root {
@@ -503,7 +503,7 @@
     <div style="background: #0F172A; border-radius: 16px; padding: 32px; color: #F8FAFC; box-shadow: var(--shadow);">
       <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 24px; border-bottom: 1px solid #334155; padding-bottom: 16px;">
         <div>
-          <h3 style="margin: 0; font-size: 1.2rem; color: #34D399; font-family: 'Outfit', sans-serif;">🔌 WeGive Developer Integration Code (Embedded on this Page)</h3>
+          <h3 style="margin: 0; font-size: 1.2rem; color: #34D399; font-family: 'Outfit', sans-serif;">🔌 EKhum Developer Integration Code (Embedded on this Page)</h3>
           <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #94A3B8;">Campaign API Key: <code style="color: #6EE7B7; background: rgba(52,211,153,0.1); padding: 2px 8px; border-radius: 4px;">wg_live_childfundeducation_946342</code> &bull; Campaign Slug: <code>child_fund_education</code></p>
         </div>
       </div>
@@ -511,16 +511,16 @@
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px;">
         <!-- Option 1: 1-Line JS Embed -->
         <div style="background: #1E293B; border-radius: 12px; padding: 20px; border: 1px solid #334155;">
-          <h4 style="margin: 0 0 8px 0; color: #60A5FA; font-size: 0.95rem;">⚡ Option 1: 1-Line WeGive JS Embed (HTML Client)</h4>
+          <h4 style="margin: 0 0 8px 0; color: #60A5FA; font-size: 0.95rem;">⚡ Option 1: 1-Line EKhum JS Embed (HTML Client)</h4>
           <p style="font-size: 0.78rem; color: #94A3B8; margin-bottom: 12px;">Used directly on this page for instant popup checkout & 80G receipt generation.</p>
           <pre style="background: #090D16; color: #A7F3D0; padding: 14px; border-radius: 8px; font-size: 0.78rem; overflow-x: auto; margin: 0; line-height: 1.4;"><code>&lt;!-- 1. Include SDKs in &lt;head&gt; --&gt;
 &lt;script src="https://checkout.razorpay.com/v1/checkout.js"&gt;&lt;/script&gt;
-&lt;script src="https://wegive-backend-mvxa.onrender.com/api/v1/external/embed.js"&gt;&lt;/script&gt;
+&lt;script src="https://EKhum-backend-mvxa.onrender.com/api/v1/external/embed.js"&gt;&lt;/script&gt;
 
-&lt;!-- 2. Trigger WeGive.pay() --&gt;
+&lt;!-- 2. Trigger EKhum.pay() --&gt;
 &lt;script&gt;
 function handleDonateSubmit() {
-  WeGive.pay({
+  EKhum.pay({
     apiKey: "wg_live_childfundeducation_946342",
     amount: document.getElementById('donation_amount').value,
     currency: "INR",
@@ -547,9 +547,9 @@ function handleDonateSubmit() {
         <!-- Option 2: REST API Payload -->
         <div style="background: #1E293B; border-radius: 12px; padding: 20px; border: 1px solid #334155;">
           <h4 style="margin: 0 0 8px 0; color: #FBBF24; font-size: 0.95rem;">📡 Option 2: REST API Backend Integration</h4>
-          <p style="font-size: 0.78rem; color: #94A3B8; margin-bottom: 12px;">Endpoint: <code>POST https://wegive-backend-mvxa.onrender.com/api/v1/external/donations/initiate</code></p>
+          <p style="font-size: 0.78rem; color: #94A3B8; margin-bottom: 12px;">Endpoint: <code>POST https://EKhum-backend-mvxa.onrender.com/api/v1/external/donations/initiate</code></p>
           <pre style="background: #090D16; color: #FDE68A; padding: 14px; border-radius: 8px; font-size: 0.78rem; overflow-x: auto; margin: 0; line-height: 1.4;"><code>// Headers:
-// x-wegive-api-key: "wg_live_childfundeducation_946342"
+// x-EKhum-api-key: "wg_live_childfundeducation_946342"
 // Content-Type: application/json
 
 {
@@ -572,7 +572,7 @@ function handleDonateSubmit() {
     </div>
   </footer>
 
-  <!-- 2. Call WeGive.pay() on Donate Button Click -->
+  <!-- 2. Call EKhum.pay() on Donate Button Click -->
   <script>
     function setPresetAmount(amt) {
       document.getElementById('donation_amount').value = amt;
@@ -587,7 +587,7 @@ function handleDonateSubmit() {
     }
 
     function handleDonateSubmit() {
-      WeGive.pay({
+      EKhum.pay({
         apiKey: "wg_live_childfundeducation_946342",
         amount: document.getElementById('donation_amount').value,
         currency: "INR",

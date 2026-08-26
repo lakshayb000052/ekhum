@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import pool from '../config/db';
-import { authenticate, AuthenticatedRequest } from '../middleware/auth';
+import { authenticate, authorizeRole, AuthenticatedRequest } from '../middleware/auth';
 
 const router = Router();
 
@@ -24,13 +24,20 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
       } catch (e) {}
     }
 
-    let query = 'SELECT id, title, description, slug, is_active FROM campaigns';
+    let query = `
+      SELECT c.id, c.title, c.description, c.slug, c.api_key, c.landing_page_url, c.is_active, 
+             c.goal_amount, c.payment_config, c.permissions, c.form_fields, c.approval_status,
+             c.created_at, c.organization_id, o.name AS "orgName", o.name AS organization_name,
+             o.payment_gateways_config AS org_payment_config, o.payment_gateways_config
+      FROM campaigns c
+      LEFT JOIN organizations o ON c.organization_id = o.id
+    `;
     const params: any[] = [];
     if (targetOrgId && targetOrgId.trim() !== '') {
-      query += ' WHERE organization_id = $1';
+      query += ' WHERE c.organization_id = $1';
       params.push(targetOrgId.trim());
     }
-    query += ' ORDER BY created_at DESC';
+    query += ' ORDER BY c.created_at DESC';
     const { rows } = await pool.query(query, params);
     return res.status(200).json({ success: true, campaigns: rows });
   } catch (error: any) {
@@ -150,14 +157,24 @@ router.put('/:id', async (req: Request, res: Response) => {
   }
 });
 
-// Delete campaign
-router.delete('/:id', async (req: Request, res: Response) => {
+// Delete campaign (Superadmin Only)
+router.delete('/:id', authenticate, authorizeRole(['superadmin']), async (req: Request, res: Response) => {
   const { id } = req.params;
+  const client = await pool.connect();
   try {
-    await pool.query('DELETE FROM campaigns WHERE id = $1', [id]);
-    return res.status(200).json({ success: true, message: 'Campaign deleted successfully!' });
+    await client.query('BEGIN');
+    // Cascade delete campaign-related donations, landing pages, and references
+    await client.query('DELETE FROM donations WHERE campaign_id = $1', [id]);
+    await client.query('DELETE FROM landing_pages WHERE campaign_id = $1', [id]);
+    await client.query('DELETE FROM subscriptions WHERE campaign_id = $1', [id]);
+    await client.query('DELETE FROM campaigns WHERE id = $1', [id]);
+    await client.query('COMMIT');
+    return res.status(200).json({ success: true, message: 'Campaign and associated records deleted successfully!' });
   } catch (error: any) {
+    await client.query('ROLLBACK');
     return res.status(500).json({ success: false, message: error.message });
+  } finally {
+    client.release();
   }
 });
 
