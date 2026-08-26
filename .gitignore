@@ -11,6 +11,8 @@ dist/
 build/
 backend/dist/
 frontend/dist/
+*.exe
+evolution-go-whatsapp/evolution-go
 
 # Environment files
 .env
