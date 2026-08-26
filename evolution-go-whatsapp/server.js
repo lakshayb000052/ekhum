@@ -15,7 +15,7 @@ const {
   fetchLatestBaileysVersion 
 } = require('@whiskeysockets/baileys');
 
-const PORT = process.env.SERVER_PORT || process.env.PORT || 8080;
+const PORT = process.env.WA_INTERNAL_PORT || 8080;
 const GLOBAL_API_KEY = process.env.GLOBAL_API_KEY || 'evolution-global-key-here';
 
 // Active in-memory WhatsApp sockets per instance
@@ -350,10 +350,10 @@ const server = http.createServer(async (req, res) => {
   });
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, '127.0.0.1', () => {
   console.log(`\n================================================================`);
-  console.log(`🚀 Live WhatsApp Multi-Device Engine is ONLINE on Port ${PORT}`);
-  console.log(`🔗 REST API: http://localhost:${PORT}`);
+  console.log(`🚀 Live WhatsApp Multi-Device Engine is ONLINE on Port ${PORT} (Internal)`);
+  console.log(`🔗 REST API: http://127.0.0.1:${PORT}`);
   console.log(`🔑 Global API Key: ${GLOBAL_API_KEY}`);
   console.log(`📲 Authentic WhatsApp Multi-Device Pairing Ready!`);
   console.log(`================================================================\n`);

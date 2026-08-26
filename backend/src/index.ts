@@ -18,8 +18,11 @@ try {
   const whatsappScript = path.resolve(__dirname, '../../evolution-go-whatsapp/server.js');
   if (fs.existsSync(whatsappScript)) {
     console.log('[System] Initializing WhatsApp Evolution Go Gateway on internal port 8080...');
+    const childEnv: Record<string, any> = { ...process.env, WA_INTERNAL_PORT: '8080' };
+    delete childEnv.PORT;
+    delete childEnv.SERVER_PORT;
     const waProcess = spawn(process.execPath, [whatsappScript], {
-      env: { ...process.env, SERVER_PORT: '8080', PORT: '8080' },
+      env: childEnv,
       stdio: 'inherit'
     });
     waProcess.on('error', (err) => console.error('[WhatsApp Engine Auto-Start Error]:', err));
@@ -40,10 +43,10 @@ server.on('error', (err: any) => {
   }
 });
 
-server.listen(PORT, () => {
+server.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`==========================================`);
   console.log(` EKhum Platform Unified Production Service Started`);
-  console.log(` Running on: http://localhost:${PORT}`);
+  console.log(` Running on: http://0.0.0.0:${PORT}`);
   console.log(` Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`==========================================`);
 });
