@@ -292,6 +292,12 @@ pool.connect((err, client, release) => {
       console.log(' Running EKhum schema migrations...');
       await runMigrations(pool);
       console.log(' EKhum migrations completed successfully.');
+
+      // Auto-seed core platform data (Superadmin, NGO Admin, Campaigns, Journeys, System Settings)
+      const runSeed = require('./seed').default;
+      if (runSeed) {
+        await runSeed(pool);
+      }
     } catch (e: any) {
       console.error(' EKhum migration error:', e.message);
     }

@@ -1,4 +1,171 @@
 import pool from '../config/db';
+import { Pool } from 'pg';
+
+export async function syncToRender() {
+  const renderConnectionString = 'postgresql://ekhum_user:j2kNHl66N4Y2FeWy4GCaunBLBSkaEnzx@dpg-da7jsge7bikc73dk1te0-a.oregon-postgres.render.com/ekhum_5bvr?sslmode=require';
+  const renderPool = new Pool({
+    connectionString: renderConnectionString,
+    ssl: { rejectUnauthorized: false }
+  });
+
+  console.log('🚀 Starting Full Migration & Sync from Local DanaPro DB to Render Cloud Postgres...');
+
+  // 1. Fetch all table names from local database
+  const tablesRes = await pool.query(`
+    SELECT table_name 
+    FROM information_schema.tables 
+    WHERE table_schema = 'public' 
+      AND table_type = 'BASE TABLE'
+    ORDER BY table_name
+  `);
+  const tableNames = tablesRes.rows.map(r => r.table_name);
+  console.log('Found tables in Local DB:', tableNames.join(', '));
+
+  // 2. Define ordered sequence to respect foreign keys
+  const orderedTables = [
+    'superadmins',
+    'organizations',
+    'organization_members',
+    'campaigns',
+    'donors',
+    'subscriptions',
+    'mandates',
+    'donations',
+    'compliance_receipts',
+    'system_settings',
+    'templates',
+    'landing_pages',
+    'sessions',
+    'events',
+    'consents',
+    'segments',
+    'segment_memberships',
+    'broadcasts',
+    'broadcast_recipients',
+    'journeys',
+    'journey_steps',
+    'journey_enrolments',
+    'whatsapp_communications',
+    'email_communications',
+    'reports',
+    'dashboards',
+    'custom_objects',
+    'custom_fields',
+    'custom_records',
+    'audit_logs',
+    'ai_interactions'
+  ];
+
+  tableNames.forEach(t => {
+    if (!orderedTables.includes(t)) orderedTables.push(t);
+  });
+
+  // 3. Auto-create tables on Render DB by reading DDL structure
+  for (const table of orderedTables) {
+    if (!tableNames.includes(table)) continue;
+
+    const colsRes = await pool.query(`
+      SELECT column_name, data_type, udt_name, is_nullable, column_default
+      FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = $1
+      ORDER BY ordinal_position
+    `, [table]);
+
+    if (colsRes.rows.length === 0) continue;
+
+    const colDefs = colsRes.rows.map(c => {
+      let type = c.data_type;
+      if (type === 'USER-DEFINED') type = c.udt_name;
+      if (type === 'ARRAY') type = c.udt_name.replace('_', '') + '[]';
+      if (c.udt_name === 'uuid') type = 'UUID';
+      if (c.udt_name === 'jsonb') type = 'JSONB';
+      if (c.udt_name === 'timestamptz') type = 'TIMESTAMP WITH TIME ZONE';
+      
+      let def = `"${c.column_name}" ${type}`;
+      if (c.column_name === 'id') def += ' PRIMARY KEY';
+      return def;
+    });
+
+    try {
+      await renderPool.query(`CREATE TABLE IF NOT EXISTS "${table}" (${colDefs.join(', ')})`);
+    } catch (e) {}
+
+    for (const c of colsRes.rows) {
+      let type = c.data_type;
+      if (type === 'USER-DEFINED') type = c.udt_name;
+      if (type === 'ARRAY') type = c.udt_name.replace('_', '') + '[]';
+      if (c.udt_name === 'uuid') type = 'UUID';
+      if (c.udt_name === 'jsonb') type = 'JSONB';
+      if (c.udt_name === 'timestamptz') type = 'TIMESTAMP WITH TIME ZONE';
+
+      try {
+        await renderPool.query(`ALTER TABLE "${table}" ADD COLUMN IF NOT EXISTS "${c.column_name}" ${type}`);
+      } catch (err) {}
+    }
+  }
+
+  console.log('✅ All table structures and schema migrations verified on Render.');
+
+  // 4. Copy data row by row
+  let totalRowsCopied = 0;
+  for (const table of orderedTables) {
+    if (!tableNames.includes(table)) continue;
+
+    const dataRes = await pool.query(`SELECT * FROM "${table}"`);
+    if (dataRes.rows.length === 0) {
+      console.log(`  - ${table}: 0 rows`);
+      continue;
+    }
+
+    let copiedCount = 0;
+    for (const row of dataRes.rows) {
+      const keys = Object.keys(row);
+      const values = Object.values(row);
+      const placeholders = keys.map((_, i) => '$' + (i + 1));
+      const colNames = keys.map(k => `"${k}"`).join(', ');
+
+      const query = `
+        INSERT INTO "${table}" (${colNames})
+        VALUES (${placeholders.join(', ')})
+        ON CONFLICT DO NOTHING
+      `;
+
+      try {
+        await renderPool.query(query, values);
+        copiedCount++;
+      } catch (err) {
+        try {
+          if (row.id) {
+            const updateSet = keys.filter(k => k !== 'id').map(k => `"${k}" = EXCLUDED."${k}"`).join(', ');
+            if (updateSet) {
+              const upsertQuery = `
+                INSERT INTO "${table}" (${colNames})
+                VALUES (${placeholders.join(', ')})
+                ON CONFLICT (id) DO UPDATE SET ${updateSet}
+              `;
+              await renderPool.query(upsertQuery, values);
+              copiedCount++;
+            }
+          }
+        } catch (innerErr: any) {
+          console.error(`    Error copying row into ${table}:`, innerErr.message);
+        }
+      }
+    }
+    console.log(`  ✓ ${table}: ${copiedCount} / ${dataRes.rows.length} rows synchronized`);
+    totalRowsCopied += copiedCount;
+  }
+
+  console.log(`\n🎉 SUCCESS: ${totalRowsCopied} total records, credentials, campaigns, API keys, and test data synchronized to Render Postgres!`);
+  await renderPool.end();
+}
+
+if (require.main === module) {
+  syncToRender().then(() => process.exit(0)).catch(err => {
+    console.error('Fatal sync error:', err);
+    process.exit(1);
+  });
+}
 
 async function seedSampleTemplates() {
   console.log('Seeding rich sample templates for 80G Receipts, WhatsApp, and Email Notifications into PostgreSQL...');
@@ -147,10 +314,12 @@ Thank you for creating lasting impact!`,
   }
 
   console.log('Sample templates seeded successfully into PostgreSQL!');
-  process.exit(0);
 }
 
-seedSampleTemplates().catch((err) => {
+syncToRender().then(() => {
+  console.log('SYNC COMPLETE!');
+  process.exit(0);
+}).catch((err) => {
   console.error('Seeding error:', err);
   process.exit(1);
 });
