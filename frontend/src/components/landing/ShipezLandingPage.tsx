@@ -3,13 +3,12 @@ import React, { useState, useEffect } from 'react';
 interface ShipezLandingPageProps {
   onOpenNgoLogin: () => void;
   onOpenAdminLogin: () => void;
-  onOpenCheckoutDemo: () => void;
+  onOpenCheckoutDemo?: () => void;
 }
 
 export const ShipezLandingPage: React.FC<ShipezLandingPageProps> = ({
   onOpenNgoLogin,
   onOpenAdminLogin,
-  onOpenCheckoutDemo,
 }) => {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -280,23 +279,6 @@ Content-Type: application/json
       <section style={{ paddingTop: '150px', paddingBottom: '80px', paddingLeft: '20px', paddingRight: '20px', textAlign: 'center', position: 'relative', zIndex: 1 }}>
         <div style={{ maxWidth: '1080px', margin: '0 auto' }}>
           
-          {/* Top Pill Tagline */}
-          <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '6px 18px',
-            borderRadius: '9999px',
-            backgroundColor: '#ECFDF5',
-            border: '1px solid #A7F3D0',
-            boxShadow: '0 2px 8px rgba(5, 150, 105, 0.08)',
-            marginBottom: '28px'
-          }}>
-            <span style={{ fontSize: '0.78rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#047857' }}>
-              ⚡ STILL RUNNING NGO FUNDRAISING ON SPREADSHEETS & MANUAL RECEIPTS?
-            </span>
-          </div>
-
           {/* Hero Headline */}
           <h1 style={{
             fontSize: 'clamp(2.5rem, 5.5vw, 4.5rem)',
@@ -334,7 +316,7 @@ Content-Type: application/json
                 background: 'linear-gradient(135deg, #059669 0%, #10B981 100%)',
                 color: '#FFFFFF',
                 border: 'none',
-                padding: '14px 34px',
+                padding: '14px 38px',
                 borderRadius: '9999px',
                 fontSize: '1.05rem',
                 fontWeight: 700,
@@ -350,30 +332,6 @@ Content-Type: application/json
             >
               <span>Login now</span>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
-            </button>
-
-            <button
-              onClick={onOpenCheckoutDemo}
-              style={{
-                background: '#FFFFFF',
-                color: '#0F172A',
-                border: '1px solid #CBD5E1',
-                padding: '14px 28px',
-                borderRadius: '9999px',
-                fontSize: '1rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                boxShadow: '0 2px 6px rgba(0,0,0,0.05)',
-                transition: 'all 0.25s',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}
-              onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#F1F5F9'; e.currentTarget.style.borderColor = '#94A3B8'; }}
-              onMouseLeave={e => { e.currentTarget.style.backgroundColor = '#FFFFFF'; e.currentTarget.style.borderColor = '#CBD5E1'; }}
-            >
-              <span>Live Checkout Demo</span>
-              <span style={{ fontSize: '1.1rem', color: '#059669' }}>↗</span>
             </button>
           </div>
 
@@ -467,9 +425,6 @@ Content-Type: application/json
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
           
           <div style={{ textAlign: 'center', marginBottom: '60px' }}>
-            <div style={{ display: 'inline-flex', padding: '4px 14px', borderRadius: '9999px', backgroundColor: '#ECFDF5', border: '1px solid #A7F3D0', color: '#047857', fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '16px' }}>
-              Autonomous Agents
-            </div>
             <h2 style={{ fontSize: 'clamp(2rem, 4vw, 3rem)', fontWeight: 800, color: '#0F172A', letterSpacing: '-0.025em', margin: 0 }}>
               The AI Non-Profit Workforce
             </h2>
@@ -639,9 +594,6 @@ Content-Type: application/json
         <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
           
           <div style={{ textAlign: 'center', marginBottom: '60px' }}>
-            <div style={{ display: 'inline-flex', padding: '4px 14px', borderRadius: '9999px', backgroundColor: '#EFF6FF', border: '1px solid #BFDBFE', color: '#1D4ED8', fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '16px' }}>
-              Simple 3-Step Setup
-            </div>
             <h2 style={{ fontSize: 'clamp(2rem, 3.5vw, 2.75rem)', fontWeight: 800, color: '#0F172A', margin: 0 }}>
               Live in Under 5 Minutes
             </h2>
