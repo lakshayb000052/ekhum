@@ -13,6 +13,7 @@ import { JourneyList } from './components/journeys/JourneyList';
 import { JourneyCanvas } from './components/journeys/JourneyCanvas';
 import { EventTriggerSetup } from './components/journeys/EventTriggerSetup';
 import { BroadcastManager } from './components/communications/BroadcastManager';
+import { ShipezLandingPage } from './components/landing/ShipezLandingPage';
 
 interface NGO {
   id: string;
@@ -2628,8 +2629,17 @@ export default function App() {
         </div>
       )}
 
-      {/* 2. Login View (Light Mode Theme for Superadmin & NGO Admin) */}
-      {(showLandingView || showLoginView) && (
+      {/* 2. Shipez-Inspired Ultra Modern AI Landing Page */}
+      {showLandingView && !showLoginView && (
+        <ShipezLandingPage
+          onOpenNgoLogin={() => navigate('/login')}
+          onOpenAdminLogin={() => navigate('/admin')}
+          onOpenCheckoutDemo={() => navigate('/checkout?campaign=test_campaigns')}
+        />
+      )}
+
+      {/* 3. Login View (Superadmin & NGO Admin) */}
+      {showLoginView && (
         <div className="cyber-login-container">
           <canvas ref={canvasRef} className="bg-interactive-canvas" />
           
@@ -2728,6 +2738,49 @@ export default function App() {
                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', borderRadius: '20px', background: '#ECFDF5', border: '1px solid #A7F3D0', fontSize: '0.72rem', color: '#059669', fontWeight: 600 }}>
                     <span className="radar-dot" style={{ width: '6px', height: '6px' }}></span> Encrypted Rails
                   </div>
+                </div>
+
+                {/* Top Navigation Row: Back to Home & Portal Switch */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/')}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#64748B',
+                      fontSize: '0.82rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: 0
+                    }}
+                  >
+                    ← Back to Home
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isAdminRoute) {
+                        navigate('/login');
+                      } else {
+                        navigate('/admin');
+                      }
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#2563EB',
+                      fontSize: '0.82rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      padding: 0
+                    }}
+                  >
+                    {isAdminRoute ? 'Switch to NGO Portal →' : 'Switch to Superadmin →'}
+                  </button>
                 </div>
 
                 {/* Role Specific Header Banner */}
