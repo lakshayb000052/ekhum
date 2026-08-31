@@ -2722,72 +2722,12 @@ export default function App() {
               <div className="cyber-glass-card" style={{ flex: '1 1 440px', padding: '40px 36px', maxWidth: '480px', margin: '0 auto' }}>
                 
                 {/* Header & Logo */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <EKhumLogo variant="full" size="md" withTagline theme="light" />
-                  </div>
-
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', borderRadius: '20px', background: '#ECFDF5', border: '1px solid #A7F3D0', fontSize: '0.72rem', color: '#059669', fontWeight: 600 }}>
-                    <span className="radar-dot" style={{ width: '6px', height: '6px' }}></span> Encrypted Rails
-                  </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
+                  <EKhumLogo variant="full" size="md" withTagline theme="light" />
                 </div>
-
-                {/* Top Navigation Row: Back to Home & Portal Switch */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
-                  <button
-                    type="button"
-                    onClick={() => navigate('/')}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: '#64748B',
-                      fontSize: '0.82rem',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      padding: 0
-                    }}
-                  >
-                    ← Back to Home
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (isAdminRoute) {
-                        navigate('/login');
-                      } else {
-                        navigate('/admin');
-                      }
-                    }}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: '#2563EB',
-                      fontSize: '0.82rem',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      padding: 0
-                    }}
-                  >
-                    {isAdminRoute ? 'Switch to NGO Portal →' : 'Switch to Superadmin →'}
-                  </button>
-                </div>
-
-                {/* Role Specific Header Banner */}
-                {isAdminRoute ? (
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '6px 14px', borderRadius: '12px', background: '#EFF6FF', border: '1px solid #BFDBFE', fontSize: '0.82rem', color: '#1D4ED8', fontWeight: 600, marginBottom: '20px', width: '100%', justifyContent: 'center' }}>
-                    👑 Superadmin Master Access (`/admin`)
-                  </div>
-                ) : (
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '6px 14px', borderRadius: '12px', background: '#ECFDF5', border: '1px solid #A7F3D0', fontSize: '0.82rem', color: '#047857', fontWeight: 600, marginBottom: '20px', width: '100%', justifyContent: 'center' }}>
-                    🏢 NGO Partner Management Portal
-                  </div>
-                )}
 
                 {/* Title & Subtitle based on Role & URL */}
-                <div style={{ marginBottom: '24px' }}>
+                <div style={{ marginBottom: '24px', textAlign: 'center' }}>
                   <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0F172A', marginBottom: '6px' }}>
                     {isAdminRoute ? 'Superadmin Master Authentication' : 'NGO Partner Portal Login'}
                   </h2>
