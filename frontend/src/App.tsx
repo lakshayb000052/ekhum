@@ -14,6 +14,7 @@ import { JourneyCanvas } from './components/journeys/JourneyCanvas';
 import { EventTriggerSetup } from './components/journeys/EventTriggerSetup';
 import { BroadcastManager } from './components/communications/BroadcastManager';
 import { ShipezLandingPage } from './components/landing/ShipezLandingPage';
+import { EKhumLogo } from './components/shared/EKhumLogo';
 
 interface NGO {
   id: string;
@@ -2723,16 +2724,7 @@ export default function App() {
                 {/* Header & Logo */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'linear-gradient(135deg, #059669 0%, #10B981 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(5, 150, 105, 0.25)' }}>
-                      <svg width="24" height="24" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 28L20 12L28 28" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"/>
-                        <path d="M16 20H24" stroke="white" strokeWidth="3.5" strokeLinecap="round"/>
-                      </svg>
-                    </div>
-                    <div>
-                      <h1 style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '1.4rem', color: '#0F172A', margin: 0, letterSpacing: '-0.02em' }}>EKhum</h1>
-                      <span style={{ fontSize: '0.75rem', color: '#059669', fontWeight: 600, letterSpacing: '0.05em' }}>COMPLIANCE GATEWAY v2.4</span>
-                    </div>
+                    <EKhumLogo variant="full" size="md" withTagline theme="light" />
                   </div>
 
                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', borderRadius: '20px', background: '#ECFDF5', border: '1px solid #A7F3D0', fontSize: '0.72rem', color: '#059669', fontWeight: 600 }}>
@@ -2923,19 +2915,8 @@ export default function App() {
         <div className="app-container" style={{ flex: 1 }}>
           
           <aside className="sidebar">
-            <div className="brand-section">
-              <svg width="32" height="32" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect width="40" height="40" rx="8" fill="url(#sidebarG)" />
-                <path d="M12 28L20 12L28 28" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M16 20H24" stroke="white" strokeWidth="3" strokeLinecap="round"/>
-                <defs>
-                  <linearGradient id="sidebarG" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
-                    <stop stopColor="#059669" />
-                    <stop offset="1" stopColor="#10B981" />
-                  </linearGradient>
-                </defs>
-              </svg>
-              <span className="brand-name">{userSession?.user?.role === 'superadmin' ? 'EKhum Admin' : 'EKhum'}</span>
+            <div className="brand-section" style={{ cursor: 'pointer', padding: '4px 0 16px 0', borderBottom: '1px solid #E2E8F0', marginBottom: '16px' }} onClick={() => navigate('/')}>
+              <EKhumLogo variant="full" size="sm" withTagline theme="light" />
             </div>
 
             <nav style={{ flex: 1 }}>
