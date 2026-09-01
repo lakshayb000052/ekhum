@@ -81,6 +81,7 @@ app.use('/api/webhooks', externalRoutes);
 // EKhum Individual Giving Suite — new routes
 app.use('/api/contacts', contactRoutes);
 app.use('/api/mandates', mandateRoutes);
+app.use('/api/subscriptions', mandateRoutes);
 app.use('/api/landing-pages', landingPageRoutes);
 app.use('/api/sessions', sessionRoutes);
 app.use('/api/events', eventRoutes);

@@ -13,6 +13,7 @@ import {
   extractNgoGatewayRails,
   getSystemSettings 
 } from '../services/paymentRouter';
+import { recalculateContactRollups, updateSubscriptionStats } from '../services/contactRollupService';
 
 const router = Router();
 
@@ -86,7 +87,38 @@ router.get(['/campaigns/:slug', '/landing-pages/:slug'], async (req: Request, re
 router.post('/donations/initiate', async (req: Request, res: Response): Promise<void> => {
   try {
     const apiKey = (req.headers['x-ekhum-api-key'] || req.headers['x-wegive-api-key'] || req.headers['x-danapro-api-key'] || req.query.api_key || req.body.api_key) as string;
-    const { name, email, phone, taxId, amount, currency = 'INR', isAnonymous = false, customFormData = {}, campaignSlug, requestedGateway, forceSandbox = false } = req.body;
+    const { 
+      title,
+      first_name,
+      last_name,
+      name, 
+      email, 
+      phone, 
+      mobile,
+      birthdate,
+      date_of_birth,
+      taxId, 
+      tax_id,
+      pan_number,
+      address,
+      street_address_1,
+      street_address_2,
+      city,
+      state,
+      zip_code,
+      pincode,
+      country,
+      payment_type,
+      paymentType,
+      is_monthly,
+      amount, 
+      currency = 'INR', 
+      isAnonymous = false, 
+      customFormData = {}, 
+      campaignSlug, 
+      requestedGateway, 
+      forceSandbox = false 
+    } = req.body;
 
     if (!apiKey) {
       res.status(401).json({ error: 'Unauthorized: Missing DanaPro API Key (x-danapro-api-key header or api_key payload parameter required)' });
@@ -139,16 +171,82 @@ router.post('/donations/initiate', async (req: Request, res: Response): Promise<
       } catch (e) {}
     }
 
-    // 2. Insert or update Donor in database
+    // 2. Insert or update Donor in database with full Salesforce CRM attributes
+    const donorFirstName = first_name || '';
+    const donorLastName = last_name || '';
+    const donorDisplayName = name || (first_name || last_name ? `${title ? title + ' ' : ''}${donorFirstName} ${donorLastName}`.trim() : null) || 'Valued Donor';
+    const donorPhone = phone || mobile || null;
+    const donorTaxId = (taxId || tax_id || pan_number || '').toUpperCase().trim() || null;
+    const donorBirthdate = birthdate || date_of_birth || null;
+    const donorAddr1 = street_address_1 || address || null;
+    const donorAddr2 = street_address_2 || null;
+    const donorZip = zip_code || pincode || null;
+    const donorEmail = email || `donor_${Date.now()}@external.org`;
+
     const donorRes = await pool.query(
-      `INSERT INTO donors (organization_id, name, email, phone, tax_id)
-       VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT (organization_id, email) 
-       DO UPDATE SET name = EXCLUDED.name, phone = COALESCE(EXCLUDED.phone, donors.phone), tax_id = COALESCE(EXCLUDED.tax_id, donors.tax_id), updated_at = NOW()
-       RETURNING *`,
-      [organizationId, name || 'Anonymous Donor', email || `donor_${Date.now()}@external.org`, phone || null, taxId || null]
+      `INSERT INTO donors (
+        organization_id, title, first_name, last_name, name, email, phone, 
+        birthdate, tax_id, country, street_address_1, street_address_2, 
+        city, state, zip_code, contact_status
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'donor')
+      ON CONFLICT (organization_id, email) 
+      DO UPDATE SET 
+        title = COALESCE(EXCLUDED.title, donors.title),
+        first_name = COALESCE(EXCLUDED.first_name, donors.first_name),
+        last_name = COALESCE(EXCLUDED.last_name, donors.last_name),
+        name = COALESCE(EXCLUDED.name, donors.name),
+        phone = COALESCE(EXCLUDED.phone, donors.phone),
+        birthdate = COALESCE(EXCLUDED.birthdate, donors.birthdate),
+        tax_id = COALESCE(EXCLUDED.tax_id, donors.tax_id),
+        street_address_1 = COALESCE(EXCLUDED.street_address_1, donors.street_address_1),
+        street_address_2 = COALESCE(EXCLUDED.street_address_2, donors.street_address_2),
+        city = COALESCE(EXCLUDED.city, donors.city),
+        state = COALESCE(EXCLUDED.state, donors.state),
+        zip_code = COALESCE(EXCLUDED.zip_code, donors.zip_code),
+        updated_at = NOW()
+      RETURNING *`,
+      [
+        organizationId,
+        title || null,
+        donorFirstName,
+        donorLastName,
+        donorDisplayName,
+        donorEmail,
+        donorPhone,
+        donorBirthdate,
+        donorTaxId,
+        country || 'India',
+        donorAddr1,
+        donorAddr2,
+        city || null,
+        state || null,
+        donorZip,
+      ]
     );
     const donor = donorRes.rows[0];
+
+    // Check if this is a Monthly Donation
+    const isMonthlyDonation = payment_type === 'monthly_donation' || paymentType === 'monthly_donation' || is_monthly === true;
+    let subscriptionId: string | null = null;
+    if (isMonthlyDonation) {
+      const subRes = await pool.query(
+        `INSERT INTO subscriptions (
+          organization_id, donor_id, campaign_id, signup_campaign_id, amount, currency,
+          interval, status, payment_gateway, pan_card, signup_date
+        ) VALUES ($1, $2, $3, $3, $4, $5, 'monthly', 'active', $6, $7, CURRENT_DATE)
+        RETURNING id`,
+        [
+          organizationId,
+          donor.id,
+          campaign.id,
+          Number(amount),
+          currency.toUpperCase(),
+          requestedGateway || 'razorpay',
+          Boolean(donorTaxId)
+        ]
+      );
+      subscriptionId = subRes.rows[0]?.id || null;
+    }
 
     // 3. Initiate payment via Multi-Gateway Smart Router
     const paymentResult = await initiateMultiGatewayPayment({
@@ -173,15 +271,17 @@ router.post('/donations/initiate', async (req: Request, res: Response): Promise<
     // 4. Insert Initiated Donation into Database
     const donationRes = await pool.query(
       `INSERT INTO donations (
-        organization_id, campaign_id, donor_id, amount, currency, net_amount, fee_covered,
+        organization_id, campaign_id, donor_id, subscription_id, payment_type, amount, currency, net_amount, fee_covered,
         payment_gateway, gateway_transaction_id, status, is_anonymous, custom_form_data
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'initiated', $10, $11)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'initiated', $12, $13)
        RETURNING *`,
       [
         organizationId,
         campaign.id,
         donor.id,
+        subscriptionId,
+        isMonthlyDonation ? 'monthly_donation' : 'one_time',
         amount,
         currency.toUpperCase(),
         amount,
@@ -424,6 +524,13 @@ router.post('/donations/verify', async (req: Request, res: Response): Promise<vo
       gateway: resolvedGateway
     });
 
+    if (donation.donor_db_id) {
+      await recalculateContactRollups(donation.donor_db_id, donation.organization_id);
+    }
+    if (updatedDonation.subscription_id) {
+      await updateSubscriptionStats(updatedDonation.subscription_id);
+    }
+
     res.status(200).json({
       success: true,
       message: `Payment verified via ${resolvedGateway} and 80G Tax Receipt generated successfully`,
@@ -472,9 +579,16 @@ router.post('/donations/fail', async (req: Request, res: Response): Promise<void
     if (donRes.rows.length > 0) {
       const don = donRes.rows[0];
       await pool.query(
-        `UPDATE donations SET status = 'failed', updated_at = NOW() WHERE id = $1`,
-        [donationId]
+        `UPDATE donations SET status = 'failed', failure_reason = $1, updated_at = NOW() WHERE id = $2`,
+        [reason, donationId]
       );
+
+      if (don.donor_id) {
+        await recalculateContactRollups(don.donor_id, don.organization_id);
+      }
+      if (don.subscription_id) {
+        await updateSubscriptionStats(don.subscription_id);
+      }
 
       // Real-Time WebSocket Event Dispatch: Payment Failed
       broadcastDonationEvent('donation_failed', {
@@ -541,6 +655,8 @@ async function processWebhookPaymentConfirmation(params: {
            gateway_transaction_id = $2, 
            raw_gateway_response = $3,
            tax_receipt_status = 'generated',
+           eighty_g_sent_email = true,
+           eighty_g_sent_whatsapp = true,
            updated_at = NOW()
        WHERE id = $4`,
       [params.gateway, params.paymentId, JSON.stringify(params.rawPayload), targetDonation.id]
@@ -586,6 +702,13 @@ async function processWebhookPaymentConfirmation(params: {
       orgName: targetDonation.org_name,
       gateway: params.gateway
     });
+
+    if (targetDonation.donor_id) {
+      await recalculateContactRollups(targetDonation.donor_id, targetDonation.organization_id);
+    }
+    if (targetDonation.subscription_id) {
+      await updateSubscriptionStats(targetDonation.subscription_id);
+    }
   }
 
   return { receiptNum, pdfUrl };

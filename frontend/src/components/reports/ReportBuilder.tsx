@@ -8,11 +8,11 @@ export const ReportBuilder: React.FC = () => {
   const [availableColumns, setAvailableColumns] = useState<string[]>([]);
   const [selectedColumns, setSelectedColumns] = useState<string[]>(['id', 'amount', 'currency', 'status', 'created_at']);
   const [reportName, setReportName] = useState('Donation Summary Report');
-  const [reportDesc, setReportDesc] = useState('');
+  const [reportDesc] = useState('');
   const [chartType, setChartType] = useState('none');
   const [previewData, setPreviewData] = useState<any[]>([]);
   const [loadingPreview, setLoadingPreview] = useState(false);
-  const [savedReports, setSavedReports] = useState<any[]>([]);
+  const [, setSavedReports] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -52,7 +52,7 @@ export const ReportBuilder: React.FC = () => {
     try {
       const res = await apiFetch(`/api/object-manager/objects/${tbl}/fields`);
       if (res && res.success && Array.isArray(res.data)) {
-        const colNames = res.data.map(f => f.name);
+        const colNames = res.data.map((f: any) => f.name);
         setAvailableColumns(colNames);
         setSelectedColumns(colNames.slice(0, 5));
       }

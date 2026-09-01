@@ -23,7 +23,7 @@ export const ApiIntegrations: React.FC = () => {
   const [commFeedback, setCommFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // WhatsApp Config State
-  const [waProvider, setWaProvider] = useState<'meta' | 'evolution_go'>('evolution_go');
+  const [waProvider, setWaProvider] = useState<'meta' | 'evolution_go' | 'none'>('evolution_go');
   const [metaWabaId, setMetaWabaId] = useState('');
   const [metaPhoneId, setMetaPhoneId] = useState('');
   const [metaToken, setMetaToken] = useState('');
@@ -33,8 +33,7 @@ export const ApiIntegrations: React.FC = () => {
   const [evoInstanceName, setEvoInstanceName] = useState('danapro_main');
   const [evoState, setEvoState] = useState<string | null>(null);
   const [checkingEvoState, setCheckingEvoState] = useState(false);
-  
-  // QR Code Modal State
+
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [qrCodeData, setQrCodeData] = useState<string | null>(null);
   const [loadingQr, setLoadingQr] = useState(false);
@@ -52,7 +51,7 @@ export const ApiIntegrations: React.FC = () => {
   const [testWaResult, setTestWaResult] = useState<{ success: boolean; message: string } | null>(null);
 
   // Email Config State
-  const [emailProvider, setEmailProvider] = useState<'ses' | 'smtp'>('ses');
+  const [emailProvider, setEmailProvider] = useState<'ses' | 'smtp' | 'none'>('ses');
   const [emailSenderName, setEmailSenderName] = useState('DanaPro NGO');
   const [emailFromAddress, setEmailFromAddress] = useState('donations@danapro.org');
   const [emailReplyTo, setEmailReplyTo] = useState('');

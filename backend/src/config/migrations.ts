@@ -719,6 +719,117 @@ const migrations: Migration[] = [
       ADD COLUMN IF NOT EXISTS provider_used VARCHAR(50) DEFAULT 'ses',
       ADD COLUMN IF NOT EXISTS dispatch_log JSONB DEFAULT '{}'::jsonb;
     `
+  },
+  {
+    name: '005_salesforce_crm_complete_schema',
+    up: `
+      -- 1. Complete Contact Object fields (donors)
+      ALTER TABLE donors
+      ADD COLUMN IF NOT EXISTS title VARCHAR(50),
+      ADD COLUMN IF NOT EXISTS first_name VARCHAR(255),
+      ADD COLUMN IF NOT EXISTS last_name VARCHAR(255),
+      ADD COLUMN IF NOT EXISTS birthdate DATE,
+      ADD COLUMN IF NOT EXISTS street_address_1 VARCHAR(500),
+      ADD COLUMN IF NOT EXISTS street_address_2 VARCHAR(500),
+      ADD COLUMN IF NOT EXISTS city VARCHAR(255),
+      ADD COLUMN IF NOT EXISTS state VARCHAR(255),
+      ADD COLUMN IF NOT EXISTS zip_code VARCHAR(10),
+      ADD COLUMN IF NOT EXISTS country VARCHAR(100) DEFAULT 'India',
+      ADD COLUMN IF NOT EXISTS total_monthly_donations INTEGER DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS total_onetime_donations INTEGER DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS total_paid_amount NUMERIC(12,2) DEFAULT 0.00,
+      ADD COLUMN IF NOT EXISTS first_gift_date DATE,
+      ADD COLUMN IF NOT EXISTS last_gift_date DATE,
+      ADD COLUMN IF NOT EXISTS total_gift_count_paid INTEGER DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS total_gift_value_paid NUMERIC(12,2) DEFAULT 0.00,
+      ADD COLUMN IF NOT EXISTS last_gift_amount_paid NUMERIC(12,2) DEFAULT 0.00,
+      ADD COLUMN IF NOT EXISTS first_gift_campaign_id UUID REFERENCES campaigns(id) ON DELETE SET NULL,
+      ADD COLUMN IF NOT EXISTS last_gift_campaign_id UUID REFERENCES campaigns(id) ON DELETE SET NULL,
+      ADD COLUMN IF NOT EXISTS contact_status VARCHAR(50) DEFAULT 'donor';
+
+      -- 2. Complete Monthly Donation Object fields (subscriptions)
+      ALTER TABLE subscriptions
+      ADD COLUMN IF NOT EXISTS signup_campaign_id UUID REFERENCES campaigns(id) ON DELETE SET NULL,
+      ADD COLUMN IF NOT EXISTS signup_date DATE DEFAULT CURRENT_DATE,
+      ADD COLUMN IF NOT EXISTS first_payment_date DATE,
+      ADD COLUMN IF NOT EXISTS last_donation_date_paid DATE,
+      ADD COLUMN IF NOT EXISTS last_billing_date DATE,
+      ADD COLUMN IF NOT EXISTS pan_card BOOLEAN DEFAULT false,
+      ADD COLUMN IF NOT EXISTS total_paid_installments INTEGER DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS total_installments_attempted INTEGER DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS payment_gateway VARCHAR(50) DEFAULT 'razorpay',
+      ADD COLUMN IF NOT EXISTS payment_method VARCHAR(50) DEFAULT 'upi_autopay',
+      ADD COLUMN IF NOT EXISTS bank_name VARCHAR(255),
+      ADD COLUMN IF NOT EXISTS next_payment_due_date DATE,
+      ADD COLUMN IF NOT EXISTS end_reason TEXT,
+      ADD COLUMN IF NOT EXISTS end_date DATE,
+      ADD COLUMN IF NOT EXISTS helpdesk_ticket_id VARCHAR(100),
+      ADD COLUMN IF NOT EXISTS helpdesk_status VARCHAR(50),
+      ADD COLUMN IF NOT EXISTS downgraded BOOLEAN DEFAULT false,
+      ADD COLUMN IF NOT EXISTS paused BOOLEAN DEFAULT false,
+      ADD COLUMN IF NOT EXISTS paused_period INTEGER DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS pause_start_date DATE,
+      ADD COLUMN IF NOT EXISTS pause_end_date DATE,
+      ADD COLUMN IF NOT EXISTS value_upgrade BOOLEAN DEFAULT false,
+      ADD COLUMN IF NOT EXISTS value_upgrade_date DATE,
+      ADD COLUMN IF NOT EXISTS upgraded_value NUMERIC(12,2),
+      ADD COLUMN IF NOT EXISTS mandate_id UUID;
+
+      -- 3. Complete Payment Object fields (donations)
+      ALTER TABLE donations
+      ADD COLUMN IF NOT EXISTS subscription_id UUID REFERENCES subscriptions(id) ON DELETE SET NULL,
+      ADD COLUMN IF NOT EXISTS payment_type VARCHAR(50) DEFAULT 'one_time',
+      ADD COLUMN IF NOT EXISTS failure_reason TEXT,
+      ADD COLUMN IF NOT EXISTS eighty_g_sent_email BOOLEAN DEFAULT false,
+      ADD COLUMN IF NOT EXISTS eighty_g_sent_whatsapp BOOLEAN DEFAULT false,
+      ADD COLUMN IF NOT EXISTS eighty_g_receipt_id UUID;
+
+      -- 4. Complete 80G Receipts table
+      CREATE TABLE IF NOT EXISTS eighty_g_receipts (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        contact_id UUID NOT NULL REFERENCES donors(id) ON DELETE RESTRICT,
+        payment_id UUID NOT NULL REFERENCES donations(id) ON DELETE RESTRICT,
+        monthly_donation_id UUID REFERENCES subscriptions(id) ON DELETE SET NULL,
+        receipt_number VARCHAR(100) NOT NULL,
+        financial_year VARCHAR(10) NOT NULL,
+        donation_date DATE NOT NULL,
+        amount NUMERIC(12,2) NOT NULL,
+        donor_name_snapshot VARCHAR(500) NOT NULL,
+        donor_pan_snapshot VARCHAR(20),
+        donor_address_snapshot TEXT,
+        organisation_urn_snapshot VARCHAR(100),
+        organisation_pan_snapshot VARCHAR(20),
+        signatory_snapshot VARCHAR(255),
+        pdf_url VARCHAR(2048),
+        generated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        email_delivery_status VARCHAR(50) DEFAULT 'pending',
+        email_delivery_date TIMESTAMP WITH TIME ZONE,
+        whatsapp_delivery_status VARCHAR(50) DEFAULT 'pending',
+        whatsapp_delivery_date TIMESTAMP WITH TIME ZONE,
+        download_count INTEGER DEFAULT 0,
+        reissued BOOLEAN DEFAULT false,
+        reissue_of UUID REFERENCES eighty_g_receipts(id) ON DELETE SET NULL,
+        voided BOOLEAN DEFAULT false,
+        void_reason TEXT,
+        included_in_10bd BOOLEAN DEFAULT false,
+        ten_bd_export_id UUID,
+        UNIQUE(organization_id, receipt_number, financial_year)
+      );
+
+      -- 5. Indexes for high performance Salesforce-style CRM lookups
+      CREATE INDEX IF NOT EXISTS idx_donations_donor_id ON donations(donor_id);
+      CREATE INDEX IF NOT EXISTS idx_donations_subscription_id ON donations(subscription_id);
+      CREATE INDEX IF NOT EXISTS idx_donations_campaign_id ON donations(campaign_id);
+      CREATE INDEX IF NOT EXISTS idx_donations_status ON donations(status);
+      CREATE INDEX IF NOT EXISTS idx_subscriptions_donor_id ON subscriptions(donor_id);
+      CREATE INDEX IF NOT EXISTS idx_subscriptions_campaign_id ON subscriptions(campaign_id);
+      CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON subscriptions(status);
+      CREATE INDEX IF NOT EXISTS idx_eighty_g_contact_id ON eighty_g_receipts(contact_id);
+      CREATE INDEX IF NOT EXISTS idx_eighty_g_payment_id ON eighty_g_receipts(payment_id);
+      CREATE INDEX IF NOT EXISTS idx_email_comm_contact_id ON email_communications(contact_id);
+      CREATE INDEX IF NOT EXISTS idx_whatsapp_comm_contact_id ON whatsapp_communications(contact_id);
+    `
   }
 ];
 
@@ -751,7 +862,7 @@ export default async function runMigrations(pool: Pool): Promise<void> {
         await client.query('BEGIN');
         try {
           await client.query(migration.up);
-          await client.query('INSERT INTO schema_migrations (name) VALUES ($1)', [migration.name]);
+          await client.query('INSERT INTO schema_migrations (name) VALUES ($1) ON CONFLICT (name) DO NOTHING', [migration.name]);
           await client.query('COMMIT');
           console.log(`Successfully ran migration: ${migration.name}`);
         } catch (error) {

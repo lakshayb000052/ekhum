@@ -161,9 +161,10 @@ export const SegmentBuilder: React.FC = () => {
               <button 
                 type="button" 
                 onClick={handlePreview}
-                style={{ background: '#F1F5F9', border: '1px solid #CBD5E1', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}
+                disabled={loadingPreview}
+                style={{ background: '#F1F5F9', border: '1px solid #CBD5E1', padding: '4px 10px', borderRadius: '4px', cursor: loadingPreview ? 'wait' : 'pointer', fontSize: '12px', fontWeight: 600 }}
               >
-                ⚡ Preview Contacts ({previewRows.length})
+                {loadingPreview ? '⏳ Running...' : `⚡ Preview Contacts (${previewRows.length})`}
               </button>
             </div>
             <textarea 

@@ -17,7 +17,7 @@ export const JourneyCanvas: React.FC<{ journey: any; onBack: () => void }> = ({ 
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   
   const [templates, setTemplates] = useState<any[]>([]);
-  const [eventTypes, setEventTypes] = useState<any[]>([]);
+  const [, setEventTypes] = useState<any[]>([]);
   
   const [stepForm, setStepForm] = useState({
     step_type: 'send_email',

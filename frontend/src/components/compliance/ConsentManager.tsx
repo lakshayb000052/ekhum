@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { apiFetch } from '../shared/api';
 import { DataTable, Column } from '../shared/DataTable';
 import { Modal } from '../shared/Modal';
-import { FormField } from '../shared/FormField';
 import { StatusBadge } from '../shared/StatusBadge';
 
 export const ConsentManager: React.FC = () => {

@@ -53,7 +53,7 @@ export const FormField: React.FC<FormFieldProps> = ({
       return (
         <textarea
           value={value as string}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => onChange?.(e.target.value)}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
           placeholder={placeholder}
@@ -67,7 +67,7 @@ export const FormField: React.FC<FormFieldProps> = ({
       return (
         <select
           value={value as string}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => onChange?.(e.target.value)}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
           required={required}
@@ -87,7 +87,7 @@ export const FormField: React.FC<FormFieldProps> = ({
           <input
             type="checkbox"
             checked={value as boolean}
-            onChange={(e) => onChange(e.target.checked)}
+            onChange={(e) => onChange?.(e.target.checked)}
             style={{ 
               width: '16px', 
               height: '16px',
@@ -110,7 +110,7 @@ export const FormField: React.FC<FormFieldProps> = ({
       <input
         type={inputType}
         value={value as string | number}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => onChange?.(e.target.value)}
         onFocus={() => setIsFocused(true)}
         onBlur={() => setIsFocused(false)}
         placeholder={placeholder}

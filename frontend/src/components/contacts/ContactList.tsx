@@ -3,19 +3,21 @@ import { apiFetch } from '../shared/api';
 import { DataTable } from '../shared/DataTable';
 import { Modal } from '../shared/Modal';
 import { StatusBadge } from '../shared/StatusBadge';
+import { ContactDetail } from './ContactDetail';
 
 export const ContactList: React.FC = () => {
   const [contacts, setContacts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
   
   // Modals
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [selectedContact, setSelectedContact] = useState<any>(null);
   
   // New Contact Form
   const [formData, setFormData] = useState({
+    title: 'Mr.',
     first_name: '',
     last_name: '',
     email: '',
@@ -24,9 +26,28 @@ export const ContactList: React.FC = () => {
     city: '',
     state: '',
     zip_code: '',
-    address: '',
+    street_address_1: '',
+    street_address_2: '',
+    country: 'India',
     contact_status: 'donor'
   });
+
+  // Check URL hash on load for deep linking (e.g. #contact=123)
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash;
+      if (hash.startsWith('#contact=')) {
+        const id = hash.replace('#contact=', '');
+        if (id) setSelectedContactId(id);
+      } else if (!hash.includes('contact=')) {
+        setSelectedContactId(null);
+      }
+    };
+
+    handleHashChange();
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   useEffect(() => {
     fetchContacts();
@@ -47,6 +68,23 @@ export const ContactList: React.FC = () => {
     }
   };
 
+  const handlePincodeLookup = async (pincode: string) => {
+    setFormData((prev: any) => ({ ...prev, zip_code: pincode }));
+    if (pincode && pincode.trim().length === 6) {
+      try {
+        const res = await apiFetch(`/api/contacts/pincode/${pincode.trim()}`);
+        if (res && res.success && res.data) {
+          setFormData((prev: any) => ({
+            ...prev,
+            city: res.data.city || prev.city,
+            state: res.data.state || prev.state,
+            country: res.data.country || 'India'
+          }));
+        }
+      } catch (e) {}
+    }
+  };
+
   const handleCreateContact = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -57,6 +95,7 @@ export const ContactList: React.FC = () => {
       if (response && response.success) {
         setIsAddModalOpen(false);
         setFormData({
+          title: 'Mr.',
           first_name: '',
           last_name: '',
           email: '',
@@ -65,7 +104,9 @@ export const ContactList: React.FC = () => {
           city: '',
           state: '',
           zip_code: '',
-          address: '',
+          street_address_1: '',
+          street_address_2: '',
+          country: 'India',
           contact_status: 'donor'
         });
         fetchContacts();
@@ -77,25 +118,43 @@ export const ContactList: React.FC = () => {
 
   const handleExportCSV = () => {
     if (contacts.length === 0) return;
-    const headers = ['Name', 'Email', 'Phone', 'PAN / Tax ID', 'Status', 'Total Paid', 'Last Gift Date', 'City', 'State', 'Acquisition Source'];
+    const headers = [
+      'Contact ID', 'Title', 'First Name', 'Last Name', 'Full Name', 
+      'Email', 'Mobile', 'PAN Number', 'Status', 
+      'Total Monthly Donations', 'Total One-time Donations', 'Total Paid Amount', 
+      'First Gift Date', 'First Gift Campaign', 'Last Gift Date', 'Last Gift Campaign', 
+      'City', 'State', 'PIN Code', 'Country', 'Multi-NGOs', 'Multi-Campaigns'
+    ];
     const rows = contacts.map(c => [
+      `"${c.id}"`,
+      `"${c.title || ''}"`,
+      `"${c.first_name || ''}"`,
+      `"${c.last_name || ''}"`,
       `"${c.name || `${c.first_name || ''} ${c.last_name || ''}`.trim()}"`,
       `"${c.email || ''}"`,
-      `"${c.phone || ''}"`,
+      `"${c.phone || c.mobile || ''}"`,
       `"${c.tax_id || ''}"`,
       `"${c.contact_status || 'donor'}"`,
+      Number(c.total_monthly_donations || 0),
+      Number(c.total_onetime_donations || 0),
       Number(c.total_paid_amount || 0),
+      `"${c.first_gift_date ? new Date(c.first_gift_date).toLocaleDateString() : ''}"`,
+      `"${c.first_gift_campaign_title || ''}"`,
       `"${c.last_gift_date ? new Date(c.last_gift_date).toLocaleDateString() : ''}"`,
+      `"${c.last_gift_campaign_title || ''}"`,
       `"${c.city || ''}"`,
       `"${c.state || ''}"`,
-      `"${c.acquisition_source || ''}"`
+      `"${c.zip_code || ''}"`,
+      `"${c.country || 'India'}"`,
+      `"${c.multi_ngo_names || ''}"`,
+      `"${c.multi_campaign_titles || ''}"`
     ]);
 
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `EKhum_Contacts_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `Salesforce_Contacts_360_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -104,30 +163,64 @@ export const ContactList: React.FC = () => {
   const filteredContacts = contacts.filter((c) => {
     const name = (c.name || `${c.first_name || ''} ${c.last_name || ''}`).toLowerCase();
     const email = (c.email || '').toLowerCase();
-    const phone = (c.phone || '').toLowerCase();
+    const phone = (c.phone || c.mobile || '').toLowerCase();
     const pan = (c.tax_id || '').toLowerCase();
+    const id = (c.id || '').toLowerCase();
     const search = searchTerm.toLowerCase();
-    return name.includes(search) || email.includes(search) || phone.includes(search) || pan.includes(search);
+    return name.includes(search) || email.includes(search) || phone.includes(search) || pan.includes(search) || id.includes(search);
   });
+
+  // If a contact is selected, show Salesforce 360 Contact Detail View
+  if (selectedContactId) {
+    return (
+      <ContactDetail 
+        contactId={selectedContactId} 
+        onBack={() => {
+          setSelectedContactId(null);
+          window.location.hash = '';
+          fetchContacts();
+        }}
+      />
+    );
+  }
 
   const columns = [
     { 
       key: 'name', 
-      label: 'Donor Name', 
+      label: 'Contact Name & PAN', 
       render: (val: any, row: any) => {
-        const displayName = val || `${row.first_name || ''} ${row.last_name || ''}`.trim() || 'Anonymous Donor';
+        const displayName = val || `${row.title ? row.title + ' ' : ''}${row.first_name || ''} ${row.last_name || ''}`.trim() || 'Valued Donor';
         return (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={() => setSelectedContact(row)}>
-            <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#EFF6FF', color: '#1D4ED8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '13px' }}>
+          <div 
+            style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }} 
+            onClick={() => {
+              setSelectedContactId(row.id);
+              window.location.hash = `#contact=${row.id}`;
+            }}
+          >
+            <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: '#ECFDF5', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '13px', border: '1px solid #A7F3D0' }}>
               {displayName.charAt(0).toUpperCase()}
             </div>
             <div>
-              <strong style={{ color: '#059669', display: 'block' }}>{displayName}</strong>
-              {row.tax_id && (
-                <span style={{ fontSize: '11px', color: '#64748B', fontFamily: 'monospace' }}>
-                  PAN: {row.tax_id}
-                </span>
-              )}
+              <a 
+                href={`#contact=${row.id}`} 
+                onClick={(e) => {
+                  e.preventDefault();
+                  setSelectedContactId(row.id);
+                  window.location.hash = `#contact=${row.id}`;
+                }}
+                style={{ color: '#059669', fontWeight: 700, textDecoration: 'underline', fontSize: '13px', display: 'block' }}
+              >
+                {displayName}
+              </a>
+              <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '2px' }}>
+                <code style={{ fontSize: '10px', color: '#64748B' }}>ID: {row.id.substring(0, 8)}</code>
+                {row.tax_id && (
+                  <span style={{ fontSize: '10px', background: '#F1F5F9', color: '#0F172A', padding: '1px 4px', borderRadius: '3px', fontFamily: 'monospace', fontWeight: 700 }}>
+                    PAN: {row.tax_id}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         );
@@ -136,47 +229,64 @@ export const ContactList: React.FC = () => {
     { key: 'email', label: 'Email Address' },
     { 
       key: 'phone', 
-      label: 'Mobile / Phone',
-      render: (val: any) => val ? <span>{val}</span> : <span style={{ color: '#94A3B8' }}>—</span>
+      label: 'Mobile',
+      render: (val: any, row: any) => (
+        <span>{val || row.mobile || <span style={{ color: '#94A3B8' }}>—</span>}</span>
+      )
     },
     { 
-      key: 'contact_status', 
-      label: 'Status', 
-      render: (val: any) => <StatusBadge status={val || 'donor'} /> 
+      key: 'total_monthly_donations', 
+      label: 'Monthly (Count)',
+      render: (val: any) => (
+        <span style={{ background: '#FDF4FF', color: '#86198F', padding: '2px 8px', borderRadius: '4px', fontWeight: 700, fontSize: '12px' }}>
+          {Number(val || 0)}
+        </span>
+      )
     },
     { 
       key: 'total_paid_amount', 
-      label: 'Total Paid (₹)', 
+      label: 'Total Paid (Value)', 
       render: (val: any) => (
-        <strong style={{ color: '#0F172A' }}>
+        <strong style={{ color: '#059669', fontSize: '13px' }}>
           ₹{Number(val || 0).toLocaleString()}
         </strong>
       )
     },
     { 
       key: 'last_gift_date', 
-      label: 'Last Gift Date', 
-      render: (val: any) => val ? new Date(val).toLocaleDateString() : 'N/A' 
+      label: 'Last Gift', 
+      render: (val: any, row: any) => (
+        <div>
+          <span style={{ fontWeight: 600, display: 'block' }}>{val ? new Date(val).toLocaleDateString() : 'N/A'}</span>
+          <span style={{ fontSize: '11px', color: '#64748B' }}>{row.last_gift_campaign_title || 'Direct'}</span>
+        </div>
+      )
     },
-    { 
-      key: 'acquisition_source', 
-      label: 'Acquisition Source',
+    {
+      key: 'multi_ngo_names',
+      label: 'NGOs Contributed',
       render: (val: any) => (
-        <span style={{ background: '#F1F5F9', color: '#334155', padding: '3px 8px', borderRadius: '4px', fontSize: '12px' }}>
-          {val || 'Direct Web Giving'}
+        <span style={{ fontSize: '11px', color: '#475569' }}>
+          {val || 'Primary NGO'}
         </span>
       )
+    },
+    { 
+      key: 'contact_status', 
+      label: 'Status', 
+      render: (val: any) => <StatusBadge status={val || 'donor'} /> 
     }
   ];
 
   return (
     <div style={{ fontFamily: 'Inter, system-ui, sans-serif', padding: '24px', background: '#F8FAFC', minHeight: '100vh', color: '#0F172A' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+      
+      {/* Top Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: '1.75rem', fontWeight: 700 }}>Donor Contacts CRM</h1>
+          <h1 style={{ margin: 0, fontSize: '1.75rem', fontWeight: 800, color: '#0F172A' }}>Salesforce Donor Contacts CRM</h1>
           <p style={{ color: '#64748B', margin: '4px 0 0 0', fontSize: '0.9rem' }}>
-            Unified 360° database with Indian PAN KYC, address records, and lifetime gift histories.
+            Unified 360° Contact Management with Monthly Donations, Multi-Gateway Payments, 80G Tax History, and Indian Postal auto-lookup.
           </p>
         </div>
         <div style={{ display: 'flex', gap: '12px' }}>
@@ -185,7 +295,7 @@ export const ContactList: React.FC = () => {
             style={{ background: '#FFFFFF', border: '1.5px solid #CBD5E1', color: '#334155', padding: '9px 16px', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}
           >
             <span>📥</span>
-            <span>Export CSV</span>
+            <span>Export 360° CSV</span>
           </button>
           <button 
             onClick={() => setIsAddModalOpen(true)}
@@ -198,12 +308,12 @@ export const ContactList: React.FC = () => {
       </div>
 
       {/* Search & Filter Bar */}
-      <div style={{ display: 'flex', gap: '16px', marginBottom: '20px', background: '#FFFFFF', padding: '12px 16px', borderRadius: '10px', border: '1px solid #E2E8F0', alignItems: 'center' }}>
-        <div style={{ position: 'relative', flex: 1 }}>
+      <div style={{ display: 'flex', gap: '16px', marginBottom: '20px', background: '#FFFFFF', padding: '12px 16px', borderRadius: '10px', border: '1px solid #E2E8F0', alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ position: 'relative', flex: 1, minWidth: '260px' }}>
           <span style={{ position: 'absolute', left: '12px', top: '10px', color: '#94A3B8' }}>🔍</span>
           <input 
             type="text" 
-            placeholder="Search by donor name, email, mobile phone, or PAN..." 
+            placeholder="Search by name, email, mobile phone, PAN, or Contact ID..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{ width: '100%', padding: '8px 12px 8px 36px', border: '1.5px solid #CBD5E1', borderRadius: '6px', outline: 'none', fontSize: '13px' }}
@@ -241,16 +351,33 @@ export const ContactList: React.FC = () => {
           columns={columns} 
           loading={loading}
           emptyMessage="No contacts found matching your query."
-          onRowClick={(row) => setSelectedContact(row)}
+          onRowClick={(row) => {
+            setSelectedContactId(row.id);
+            window.location.hash = `#contact=${row.id}`;
+          }}
         />
       </div>
 
-      {/* MODAL: ADD CONTACT */}
-      <Modal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} title="Register New Donor Contact">
+      {/* MODAL: ADD CONTACT WITH AUTO PINCODE LOOKUP */}
+      <Modal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} title="Register New Salesforce Contact">
         <form onSubmit={handleCreateContact} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '0.6fr 1.2fr 1.2fr', gap: '10px' }}>
             <div>
-              <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', fontWeight: 600 }}>First Name</label>
+              <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 600 }}>Title</label>
+              <select 
+                value={formData.title} 
+                onChange={e => setFormData({...formData, title: e.target.value})}
+                style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #CBD5E1', background: 'white' }}
+              >
+                <option value="Mr.">Mr.</option>
+                <option value="Mrs.">Mrs.</option>
+                <option value="Ms.">Ms.</option>
+                <option value="Dr.">Dr.</option>
+                <option value="Prof.">Prof.</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 600 }}>First Name</label>
               <input 
                 type="text" 
                 required
@@ -260,10 +387,9 @@ export const ContactList: React.FC = () => {
               />
             </div>
             <div>
-              <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', fontWeight: 600 }}>Last Name</label>
+              <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 600 }}>Last Name</label>
               <input 
                 type="text" 
-                required
                 value={formData.last_name} 
                 onChange={e => setFormData({...formData, last_name: e.target.value})} 
                 style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #CBD5E1' }} 
@@ -273,7 +399,7 @@ export const ContactList: React.FC = () => {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             <div>
-              <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', fontWeight: 600 }}>Email Address</label>
+              <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 600 }}>Email Address</label>
               <input 
                 type="email" 
                 required
@@ -283,10 +409,10 @@ export const ContactList: React.FC = () => {
               />
             </div>
             <div>
-              <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', fontWeight: 600 }}>Phone / WhatsApp Number</label>
+              <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 600 }}>Mobile (Only numbers)</label>
               <input 
                 type="tel" 
-                placeholder="+91 9876543210"
+                placeholder="9876543210"
                 value={formData.phone} 
                 onChange={e => setFormData({...formData, phone: e.target.value})} 
                 style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #CBD5E1' }} 
@@ -296,7 +422,7 @@ export const ContactList: React.FC = () => {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '12px' }}>
             <div>
-              <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', fontWeight: 600 }}>Permanent Account Number (PAN)</label>
+              <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 600 }}>Permanent Account Number (PAN)</label>
               <input 
                 type="text" 
                 placeholder="ABCDE1234F"
@@ -305,10 +431,10 @@ export const ContactList: React.FC = () => {
                 onChange={e => setFormData({...formData, tax_id: e.target.value.toUpperCase()})} 
                 style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #CBD5E1', fontFamily: 'monospace', textTransform: 'uppercase' }} 
               />
-              <span style={{ fontSize: '11px', color: '#64748B' }}>Required for 80G Tax Certificates and Form 10BD</span>
+              <span style={{ fontSize: '11px', color: '#64748B' }}>Required for 80G Tax Certificates & Form 10BD</span>
             </div>
             <div>
-              <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', fontWeight: 600 }}>Contact Status</label>
+              <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 600 }}>Status</label>
               <select 
                 value={formData.contact_status} 
                 onChange={e => setFormData({...formData, contact_status: e.target.value})}
@@ -322,18 +448,29 @@ export const ContactList: React.FC = () => {
           </div>
 
           <div>
-            <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', fontWeight: 600 }}>Street Address</label>
+            <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 600 }}>Street Address 1</label>
             <input 
               type="text" 
-              value={formData.address} 
-              onChange={e => setFormData({...formData, address: e.target.value})} 
+              value={formData.street_address_1} 
+              onChange={e => setFormData({...formData, street_address_1: e.target.value})} 
               style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #CBD5E1' }} 
             />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
             <div>
-              <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', fontWeight: 600 }}>City</label>
+              <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 600 }}>PIN Code (Auto Lookup)</label>
+              <input 
+                type="text" 
+                maxLength={6}
+                placeholder="110001"
+                value={formData.zip_code} 
+                onChange={e => handlePincodeLookup(e.target.value)} 
+                style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #CBD5E1' }} 
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 600 }}>City</label>
               <input 
                 type="text" 
                 value={formData.city} 
@@ -342,21 +479,11 @@ export const ContactList: React.FC = () => {
               />
             </div>
             <div>
-              <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', fontWeight: 600 }}>State</label>
+              <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 600 }}>State</label>
               <input 
                 type="text" 
                 value={formData.state} 
                 onChange={e => setFormData({...formData, state: e.target.value})} 
-                style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #CBD5E1' }} 
-              />
-            </div>
-            <div>
-              <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', fontWeight: 600 }}>PIN Code</label>
-              <input 
-                type="text" 
-                maxLength={6}
-                value={formData.zip_code} 
-                onChange={e => setFormData({...formData, zip_code: e.target.value})} 
                 style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #CBD5E1' }} 
               />
             </div>
@@ -374,66 +501,12 @@ export const ContactList: React.FC = () => {
               type="submit" 
               style={{ padding: '8px 20px', background: '#059669', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
             >
-              Save Contact
+              Save Contact Record
             </button>
           </div>
         </form>
       </Modal>
 
-      {/* MODAL: CONTACT DETAIL 360 PROFILE */}
-      {selectedContact && (
-        <Modal isOpen={!!selectedContact} onClose={() => setSelectedContact(null)} title={`Donor Profile: ${selectedContact.name || `${selectedContact.first_name || ''} ${selectedContact.last_name || ''}`}`}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            {/* Header badges */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F8FAFC', padding: '16px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
-              <div>
-                <strong style={{ fontSize: '16px', color: '#0F172A', display: 'block' }}>{selectedContact.name || `${selectedContact.first_name || ''} ${selectedContact.last_name || ''}`}</strong>
-                <span style={{ fontSize: '13px', color: '#64748B' }}>{selectedContact.email} • {selectedContact.phone || 'No phone'}</span>
-              </div>
-              <StatusBadge status={selectedContact.contact_status || 'donor'} />
-            </div>
-
-            {/* Financial Highlights Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
-              <div style={{ background: '#ECFDF5', padding: '12px', borderRadius: '8px', border: '1px solid #A7F3D0' }}>
-                <span style={{ fontSize: '11px', textTransform: 'uppercase', color: '#047857', fontWeight: 700 }}>Total Donated</span>
-                <div style={{ fontSize: '20px', fontWeight: 800, color: '#065F46', marginTop: '2px' }}>₹{Number(selectedContact.total_paid_amount || 0).toLocaleString()}</div>
-              </div>
-              <div style={{ background: '#EFF6FF', padding: '12px', borderRadius: '8px', border: '1px solid #BFDBFE' }}>
-                <span style={{ fontSize: '11px', textTransform: 'uppercase', color: '#1D4ED8', fontWeight: 700 }}>Gift Count</span>
-                <div style={{ fontSize: '20px', fontWeight: 800, color: '#1E40AF', marginTop: '2px' }}>{selectedContact.total_gift_count_paid || 1} Gift(s)</div>
-              </div>
-              <div style={{ background: '#FFFBEB', padding: '12px', borderRadius: '8px', border: '1px solid #FDE68A' }}>
-                <span style={{ fontSize: '11px', textTransform: 'uppercase', color: '#B45309', fontWeight: 700 }}>Last Gift Date</span>
-                <div style={{ fontSize: '14px', fontWeight: 700, color: '#92400E', marginTop: '4px' }}>
-                  {selectedContact.last_gift_date ? new Date(selectedContact.last_gift_date).toLocaleDateString() : 'N/A'}
-                </div>
-              </div>
-            </div>
-
-            {/* Address & KYC */}
-            <div style={{ background: '#FFFFFF', padding: '16px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
-              <h4 style={{ margin: '0 0 10px 0', fontSize: '13px', textTransform: 'uppercase', color: '#64748B', fontWeight: 700 }}>Indian Statutory & KYC Data</h4>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '13px' }}>
-                <div><strong>PAN / Tax ID:</strong> <code style={{ background: '#F1F5F9', padding: '2px 6px', borderRadius: '4px' }}>{selectedContact.tax_id || 'Not Provided'}</code></div>
-                <div><strong>Country:</strong> {selectedContact.country || 'India (IN)'}</div>
-                <div><strong>City & State:</strong> {selectedContact.city || '—'}, {selectedContact.state || '—'}</div>
-                <div><strong>PIN Code:</strong> {selectedContact.zip_code || '—'}</div>
-                <div style={{ gridColumn: 'span 2' }}><strong>Full Address:</strong> {selectedContact.street_address_1 || '—'}</div>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <button 
-                onClick={() => setSelectedContact(null)}
-                style={{ padding: '8px 18px', background: '#0F172A', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
-              >
-                Close Profile
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
     </div>
   );
 };

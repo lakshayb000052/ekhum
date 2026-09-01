@@ -47,10 +47,9 @@ interface Campaign {
   landing_page_url?: string;
   is_active: boolean;
   goal_amount?: number;
-  payment_config?: {
-    razorpay_key_id?: string;
-    razorpay_key_secret?: string;
-  };
+  payment_config?: any;
+  org_payment_config?: any;
+  payment_gateways_config?: any;
   permissions?: {
     allow_anonymous?: boolean;
     tax_receipt_enabled?: boolean;
@@ -75,6 +74,10 @@ interface Donation {
   status: string;
   paymentGateway: string;
   paymentMethod: string;
+  subscriptionId?: string;
+  subscription_id?: string;
+  paymentType?: string;
+  payment_type?: string;
   gatewayTransactionId?: string;
   rawGatewayResponse?: any;
   custom_form_data?: any;
@@ -1077,10 +1080,10 @@ export default function App() {
   const [newNgoRazorpayKeySecret, setNewNgoRazorpayKeySecret] = useState<string>('');
   
   // NGO Permission States for Creation
-  const [newNgoCanAccept, setNewNgoCanAccept] = useState<boolean>(true);
-  const [newNgoCan80g, setNewNgoCan80g] = useState<boolean>(true);
-  const [newNgoCanExport, setNewNgoCanExport] = useState<boolean>(true);
-  const [newNgoCanAi, setNewNgoCanAi] = useState<boolean>(true);
+  const [newNgoCanAccept] = useState<boolean>(true);
+  const [newNgoCan80g] = useState<boolean>(true);
+  const [newNgoCanExport] = useState<boolean>(true);
+  const [newNgoCanAi] = useState<boolean>(true);
   const [newNgoFeePercent, setNewNgoFeePercent] = useState<number>(0.0);
 
   // NGO Worker Access Credentials State
@@ -1112,12 +1115,12 @@ export default function App() {
 
   // NGO Multi-Gateway Configuration States (Creation)
   const [newNgoRzpEnabled, setNewNgoRzpEnabled] = useState<boolean>(true);
-  const [newNgoRazorpayWebhook, setNewNgoRazorpayWebhook] = useState<string>('');
+  const [newNgoRazorpayWebhook] = useState<string>('');
   const [newNgoPayuEnabled, setNewNgoPayuEnabled] = useState<boolean>(false);
   const [newNgoPayuKey, setNewNgoPayuKey] = useState<string>('');
   const [newNgoPayuSalt, setNewNgoPayuSalt] = useState<string>('');
-  const [newNgoPayuSecret, setNewNgoPayuSecret] = useState<string>('');
-  const [newNgoPayuMode, setNewNgoPayuMode] = useState<'test' | 'live'>('test');
+  const [newNgoPayuSecret] = useState<string>('');
+  const [newNgoPayuMode] = useState<'test' | 'live'>('test');
   const [newNgoCcavEnabled, setNewNgoCcavEnabled] = useState<boolean>(false);
   const [newNgoCcavMid, setNewNgoCcavMid] = useState<string>('');
   const [newNgoCcavCode, setNewNgoCcavCode] = useState<string>('');
@@ -1131,7 +1134,7 @@ export default function App() {
   const [newNgoCfSecret, setNewNgoCfSecret] = useState<string>('');
   const [newNgoPrimaryGw, setNewNgoPrimaryGw] = useState<string>('razorpay');
   const [newNgoFallbackGw, setNewNgoFallbackGw] = useState<string>('');
-  const [newNgoAutoFailover, setNewNgoAutoFailover] = useState<boolean>(true);
+  const [newNgoAutoFailover] = useState<boolean>(true);
 
   // NGO Multi-Gateway Configuration States (Editing)
   const [editNgoRzpEnabled, setEditNgoRzpEnabled] = useState<boolean>(true);
@@ -1159,8 +1162,8 @@ export default function App() {
   // Campaign Checkbox Aligned Gateways (Creation & Editing)
   const [newCampAssignedGateways, setNewCampAssignedGateways] = useState<string[]>(['razorpay']);
   const [newCampPrimaryGateway, setNewCampPrimaryGateway] = useState<string>('razorpay');
-  const [newCampFallbackGateway, setNewCampFallbackGateway] = useState<string>('payu');
-  const [newCampAutoFailover, setNewCampAutoFailover] = useState<boolean>(true);
+  const [newCampFallbackGateway] = useState<string>('payu');
+  const [newCampAutoFailover] = useState<boolean>(true);
 
   const [editCampAssignedGateways, setEditCampAssignedGateways] = useState<string[]>(['razorpay']);
   const [editCampPrimaryGateway, setEditCampPrimaryGateway] = useState<string>('razorpay');
@@ -2228,21 +2231,6 @@ export default function App() {
     }
   };
 
-  const handleProvisionCampaignKey = async (campId: string) => {
-    try {
-      const response = await apiFetch(`/api/superadmin/campaigns/${campId}/provision-key`, { method: 'POST' });
-      const data = await response.json();
-      if (data.success) {
-        alert(`⚡ Campaign Managed Sub-Key Provisioned by DanaPro Admin!\nKey ID: ${data.keyId}`);
-        fetchData();
-      } else {
-        alert(data.message || 'Provisioning failed');
-      }
-    } catch (err: any) {
-      alert(`Key provisioning error: ${err.message}`);
-    }
-  };
-
   const handleCreateNgoCampaign = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!userSession?.user?.orgId) return;
@@ -3300,11 +3288,28 @@ export default function App() {
                               })
                               .map((d) => (
                                 <tr key={d.id}>
-                                  <td>{new Date(d.created_at || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
-                                  <td><strong>{d.donorName}</strong></td>
-                                  <td>{d.donorEmail}</td>
-                                  <td>{d.donorPhone || 'N/A'}</td>
-                                  <td>{d.campaignTitle || 'General Support'}</td>
+                                <td>{new Date(d.created_at || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+                                <td>
+                                  <a 
+                                    href={`#contact=${d.donorId}`} 
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      setActiveNgoTab('contacts');
+                                      window.location.hash = `#contact=${d.donorId}`;
+                                    }}
+                                    style={{ color: '#059669', fontWeight: 700, textDecoration: 'underline', cursor: 'pointer' }}
+                                  >
+                                    {d.donorName}
+                                  </a>
+                                  {d.subscriptionId && (
+                                    <span style={{ display: 'block', fontSize: '10px', color: '#86198F', fontWeight: 700 }}>
+                                      Recurring (MD-{d.subscriptionId.substring(0, 6)})
+                                    </span>
+                                  )}
+                                </td>
+                                <td>{d.donorEmail}</td>
+                                <td>{d.donorPhone || 'N/A'}</td>
+                                <td>{d.campaignTitle || 'General Support'}</td>
                                   <td>
                                     {(() => {
                                       const gw = (d.paymentGateway || 'razorpay').toLowerCase();
@@ -3519,7 +3524,7 @@ export default function App() {
                         <div style={{ borderTop: '1px solid var(--border)', paddingTop: '20px' }}>
                           <h4 style={{ fontSize: '1rem', color: 'var(--primary)', marginBottom: '14px' }}>💳 Assigned Payment Gateway Rails</h4>
                           {(() => {
-                            const currentNgo = organizations.find(o => o.id === selectedOrgId) || organizations[0];
+                            const currentNgo = organizations.find(o => o.id === (userSession?.user?.orgId || userSession?.user?.organization_id)) || organizations[0];
                             const rails = extractNgoRails(currentNgo);
                             if (rails.length === 0) {
                               return <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)' }}>No payment gateway rails assigned. Contact Superadmin to configure rails.</p>;
@@ -3833,7 +3838,6 @@ export default function App() {
                         </thead>
                         <tbody>
                           {organizations.map((org) => {
-                            const gateways = org.payment_gateways_config || {};
                             const perms = org.permissions || {};
                             const isSuspended = org.status === 'suspended';
                             const ngoRails = extractNgoRails(org);
@@ -4359,7 +4363,24 @@ export default function App() {
                         <tbody>
                           {donations.map((d) => (
                             <tr key={d.id}>
-                              <td><strong>{d.donorName}</strong></td>
+                              <td>
+                                <a 
+                                  href={`#contact=${d.donorId}`} 
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    setActiveSuperadminTab('contacts');
+                                    window.location.hash = `#contact=${d.donorId}`;
+                                  }}
+                                  style={{ color: '#059669', fontWeight: 700, textDecoration: 'underline', cursor: 'pointer' }}
+                                >
+                                  {d.donorName}
+                                </a>
+                                {d.subscriptionId && (
+                                  <span style={{ display: 'block', fontSize: '10px', color: '#86198F', fontWeight: 700 }}>
+                                    Recurring (MD-{d.subscriptionId.substring(0, 6)})
+                                  </span>
+                                )}
+                              </td>
                               <td>{d.donorEmail}</td>
                               <td>{d.donorPhone || 'N/A'}</td>
                               <td>{d.currency} {Number(d.amount).toLocaleString()}</td>

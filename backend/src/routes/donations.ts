@@ -6,6 +6,7 @@ import { broadcast, broadcastDonationEvent } from '../websocket';
 import { sendWhatsAppNotification, sendAWSEmailNotification } from '../services/notification';
 import { triggerDonationSuccessEventsAndNotifications } from '../services/journeyExecutor';
 import { initiateMultiGatewayPayment } from '../services/paymentRouter';
+import { recalculateContactRollups, updateSubscriptionStats } from '../services/contactRollupService';
 
 const router = Router();
 
@@ -35,11 +36,13 @@ router.get('/', authenticate, async (req: AuthenticatedRequest, res: Response) =
     let query = `
       SELECT 
         d.id,
+        d.id AS "paymentId",
         dn.id AS "donorId",
-        dn.name AS "donorName",
+        COALESCE(dn.name, TRIM(CONCAT(COALESCE(dn.first_name, ''), ' ', COALESCE(dn.last_name, '')))) AS "donorName",
         dn.email AS "donorEmail",
         dn.phone AS "donorPhone",
         dn.tax_id AS "donorTaxId",
+        CASE WHEN dn.tax_id IS NOT NULL AND TRIM(dn.tax_id) != '' THEN true ELSE false END AS "panCard",
         d.amount,
         d.currency,
         d.net_amount AS "netAmount",
@@ -47,20 +50,33 @@ router.get('/', authenticate, async (req: AuthenticatedRequest, res: Response) =
         d.status,
         d.payment_gateway AS "paymentGateway",
         d.payment_method AS "paymentMethod",
+        COALESCE(d.payment_type, CASE WHEN d.subscription_id IS NOT NULL THEN 'monthly_donation' ELSE 'one_time' END) AS "paymentType",
+        d.subscription_id AS "subscriptionId",
+        d.failure_reason AS "failureReason",
+        COALESCE(d.eighty_g_sent_email, (r.email_delivery_status = 'delivered'), false) AS "eightyGSentEmail",
+        COALESCE(d.eighty_g_sent_whatsapp, (r.whatsapp_delivery_status = 'delivered'), false) AS "eightyGSentWhatsapp",
         d.gateway_transaction_id AS "gatewayTransactionId",
         d.raw_gateway_response AS "rawGatewayResponse",
+        d.custom_form_data AS "customFormData",
         d.tax_receipt_status AS "taxReceiptStatus",
+        r.receipt_number AS "receiptNumber",
+        r.pdf_url AS "receiptPdfUrl",
         d.created_at AS "createdAt",
+        d.created_at AS "paymentDate",
+        c.id AS "campaignId",
         c.title AS "campaignTitle",
+        c.title AS "paymentCampaign",
+        o.id AS "organizationId",
         o.name AS "organizationName"
       FROM donations d
       JOIN donors dn ON d.donor_id = dn.id
       LEFT JOIN campaigns c ON d.campaign_id = c.id
       LEFT JOIN organizations o ON d.organization_id = o.id
+      LEFT JOIN eighty_g_receipts r ON d.id = r.payment_id OR d.eighty_g_receipt_id = r.id
     `;
     
     const params: any[] = [];
-    if (targetOrgId) {
+    if (targetOrgId && targetOrgId !== 'all') {
       query += ` WHERE d.organization_id = $1 `;
       params.push(targetOrgId);
     }
@@ -217,6 +233,8 @@ router.post('/initiate', async (req: Request, res: Response) => {
         orgName,
         gateway: paymentResult.gateway || 'direct'
       });
+
+      await recalculateContactRollups(donorId, orgId);
 
       return res.status(200).json({
         success: true,
@@ -423,6 +441,10 @@ router.post('/verify', async (req: Request, res: Response) => {
       orgName,
       gateway: resolvedGateway
     });
+
+    if (donorId) {
+      await recalculateContactRollups(donorId, orgId);
+    }
 
     return res.status(200).json({
       success: true,

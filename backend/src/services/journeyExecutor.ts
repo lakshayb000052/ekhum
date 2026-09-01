@@ -2,6 +2,7 @@ import pool from '../config/db';
 import { dispatchWhatsAppMessage, dispatchEmailMessage } from './messagingRouter';
 import { getResolvedTemplate, renderTemplateContent, WhitelistVariables } from './templateEngine';
 import { sendWhatsAppNotification, sendAWSEmailNotification } from './notification';
+import { recalculateContactRollups } from './contactRollupService';
 
 // Event types supported by the system
 export const EVENT_TYPES = [
@@ -517,6 +518,30 @@ export async function triggerDonationSuccessEventsAndNotifications(params: {
         receiptPdfUrl,
         'success'
       ).catch(e => console.error('[Email Notification Error]:', e));
+    }
+
+    // 5. Update eighty_g_receipts & donations with dispatch flags
+    if (contactId) {
+      await recalculateContactRollups(contactId, organizationId);
+    }
+    if (params.donationId) {
+      await pool.query(
+        `UPDATE donations 
+         SET eighty_g_sent_email = true, 
+             eighty_g_sent_whatsapp = true,
+             updated_at = NOW() 
+         WHERE id = $1`,
+        [donationId]
+      );
+      await pool.query(
+        `UPDATE eighty_g_receipts 
+         SET email_delivery_status = 'delivered', 
+             email_delivery_date = NOW(),
+             whatsapp_delivery_status = 'delivered',
+             whatsapp_delivery_date = NOW()
+         WHERE payment_id = $1 OR donation_id = $1`,
+        [donationId]
+      );
     }
   } catch (err: any) {
     console.error('[triggerDonationSuccessEventsAndNotifications Error]:', err);

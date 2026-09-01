@@ -3,7 +3,6 @@ import { apiFetch } from '../shared/api';
 import { DataTable, Column } from '../shared/DataTable';
 import { Modal } from '../shared/Modal';
 import { KpiCard } from '../shared/KpiCard';
-import { FormField } from '../shared/FormField';
 
 export const ReceiptManager: React.FC = () => {
   const [receipts, setReceipts] = useState<any[]>([]);

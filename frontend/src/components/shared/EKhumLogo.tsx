@@ -36,7 +36,6 @@ export const EKhumLogo: React.FC<EKhumLogoProps> = ({
   // Colors based on software theme
   const isDark = theme === 'dark' || theme === 'white';
   const primaryLetterColor = isDark ? '#FFFFFF' : '#0F172A';
-  const smileColor = theme === 'emerald' ? '#A7F3D0' : '#059669';
   const smileGradientId = `smileGrad-${Math.random().toString(36).substr(2, 6)}`;
   const tagColor = isDark ? '#94A3B8' : '#059669';
 

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { apiFetch } from '../shared/api';
 import { DataTable } from '../shared/DataTable';
-import { AnalyticsLineGraph, AnalyticsPieChart, FunnelChart } from '../shared/Charts';
 
 export const ReportViewer: React.FC<{ report?: any; reportId?: string }> = ({ report, reportId }) => {
   const [reportData, setReportData] = useState<any>(report || null);

@@ -43,6 +43,14 @@ server.on('error', (err: any) => {
   }
 });
 
+import pool from './config/db';
+import runMigrations from './config/migrations';
+
+// Run database migrations on server boot
+runMigrations(pool).catch(err => {
+  console.error('[Migrations Error on Startup]:', err);
+});
+
 server.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`==========================================`);
   console.log(` EKhum Platform Unified Production Service Started`);
@@ -68,7 +76,6 @@ process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 // Automated Background Sweep: Mark initiated transactions older than 25 minutes without update as 'failed'
-import pool from './config/db';
 setInterval(async () => {
   try {
     const sweepRes = await pool.query(`
