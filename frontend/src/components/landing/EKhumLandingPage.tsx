@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { EKhumLogo } from '../shared/EKhumLogo';
 
-interface ShipezLandingPageProps {
+interface EKhumLandingPageProps {
   onOpenNgoLogin: () => void;
   onOpenAdminLogin?: () => void;
   onOpenCheckoutDemo?: () => void;
@@ -20,7 +20,7 @@ type PageKey =
   | 'about'
   | 'demo';
 
-export const ShipezLandingPage: React.FC<ShipezLandingPageProps> = ({
+export const EKhumLandingPage: React.FC<EKhumLandingPageProps> = ({
   onOpenNgoLogin,
 }) => {
   const [currentPage, setCurrentPage] = useState<PageKey>('index');

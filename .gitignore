@@ -11,6 +11,7 @@ dist/
 build/
 backend/dist/
 frontend/dist/
+ekhum-unified-bundle/
 *.exe
 evolution-go-whatsapp/evolution-go
 

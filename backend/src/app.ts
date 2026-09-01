@@ -35,6 +35,7 @@ import apiIntegrationRoutes from './routes/api-integrations';
 const app = express();
 
 import path from 'path';
+import fs from 'fs';
 
 // Standard Middlewares - allow cross-origin requests from external NGO landing pages
 app.use(cors({
@@ -100,13 +101,23 @@ app.use('/api/*', (req: Request, res: Response) => {
   res.status(404).json({ success: false, message: `Route not found: ${req.originalUrl}` });
 });
 
+// Serve ekhum.org static marketing website if present
+const websitePath = fs.existsSync(path.resolve(__dirname, '../../ekhum-website-code'))
+  ? path.resolve(__dirname, '../../ekhum-website-code')
+  : path.resolve(__dirname, '../ekhum-website');
+if (fs.existsSync(websitePath)) {
+  app.use('/website', express.static(websitePath));
+  app.use('/marketing', express.static(websitePath));
+}
+
 // Serve frontend SPA static production build if present
-import fs from 'fs';
-const frontendDist = path.resolve(__dirname, '../../frontend/dist');
+const frontendDist = fs.existsSync(path.resolve(__dirname, '../../frontend/dist'))
+  ? path.resolve(__dirname, '../../frontend/dist')
+  : path.resolve(__dirname, '../frontend/dist');
 if (fs.existsSync(frontendDist)) {
   app.use(express.static(frontendDist));
   app.get('*', (req: Request, res: Response, next: NextFunction) => {
-    if (req.path.startsWith('/api') || req.path.startsWith('/receipts')) {
+    if (req.path.startsWith('/api') || req.path.startsWith('/receipts') || req.path.startsWith('/website') || req.path.startsWith('/marketing')) {
       return next();
     }
     res.sendFile(path.join(frontendDist, 'index.html'));

@@ -13,7 +13,7 @@ import { JourneyList } from './components/journeys/JourneyList';
 import { JourneyCanvas } from './components/journeys/JourneyCanvas';
 import { EventTriggerSetup } from './components/journeys/EventTriggerSetup';
 import { BroadcastManager } from './components/communications/BroadcastManager';
-import { ShipezLandingPage } from './components/landing/ShipezLandingPage';
+import { EKhumLandingPage } from './components/landing/EKhumLandingPage';
 import { EKhumLogo } from './components/shared/EKhumLogo';
 
 interface NGO {
@@ -2630,9 +2630,9 @@ export default function App() {
         </div>
       )}
 
-      {/* 2. Shipez-Inspired Ultra Modern AI Landing Page */}
+      {/* 2. EKhum Ultra Modern AI Landing Page */}
       {showLandingView && !showLoginView && (
-        <ShipezLandingPage
+        <EKhumLandingPage
           onOpenNgoLogin={() => navigate('/login')}
           onOpenAdminLogin={() => navigate('/admin')}
           onOpenCheckoutDemo={() => navigate('/checkout?campaign=test_campaigns')}
