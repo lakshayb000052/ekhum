@@ -672,7 +672,9 @@ router.post('/donations/verify', async (req: Request, res: Response): Promise<vo
     const month = now.getMonth() + 1;
     const fy = month >= 4 ? `${year}-${String(year + 1).slice(2)}` : `${year - 1}-${String(year).slice(2)}`;
     const receiptNum = `80G-${resolvedGateway.toUpperCase().slice(0, 3)}-${fy}-${Date.now().toString().slice(-6)}`;
-    const pdfUrl = `http://localhost:5000/receipts/${receiptNum}.pdf`;
+    const proto = req.get('x-forwarded-proto') || req.protocol || 'https';
+    const host = req.get('host') || 'api.ekhum.org';
+    const pdfUrl = `${proto}://${host}/receipts/${receiptNum}.pdf`;
 
     const donorAddressSnapshot = [
       donation.street_address_1,
@@ -874,7 +876,8 @@ async function processWebhookPaymentConfirmation(params: {
   }
 
   const receiptNum = `80G-${params.gateway.toUpperCase().slice(0, 3)}-${Date.now().toString().slice(-6)}`;
-  const pdfUrl = `http://localhost:5000/receipts/${receiptNum}.pdf`;
+  const baseUrl = process.env.API_BASE_URL || 'https://api.ekhum.org';
+  const pdfUrl = `${baseUrl}/receipts/${receiptNum}.pdf`;
 
   if (targetDonation) {
     await pool.query(
@@ -1282,10 +1285,14 @@ router.post(['/webhooks/cashfree', '/webhooks/cashfree/test'], async (req: Reque
  */
 router.get('/embed.js', (req: Request, res: Response) => {
   res.setHeader('Content-Type', 'application/javascript');
+  const proto = req.get('x-forwarded-proto') || req.protocol || 'https';
+  const host = req.get('host') || 'api.ekhum.org';
+  const serverOrigin = `${proto}://${host}`;
   res.send(`
 (function(window, document) {
   'use strict';
   
+  var _BACKEND_ORIGIN = '${serverOrigin}';
   var DanaPro = window.DanaPro || window.EKhum || window.WeGive || window.Wegive || {};
   var EKhum = DanaPro;
   var WeGive = DanaPro;
@@ -1441,11 +1448,19 @@ router.get('/embed.js', (req: Request, res: Response) => {
     if (currentScript && currentScript.src) {
       try {
         var parsedUrl = new URL(currentScript.src);
-        inferredServerUrl = parsedUrl.origin;
+        if (parsedUrl.origin && parsedUrl.origin !== 'null') {
+          inferredServerUrl = parsedUrl.origin;
+        }
       } catch (e) {}
     }
+    if (!inferredServerUrl) {
+      inferredServerUrl = typeof _BACKEND_ORIGIN !== 'undefined' ? _BACKEND_ORIGIN : '';
+    }
+    if (window.location.hostname.indexOf('ekhum.org') !== -1 && (!inferredServerUrl || inferredServerUrl.indexOf('localhost') !== -1)) {
+      inferredServerUrl = 'https://api.ekhum.org';
+    }
     
-    var baseServerUrl = config.serverUrl || inferredServerUrl || 'http://localhost:5000';
+    var baseServerUrl = config.serverUrl || inferredServerUrl || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:5000' : 'https://api.ekhum.org');
     var endpoint = baseServerUrl + '/api/v1/external/donations/initiate';
     
     // Auto-detect fields from DOM / GTM as fallback

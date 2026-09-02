@@ -322,7 +322,7 @@
   <script>
     (function() {
       var isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-      var embedUrl = isLocal ? 'http://localhost:5000/embed.js' : 'https://api.ekhum.org/embed.js';
+      var embedUrl = isLocal ? 'http://localhost:5000/api/v1/external/embed.js' : 'https://api.ekhum.org/api/v1/external/embed.js';
       document.write('<script src="' + embedUrl + '"><\/script>');
     })();
   </script>
@@ -670,6 +670,7 @@
           // 🔑 Specific Campaign Credentials
           apiKey: "ek_live_childfundcamp_944124",
           campaignSlug: "child_fund_camp",
+          serverUrl: API_BASE,
           
           // 💳 Multi-Gateway Smart Failover Engine
           gateway: "razorpay", // Primary Aligned Rail (Razorpay Gateway Rail)
