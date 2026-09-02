@@ -6564,7 +6564,7 @@ export default function App() {
 
                           <div className="form-group" style={{ marginBottom: 0 }}>
                             <label className="form-label">🌐 External NGO Landing Page URL</label>
-                            <input type="url" className="form-input" value={newCampLandingPageUrl} onChange={(e) => setNewCampLandingPageUrl(e.target.value)} placeholder="https://finmantra.org/campaign" />
+                            <input type="url" className="form-input" value={newCampLandingPageUrl} onChange={(e) => setNewCampLandingPageUrl(e.target.value)} placeholder="https://childfund.org/campaign" />
                           </div>
 
                           {/* DYNAMIC CHECKBOX GATEWAY ALIGNMENT (ONLY SHOWS TARGET NGO'S CONFIGURED GATEWAYS) */}
@@ -6682,7 +6682,7 @@ export default function App() {
 
                           <div className="form-group" style={{ marginBottom: 0 }}>
                             <label className="form-label">🌐 External NGO Landing Page URL</label>
-                            <input type="url" className="form-input" value={editCampLandingPageUrl} onChange={(e) => setEditCampLandingPageUrl(e.target.value)} placeholder="https://finmantra.org/campaign" />
+                            <input type="url" className="form-input" value={editCampLandingPageUrl} onChange={(e) => setEditCampLandingPageUrl(e.target.value)} placeholder="https://childfund.org/campaign" />
                           </div>
 
                           <div className="form-group" style={{ marginBottom: 0 }}>

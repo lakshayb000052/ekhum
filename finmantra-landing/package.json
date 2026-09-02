@@ -1,7 +1,7 @@
 {
-  "name": "finmantra-landing",
+  "name": "childfund-landing",
   "version": "1.0.0",
-  "description": "FinMantra NGO Official Landing Page on Port 8000",
+  "description": "ChildFund NGO Official Landing Page on Port 8000",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

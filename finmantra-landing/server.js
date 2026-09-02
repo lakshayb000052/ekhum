@@ -12,7 +12,7 @@ app.get('*', (req, res) => {
 
 app.listen(PORT, () => {
   console.log('===================================================');
-  console.log(` FinMantra NGO Landing Page Live at: http://localhost:${PORT}`);
-  console.log(` Connected to DanaPro Backend: http://localhost:5000`);
+  console.log(` ChildFund NGO Landing Page Live at: http://localhost:${PORT}`);
+  console.log(` Connected to EKhum Platform Backend`);
   console.log('===================================================');
 });
