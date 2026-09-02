@@ -360,7 +360,7 @@
     
     <!-- Left Campaign Pitch -->
     <div>
-      <div class="campaign-badge">🎯 Campaign: Child Fund (/chilf_fund_camp)</div>
+      <div class="campaign-badge">🎯 Campaign: Child Fund (/child_fund_camp)</div>
       <h1 class="hero-title">Empower Vulnerable Children with Health, Nutrition & Education</h1>
       <p class="hero-desc">
         Your contribution directly provides life-saving healthcare kits, clean nutrition, and continuous schooling for underprivileged children. 
@@ -398,7 +398,7 @@
       <div class="debug-panel">
         <div class="debug-title">
           <span>🔌 EKhum Embed SDK Live Event Log</span>
-          <span style="font-size:0.68rem; color:#94A3B8;">Origin: http://localhost:2000</span>
+          <span style="font-size:0.68rem; color:#94A3B8;" id="origin-indicator">Origin: https://ekhum.org/ngo/</span>
         </div>
         <div id="log-container">[Ready] Embed SDK Initialized. Ready for ChildFund payments...</div>
       </div>
@@ -577,7 +577,7 @@
 
       <div style="background:#F8FAFC; border:1px solid var(--border); border-radius:10px; padding:14px; text-align:left; font-size:0.80rem; margin-bottom:18px;">
         <div style="margin-bottom:5px;"><strong>Transaction ID:</strong> <code id="modal-tx-id">pay_123456</code></div>
-        <div style="margin-bottom:5px;"><strong>Campaign:</strong> Child Fund (/chilf_fund_camp)</div>
+        <div style="margin-bottom:5px;"><strong>Campaign:</strong> Child Fund (/child_fund_camp)</div>
         <div style="margin-bottom:5px;"><strong>Beneficiary NGO:</strong> ChildFund</div>
         <div><strong>80G Statutory URN:</strong> AAATC1234F2180G1</div>
       </div>
@@ -663,13 +663,13 @@
       btn.disabled = true;
       btn.innerText = '⚡ Connecting to ChildFund Rails...';
 
-      log('🚀 Calling <code>EKhum.pay()</code> with Campaign API Key <code>ek_live_chilffundcamp_809074</code>...');
+      log('🚀 Calling <code>EKhum.pay()</code> with Campaign API Key <code>ek_live_childfundcamp_944124</code>...');
 
       if (typeof window.EKhum !== 'undefined' && window.EKhum.pay) {
         window.EKhum.pay({
           // 🔑 Specific Campaign Credentials
-          apiKey: "ek_live_chilffundcamp_809074",
-          campaignSlug: "chilf_fund_camp",
+          apiKey: "ek_live_childfundcamp_944124",
+          campaignSlug: "child_fund_camp",
           
           // 💳 Multi-Gateway Smart Failover Engine
           gateway: "razorpay", // Primary Aligned Rail (Razorpay Gateway Rail)
@@ -717,7 +717,7 @@
           // 📣 Marketing Attribution & Telemetry
           utm_source: new URLSearchParams(window.location.search).get('utm_source') || "google_ads",
           utm_medium: new URLSearchParams(window.location.search).get('utm_medium') || "cpc",
-          utm_campaign: new URLSearchParams(window.location.search).get('utm_campaign') || "chilf_fund_camp",
+          utm_campaign: new URLSearchParams(window.location.search).get('utm_campaign') || "child_fund_camp",
           fundraiser_id: new URLSearchParams(window.location.search).get('fundraiser_id') || undefined,
           volunteer_code: new URLSearchParams(window.location.search).get('vol_code') || undefined,
 
@@ -756,10 +756,10 @@
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'x-ekhum-api-key': 'ek_live_chilffundcamp_809074'
+            'x-ekhum-api-key': 'ek_live_childfundcamp_944124'
           },
           body: JSON.stringify({
-            campaignSlug: 'chilf_fund_camp',
+            campaignSlug: 'child_fund_camp',
             amount: amount,
             currency: 'INR',
             name: fullName,
