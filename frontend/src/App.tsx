@@ -446,7 +446,17 @@ export default function App() {
   // Listen to hash changes in URL for direct subtab navigation
   useEffect(() => {
     const handleHashSync = () => {
-      const hash = window.location.hash.replace('#', '').toLowerCase();
+      const rawHash = window.location.hash;
+      if (rawHash.startsWith('#contact=')) {
+        if (currentPath === '/superadmin') {
+          setActiveSuperadminTab('contacts');
+        } else if (currentPath === '/ngo') {
+          setActiveNgoTab('contacts');
+        }
+        return;
+      }
+
+      const hash = rawHash.replace('#', '').toLowerCase();
       if (!hash) return;
       
       const tabMap: Record<string, any> = {
@@ -1213,6 +1223,22 @@ export default function App() {
   const [editCampAllowAnon, setEditCampAllowAnon] = useState<boolean>(true);
   const [editCampTaxEnabled, setEditCampTaxEnabled] = useState<boolean>(true);
   const [selectedCampForEmbedModal, setSelectedCampForEmbedModal] = useState<Campaign | null>(null);
+  const [embedModalTab, setEmbedModalTab] = useState<'js_embed' | 'auto_bind' | 'rest_api' | 'tokens' | 'data_layer' | 'sandbox' | 'checkout'>('js_embed');
+  const [sandboxAmount, setSandboxAmount] = useState<number>(100);
+  const [sandboxDonorName, setSandboxDonorName] = useState<string>('Aarav Sharma');
+  const [sandboxDonorEmail, setSandboxDonorEmail] = useState<string>('aarav.sharma@example.com');
+  const [sandboxDonorPhone, setSandboxDonorPhone] = useState<string>('+919876543210');
+  const [sandboxDonorPan, setSandboxDonorPan] = useState<string>('ABCDE1234F');
+  const [sandboxGateway, setSandboxGateway] = useState<string>('auto');
+  const [sandboxIsMonthly, setSandboxIsMonthly] = useState<boolean>(false);
+  const [sandboxRunning, setSandboxRunning] = useState<boolean>(false);
+  const [sandboxErrorResult, setSandboxErrorResult] = useState<string | null>(null);
+
+  // Global Header & App Launcher States
+  const [globalSearchQuery, setGlobalSearchQuery] = useState<string>('');
+  const [showQuickCreateMenu, setShowQuickCreateMenu] = useState<boolean>(false);
+  const [showAppLauncherModal, setShowAppLauncherModal] = useState<boolean>(false);
+  const [showNotificationsModal, setShowNotificationsModal] = useState<boolean>(false);
 
   // System Settings Extended States
   const [sysRazorpayWebhookSecret, setSysRazorpayWebhookSecret] = useState<string>('');
@@ -2840,13 +2866,72 @@ export default function App() {
       )}
 
       {(!showLandingView && !showLoginView) && (
-        <div className="app-container" style={{ flex: 1 }}>
-          
-          <aside className="sidebar">
-            <div className="brand-section" style={{ cursor: 'pointer', padding: '4px 0 16px 0', borderBottom: '1px solid #E2E8F0', marginBottom: '16px' }} onClick={() => navigate('/')}>
-              <EKhumLogo variant="full" size="sm" withTagline theme="light" />
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', backgroundColor: 'var(--background)' }}>
+          {/* GLOBAL HEADER */}
+          <header className="slds-global-header">
+            {/* Left: App Launcher & Organization Brand */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              {/* 9-Dot App Launcher */}
+              <button
+                type="button"
+                onClick={() => setShowAppLauncherModal(true)}
+                title="Ekhum Cloud App Launcher"
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '6px',
+                  borderRadius: '6px',
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(3, 4px)',
+                  gap: '3px',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                {[...Array(9)].map((_, i) => (
+                  <span key={i} style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: '#059669', display: 'block' }} />
+                ))}
+              </button>
+
+              {/* Logo / Brand */}
+              <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }} onClick={() => navigate('/')}>
+                <EKhumLogo variant="full" size="sm" theme="light" />
+              </div>
             </div>
 
+            {/* Right: Notifications & Profile */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              {/* Notification Bell */}
+              <button
+                type="button"
+                onClick={() => setShowNotificationsModal(!showNotificationsModal)}
+                style={{ background: '#F1F5F9', border: '1px solid #E2E8F0', padding: '6px 8px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', position: 'relative' }}
+                title="Notifications"
+              >
+                <svg width="16" height="16" fill="none" stroke="#475569" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                </svg>
+                <span style={{ position: 'absolute', top: '-4px', right: '-4px', width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#059669' }} />
+              </button>
+
+              {/* User / Org Role Pill */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#F8FAFC', border: '1px solid #E2E8F0', padding: '5px 12px', borderRadius: '20px' }}>
+                <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#059669', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 700 }}>
+                  {(userSession?.user?.email || 'U')[0].toUpperCase()}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#0F172A', lineHeight: 1.2 }}>
+                    {userSession?.user?.role === 'superadmin' ? 'Super Administrator' : (userSession?.user?.orgName || 'NGO Workspace')}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </header>
+
+          <div className="app-container" style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+          
+          <aside className="sidebar">
             <nav style={{ flex: 1 }}>
               <ul className="nav-links">
                 {userSession?.user?.role === 'superadmin' ? (
@@ -2866,7 +2951,7 @@ export default function App() {
                     <li>
                       <a href="#campaigns" className={`nav-link ${currentPath === '/superadmin' && activeSuperadminTab === 'campaigns' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); navigate('/superadmin'); setActiveSuperadminTab('campaigns'); }}>
                         <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                        Campaigns & Keys
+                        Campaigns
                       </a>
                     </li>
                     <li>
@@ -2879,12 +2964,6 @@ export default function App() {
                       <a href="#ledger" className={`nav-link ${currentPath === '/superadmin' && activeSuperadminTab === 'transactions' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); navigate('/superadmin'); setActiveSuperadminTab('transactions'); }}>
                         <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
                         Master Ledger
-                      </a>
-                    </li>
-                    <li>
-                      <a href="#communications" className={`nav-link ${currentPath === '/superadmin' && activeSuperadminTab === 'communications' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); navigate('/superadmin'); setActiveSuperadminTab('communications'); }}>
-                        <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-                        Communications
                       </a>
                     </li>
                     <li>
@@ -2981,12 +3060,6 @@ export default function App() {
                       </a>
                     </li>
                     <li>
-                      <a href="#ngo-communications" className={`nav-link ${currentPath === '/ngo' && activeNgoTab === 'communications' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); navigate('/ngo'); setActiveNgoTab('communications'); }}>
-                        <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-                        Communications
-                      </a>
-                    </li>
-                    <li>
                       <a href="#ngo-journeys" className={`nav-link ${currentPath === '/ngo' && activeNgoTab === 'journeys' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); navigate('/ngo'); setActiveNgoTab('journeys'); setSelectedJourney(null); }}>
                         <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                         Journey Builder
@@ -3033,14 +3106,52 @@ export default function App() {
               </ul>
             </nav>
 
-            <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
-              <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>
-                Logged in as:<br/><strong>{userSession?.user?.email || 'Guest'}</strong>
+            <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: '12px', marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#F8FAFC', padding: '8px 10px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#059669', color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.80rem', fontWeight: 700, flexShrink: 0 }}>
+                  {(userSession?.user?.email || 'U')[0].toUpperCase()}
+                </div>
+                <div style={{ overflow: 'hidden', flex: 1 }}>
+                  <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {userSession?.user?.email || 'Administrator'}
+                  </div>
+                  <div style={{ fontSize: '0.68rem', color: '#059669', fontWeight: 600 }}>
+                    {userSession?.user?.role === 'superadmin' ? 'Super Administrator' : 'NGO Administrator'}
+                  </div>
+                </div>
               </div>
+
               {userSession ? (
-                <button onClick={handleLogout} className="btn btn-secondary" style={{ width: '100%', padding: '6px 12px', fontSize: '0.85rem' }}>Logout</button>
+                <button 
+                  onClick={handleLogout} 
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    fontSize: '0.82rem',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    color: '#DC2626',
+                    border: '1px solid #FECACA',
+                    backgroundColor: '#FEF2F2',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s'
+                  }}
+                >
+                  <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                  <span>Log Out</span>
+                </button>
               ) : (
-                <button onClick={(e) => { e.preventDefault(); navigate('/login'); }} className="btn btn-primary" style={{ width: '100%', padding: '6px 12px', fontSize: '0.85rem' }}>Login</button>
+                <button 
+                  onClick={(e) => { e.preventDefault(); navigate('/login'); }} 
+                  className="btn btn-primary"
+                  style={{ width: '100%', padding: '8px 12px', fontSize: '0.82rem' }}
+                >
+                  Sign In
+                </button>
               )}
             </div>
           </aside>
@@ -3110,11 +3221,49 @@ export default function App() {
 
                 {/* NGO Tab 2: Campaigns */}
                 {activeNgoTab === 'campaigns' && (
-                  <div style={{ display: 'flex', gap: '24px', alignItems: 'stretch', flex: 1, overflow: 'hidden', minHeight: 0, paddingBottom: '8px' }}>
-                    {/* Left List Card (60%) */}
-                    <div className="card" style={{ flex: '1 1 60%', display: 'flex', flexDirection: 'column', overflow: 'hidden', height: '100%' }}>
-                      <h3 style={{ marginBottom: '16px', flexShrink: 0 }}>Active Campaigns</h3>
-                      <div style={{ flex: 1, overflowY: 'auto', paddingRight: '4px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', minHeight: 0, paddingBottom: '8px' }}>
+                    <div className="slds-page-header" style={{ marginBottom: '16px', flexShrink: 0 }}>
+                      <div className="slds-page-header__top">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                          <div className="slds-object-icon">
+                            🎯
+                          </div>
+                          <div>
+                            <span className="slds-object-eyebrow">Fundraising Objects</span>
+                            <h2 className="slds-object-title">
+                              Campaigns & Embed Integration
+                            </h2>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="slds-highlights-ribbon">
+                        <div className="slds-highlight-item">
+                          <span className="slds-highlight-item__label">Active Campaigns</span>
+                          <span className="slds-highlight-item__value">
+                            {campaigns.length} Fundraisers
+                          </span>
+                        </div>
+                        <div className="slds-highlight-item">
+                          <span className="slds-highlight-item__label">Total Raised</span>
+                          <span className="slds-highlight-item__value" style={{ color: '#059669' }}>
+                            ₹{donations.filter(d => d.status === 'completed' || d.status === 'success').reduce((acc, curr) => acc + Number(curr.amount || 0), 0).toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="slds-highlight-item">
+                          <span className="slds-highlight-item__label">Live Embed Status</span>
+                          <span className="slds-highlight-item__value" style={{ color: '#059669' }}>
+                            Ready to Embed
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '20px', alignItems: 'stretch', flex: 1, overflow: 'hidden', minHeight: 0 }}>
+                      {/* Left List Card (60%) */}
+                      <div className="card" style={{ flex: '1 1 60%', display: 'flex', flexDirection: 'column', overflow: 'hidden', height: '100%' }}>
+                        <h3 style={{ marginBottom: '14px', flexShrink: 0, fontSize: '1rem', color: '#0F172A' }}>Active Campaigns</h3>
+                        <div style={{ flex: 1, overflowY: 'auto', paddingRight: '4px' }}>
                         <table className="data-table">
                           <thead>
                             <tr>
@@ -3240,22 +3389,64 @@ export default function App() {
                       )}
                     </div>
                   </div>
+                  </div>
                 )}
 
                 {/* NGO Tab 3: Donations Ledger */}
                 {activeNgoTab === 'transactions' && (
                   <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', minHeight: 0, paddingBottom: '8px' }}>
-                    <div className="card" style={{ marginBottom: '16px', flexShrink: 0 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <h3 style={{ margin: 0 }}>Transactions Ledger</h3>
-                        <div style={{ width: '300px' }}>
+                    <div className="slds-page-header" style={{ marginBottom: '16px', flexShrink: 0 }}>
+                      <div className="slds-page-header__top">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                          <div className="slds-object-icon">
+                            💰
+                          </div>
+                          <div>
+                            <span className="slds-object-eyebrow">Financial Ledger</span>
+                            <h2 className="slds-object-title">
+                              Donations & Contributions Ledger
+                            </h2>
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                           <input 
                             type="text" 
                             className="form-input" 
-                            placeholder="Search by donor name or email..."
+                            placeholder="Search by donor name, email or phone..."
                             value={donorSearchQuery}
                             onChange={(e) => setDonorSearchQuery(e.target.value)}
+                            style={{ width: '260px', padding: '6px 12px', fontSize: '0.82rem' }}
                           />
+                          <a href="/api/compliance/export/10bd" className="btn btn-primary" download>
+                            📄 Export 10BD CSV
+                          </a>
+                        </div>
+                      </div>
+
+                      <div className="slds-highlights-ribbon">
+                        <div className="slds-highlight-item">
+                          <span className="slds-highlight-item__label">Total Donations</span>
+                          <span className="slds-highlight-item__value">
+                            {donations.length} Received
+                          </span>
+                        </div>
+                        <div className="slds-highlight-item">
+                          <span className="slds-highlight-item__label">Gross Collected</span>
+                          <span className="slds-highlight-item__value" style={{ color: '#059669' }}>
+                            ₹{donations.filter(d => d.status === 'completed' || d.status === 'success').reduce((acc, curr) => acc + Number(curr.amount || 0), 0).toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="slds-highlight-item">
+                          <span className="slds-highlight-item__label">Unique Donors</span>
+                          <span className="slds-highlight-item__value">
+                            {new Set(donations.map(d => d.donorEmail)).size} Donors
+                          </span>
+                        </div>
+                        <div className="slds-highlight-item">
+                          <span className="slds-highlight-item__label">80G Status</span>
+                          <span className="slds-highlight-item__value" style={{ color: '#059669' }}>
+                            Instant Auto-Sync
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -3717,34 +3908,55 @@ export default function App() {
                 {/* 1. OVERVIEW SUBTAB (DASHBOARD) */}
                 {activeSuperadminTab === 'overview' && (
                   <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflowY: 'auto', paddingRight: '6px' }}>
-                    <div className="page-header" style={{ marginBottom: '20px', flexShrink: 0 }}>
-                      <div>
-                        <h2>Platform Performance & Overview</h2>
-                        <p style={{ color: 'var(--text-secondary)' }}>Live platform volumes, revenue metrics, and shortcut task triggers.</p>
+                    <div className="slds-page-header" style={{ marginBottom: '16px', flexShrink: 0 }}>
+                      <div className="slds-page-header__top">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                          <div className="slds-object-icon">
+                            📊
+                          </div>
+                          <div>
+                            <span className="slds-object-eyebrow">Executive Analytics</span>
+                            <h2 className="slds-object-title">
+                              Platform Performance & Overview
+                            </h2>
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button 
+                            onClick={fetchData}
+                            className="btn btn-secondary"
+                            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                          >
+                            🔄 Refresh Data
+                          </button>
+                        </div>
                       </div>
-                    </div>
 
-                    {/* 4 Stat Cards */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
-                      <div className="card stat-card" style={{ borderLeft: '4px solid var(--primary)', padding: '16px' }}>
-                        <span className="stat-label">Total System NGOs</span>
-                        <span className="stat-value" style={{ fontSize: '1.5rem', color: 'var(--primary)' }}>{globalMetrics.totalOrganizations} Registered</span>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Active non-profit orgs</span>
-                      </div>
-                      <div className="card stat-card" style={{ borderLeft: '4px solid var(--secondary)', padding: '16px' }}>
-                        <span className="stat-label">Gross Platform Volume (GMV)</span>
-                        <span className="stat-value" style={{ fontSize: '1.5rem', color: 'var(--secondary)' }}>₹{globalMetrics.grossVolumeGMV.toLocaleString()}</span>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Total volume raised</span>
-                      </div>
-                      <div className="card stat-card" style={{ borderLeft: '4px solid #10B981', padding: '16px' }}>
-                        <span className="stat-label">Active Donors</span>
-                        <span className="stat-value" style={{ fontSize: '1.5rem', color: '#10B981' }}>{globalMetrics.activeDonors} Donors</span>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Unique supporters</span>
-                      </div>
-                      <div className="card stat-card" style={{ borderLeft: '4px solid var(--info)', padding: '16px' }}>
-                        <span className="stat-label">Platform Fees Revenue</span>
-                        <span className="stat-value" style={{ fontSize: '1.5rem', color: 'var(--info)' }}>₹{globalMetrics.platformFeeRevenue.toLocaleString()}</span>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>0.00% Free Platform</span>
+                      <div className="slds-highlights-ribbon">
+                        <div className="slds-highlight-item">
+                          <span className="slds-highlight-item__label">Total System NGOs</span>
+                          <span className="slds-highlight-item__value" style={{ color: '#059669' }}>
+                            {globalMetrics.totalOrganizations} Registered
+                          </span>
+                        </div>
+                        <div className="slds-highlight-item">
+                          <span className="slds-highlight-item__label">Gross Volume (GMV)</span>
+                          <span className="slds-highlight-item__value">
+                            ₹{globalMetrics.grossVolumeGMV.toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="slds-highlight-item">
+                          <span className="slds-highlight-item__label">Active Donors</span>
+                          <span className="slds-highlight-item__value" style={{ color: '#059669' }}>
+                            {globalMetrics.activeDonors} Donors
+                          </span>
+                        </div>
+                        <div className="slds-highlight-item">
+                          <span className="slds-highlight-item__label">Platform Fee Rate</span>
+                          <span className="slds-highlight-item__value">
+                            0.00% (Free Platform)
+                          </span>
+                        </div>
                       </div>
                     </div>
 
@@ -4032,12 +4244,52 @@ export default function App() {
                 {/* 3. CAMPAIGNS & SPECIFIC GATEWAY KEYS SUBTAB */}
                 {activeSuperadminTab === 'campaigns' && (
                   <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflowY: 'auto', paddingRight: '6px' }}>
-                    <div className="page-header" style={{ marginBottom: '20px', flexShrink: 0 }}>
-                      <div>
-                        <h2>Campaigns Oversight & Multi-Gateway Alignment</h2>
-                        <p style={{ color: 'var(--text-secondary)' }}>Review pending campaigns and align specific payment rails assigned to their parent NGO using checkboxes.</p>
+                    <div className="slds-page-header" style={{ marginBottom: '16px', flexShrink: 0 }}>
+                      <div className="slds-page-header__top">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                          <div className="slds-object-icon">
+                            🎯
+                          </div>
+                          <div>
+                            <span className="slds-object-eyebrow">Fundraising Objects</span>
+                            <h2 className="slds-object-title">
+                              Campaigns Oversight & Multi-Gateway Alignment
+                            </h2>
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button onClick={() => setShowAddCampaignModal(true)} className="btn btn-primary">
+                            + Create New Campaign
+                          </button>
+                        </div>
                       </div>
-                      <button onClick={() => setShowAddCampaignModal(true)} className="btn btn-primary">Create New Campaign</button>
+
+                      <div className="slds-highlights-ribbon">
+                        <div className="slds-highlight-item">
+                          <span className="slds-highlight-item__label">Total Campaigns</span>
+                          <span className="slds-highlight-item__value">
+                            {campaigns.length} Fundraisers
+                          </span>
+                        </div>
+                        <div className="slds-highlight-item">
+                          <span className="slds-highlight-item__label">Live & Approved</span>
+                          <span className="slds-highlight-item__value" style={{ color: '#059669' }}>
+                            {campaigns.filter(c => c.is_active && c.approval_status !== 'pending').length} Active
+                          </span>
+                        </div>
+                        <div className="slds-highlight-item">
+                          <span className="slds-highlight-item__label">Pending Approval</span>
+                          <span className="slds-highlight-item__value" style={{ color: '#D97706' }}>
+                            {campaigns.filter(c => c.approval_status === 'pending' || !c.is_active).length} Review
+                          </span>
+                        </div>
+                        <div className="slds-highlight-item">
+                          <span className="slds-highlight-item__label">Embed APIs Status</span>
+                          <span className="slds-highlight-item__value" style={{ color: '#059669' }}>
+                            Universal & Specialized Live
+                          </span>
+                        </div>
+                      </div>
                     </div>
 
                     <div className="card">
@@ -4045,7 +4297,7 @@ export default function App() {
                         <thead>
                           <tr>
                             <th>Campaign Title</th>
-                            <th>DanaPro API Key</th>
+                            <th>EKhum API Key & Embed</th>
                             <th>External Landing Page URL</th>
                             <th>NGO Owner</th>
                             <th>Target Goal</th>
@@ -4057,7 +4309,7 @@ export default function App() {
                         <tbody>
                           {campaigns.map((camp) => {
                             const pConfig = camp.payment_config || {};
-                            const apiKey = camp.api_key || `dp_live_${camp.slug}_key`;
+                            const apiKey = camp.api_key || `ek_live_${camp.slug}_key`;
                             const parentNgo = organizations.find(o => o.id === camp.organization_id);
                             const ngoRails = extractNgoRails(parentNgo);
                             const assignedIds: string[] = Array.isArray(pConfig.assigned_gateway_ids) ? pConfig.assigned_gateway_ids : [];
@@ -4073,10 +4325,10 @@ export default function App() {
                                   <code 
                                     onClick={() => {
                                       navigator.clipboard.writeText(apiKey);
-                                      alert(`Copied DanaPro API Key: ${apiKey}`);
+                                      alert(`Copied EKhum API Key: ${apiKey}`);
                                     }}
-                                    title="Click to copy DanaPro API Key"
-                                    style={{ fontSize: '0.75rem', color: '#2563EB', background: '#EFF6FF', padding: '3px 8px', borderRadius: '4px', border: '1px solid #BFDBFE', cursor: 'pointer' }}
+                                    title="Click to copy EKhum API Key"
+                                    style={{ fontSize: '0.75rem', color: '#059669', background: '#ECFDF5', padding: '3px 8px', borderRadius: '4px', border: '1px solid #A7F3D0', cursor: 'pointer', fontWeight: 600 }}
                                   >
                                     📋 {apiKey.slice(0, 18)}...
                                   </code>
@@ -4151,9 +4403,9 @@ export default function App() {
                                     <button 
                                       onClick={() => setSelectedCampForEmbedModal(camp)}
                                       className="btn btn-secondary"
-                                      style={{ padding: '4px 8px', fontSize: '0.75rem', color: '#2563EB', borderColor: '#BFDBFE' }}
+                                      style={{ padding: '4px 10px', fontSize: '0.75rem', color: '#1D4ED8', background: '#EFF6FF', borderColor: '#93C5FD', fontWeight: 700 }}
                                     >
-                                      🔌 Embed Code
+                                      🔌 Embed & REST APIs
                                     </button>
                                     <button 
                                       onClick={() => {
@@ -4339,10 +4591,58 @@ export default function App() {
                 {/* 4. MASTER TRANSACTIONS LEDGER */}
                 {activeSuperadminTab === 'transactions' && (
                   <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflowY: 'auto', paddingRight: '6px' }}>
-                    <div className="page-header" style={{ marginBottom: '20px', flexShrink: 0 }}>
-                      <div>
-                        <h2>Global Transactions Ledger</h2>
-                        <p style={{ color: 'var(--text-secondary)' }}>Global ledger monitoring contributions, settlement rails, and receipts.</p>
+                    <div className="slds-page-header" style={{ marginBottom: '16px', flexShrink: 0 }}>
+                      <div className="slds-page-header__top">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                          <div className="slds-object-icon">
+                            💰
+                          </div>
+                          <div>
+                            <span className="slds-object-eyebrow">Financial Ledger</span>
+                            <h2 className="slds-object-title">
+                              Global Transactions & Settlement Ledger
+                            </h2>
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button 
+                            onClick={fetchData}
+                            className="btn btn-secondary"
+                            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                          >
+                            🔄 Sync Gateways
+                          </button>
+                          <a href="/api/compliance/export/10bd" className="btn btn-primary" download>
+                            📄 Export 10BD CSV
+                          </a>
+                        </div>
+                      </div>
+
+                      <div className="slds-highlights-ribbon">
+                        <div className="slds-highlight-item">
+                          <span className="slds-highlight-item__label">Total Transactions</span>
+                          <span className="slds-highlight-item__value">
+                            {donations.length} Records
+                          </span>
+                        </div>
+                        <div className="slds-highlight-item">
+                          <span className="slds-highlight-item__label">Gross Settled Amount</span>
+                          <span className="slds-highlight-item__value" style={{ color: '#059669' }}>
+                            ₹{donations.filter(d => d.status === 'completed' || d.status === 'success').reduce((acc, curr) => acc + Number(curr.amount || 0), 0).toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="slds-highlight-item">
+                          <span className="slds-highlight-item__label">Recurring Mandates</span>
+                          <span className="slds-highlight-item__value" style={{ color: '#7C3AED' }}>
+                            {donations.filter(d => !!d.subscriptionId).length} Subscriptions
+                          </span>
+                        </div>
+                        <div className="slds-highlight-item">
+                          <span className="slds-highlight-item__label">Multi-Gateway Rails</span>
+                          <span className="slds-highlight-item__value">
+                            Razorpay, Cashfree, PayU
+                          </span>
+                        </div>
                       </div>
                     </div>
 
@@ -5726,11 +6026,11 @@ export default function App() {
                           <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '14px' }}>
                             <div className="form-group" style={{ marginBottom: 0 }}>
                               <label className="form-label">NGO Organization Name</label>
-                              <input type="text" className="form-input" value={newNgoName} onChange={(e) => setNewNgoName(e.target.value)} required placeholder="e.g. Ladli Foundation" />
+                              <input type="text" className="form-input" value={newNgoName} onChange={(e) => setNewNgoName(e.target.value)} required placeholder="e.g. Hope Foundation" />
                             </div>
                             <div className="form-group" style={{ marginBottom: 0 }}>
                               <label className="form-label">URL Slug</label>
-                              <input type="text" className="form-input" value={newNgoSlug} onChange={(e) => setNewNgoSlug(e.target.value)} required placeholder="ladli-foundation" />
+                              <input type="text" className="form-input" value={newNgoSlug} onChange={(e) => setNewNgoSlug(e.target.value)} required placeholder="hope-foundation" />
                             </div>
                           </div>
 
@@ -5764,7 +6064,7 @@ export default function App() {
                             </label>
                             <input 
                               type="email" 
-                              placeholder="e.g. donations@ladlifoundation.org" 
+                              placeholder="e.g. donations@org.in" 
                               className="form-input" 
                               value={newNgoVerifiedSender} 
                               onChange={(e) => setNewNgoVerifiedSender(e.target.value)} 
@@ -5782,7 +6082,7 @@ export default function App() {
                                 <input 
                                   type="email" 
                                   required 
-                                  placeholder="worker@ladlifoundation.org" 
+                                  placeholder="worker@org.in" 
                                   className="form-input" 
                                   value={newNgoAdminEmail} 
                                   onChange={(e) => setNewNgoAdminEmail(e.target.value)} 
@@ -6017,7 +6317,7 @@ export default function App() {
                             </label>
                             <input 
                               type="email" 
-                              placeholder="e.g. donations@ladlifoundation.org" 
+                              placeholder="e.g. donations@org.in" 
                               className="form-input" 
                               value={editNgoVerifiedSender} 
                               onChange={(e) => setEditNgoVerifiedSender(e.target.value)} 
@@ -6032,7 +6332,7 @@ export default function App() {
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                               <input 
                                 type="email" 
-                                placeholder="worker@ladlifoundation.org" 
+                                placeholder="worker@org.in" 
                                 className="form-input" 
                                 value={editNgoAdminEmail} 
                                 onChange={(e) => setEditNgoAdminEmail(e.target.value)} 
@@ -6659,6 +6959,7 @@ export default function App() {
 
           </main>
         </div>
+      </div>
       )}
 
       {realtimeNotification && (
@@ -6697,6 +6998,102 @@ export default function App() {
           </button>
         </div>
       )}
+      {/* App Launcher Modal */}
+      {showAppLauncherModal && (
+        <div className="modal-backdrop" onClick={() => setShowAppLauncherModal(false)}>
+          <div className="modal-container" style={{ maxWidth: '640px', padding: '24px' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: '#059669', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}>
+                  ☁️
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.15rem', color: '#0F172A', fontWeight: 700 }}>Ekhum Nonprofit Cloud App Launcher</h3>
+                  <p style={{ margin: 0, fontSize: '0.78rem', color: '#64748B' }}>Quickly switch between CRM objects, engines, and workspaces</p>
+                </div>
+              </div>
+              <button onClick={() => setShowAppLauncherModal(false)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: '#64748B' }}>✕</button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+              {[
+                { title: 'Contacts CRM', desc: 'Donor 360 & Profiles', icon: '👥', tab: 'contacts' },
+                { title: 'Campaigns & Embeds', desc: 'Fundraisers & Gateway APIs', icon: '🎯', tab: 'campaigns' },
+                { title: 'Master Ledger', desc: 'Donations & Subscriptions', icon: '💰', tab: 'transactions' },
+                { title: 'Communications', desc: 'WhatsApp & Email Threads', icon: '💬', tab: 'communications' },
+                { title: 'Journey Builder', desc: 'Automations & Workflows', icon: '⚡', tab: 'journeys' },
+                { title: 'Broadcasts Hub', desc: 'Bulk Campaigns & Outreach', icon: '📢', tab: 'broadcasts' },
+                { title: '80G & 10BD Tax', desc: 'Statutory Receipts & Filings', icon: '📜', tab: 'compliance' },
+                { title: 'Segments & Cohorts', desc: 'Query Builder & Filters', icon: '🎯', tab: 'segments' },
+                { title: 'Custom Reports', desc: 'Analytics & Dashboards', icon: '📈', tab: 'reports' },
+                { title: 'Object Manager', desc: 'Custom Schema & Rules', icon: '⚙️', tab: 'objectManager' },
+                { title: 'WhatsApp & Rails', desc: 'Gateway Credentials Hub', icon: '🔌', tab: 'integrations' },
+                { title: 'Settings', desc: 'Permissions & System Config', icon: '🛠️', tab: 'settings' }
+              ].map(app => (
+                <div
+                  key={app.tab}
+                  onClick={() => {
+                    setShowAppLauncherModal(false);
+                    if (userSession?.user?.role === 'superadmin') {
+                      navigate('/superadmin');
+                      setActiveSuperadminTab(app.tab as any);
+                    } else {
+                      navigate('/ngo');
+                      setActiveNgoTab(app.tab as any);
+                    }
+                  }}
+                  style={{
+                    background: '#F8FAFC',
+                    border: '1px solid #E2E8F0',
+                    borderRadius: '10px',
+                    padding: '14px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = '#ECFDF5';
+                    e.currentTarget.style.borderColor = '#A7F3D0';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = '#F8FAFC';
+                    e.currentTarget.style.borderColor = '#E2E8F0';
+                  }}
+                >
+                  <div style={{ fontSize: '1.4rem' }}>{app.icon}</div>
+                  <strong style={{ fontSize: '0.85rem', color: '#0F172A' }}>{app.title}</strong>
+                  <span style={{ fontSize: '0.72rem', color: '#64748B' }}>{app.desc}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Notifications Drawer Modal */}
+      {showNotificationsModal && (
+        <div className="modal-backdrop" onClick={() => setShowNotificationsModal(false)}>
+          <div className="modal-container" style={{ maxWidth: '440px', padding: '20px' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <h3 style={{ margin: 0, fontSize: '1rem', color: '#0F172A', fontWeight: 700 }}>🔔 System & Gateway Notifications</h3>
+              <button onClick={() => setShowNotificationsModal(false)} style={{ background: 'none', border: 'none', fontSize: '1.1rem', cursor: 'pointer', color: '#64748B' }}>✕</button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '360px', overflowY: 'auto' }}>
+              <div style={{ background: '#ECFDF5', border: '1px solid #A7F3D0', padding: '10px 12px', borderRadius: '6px', fontSize: '0.80rem' }}>
+                <strong style={{ color: '#065F46', display: 'block' }}>🟢 Real-time Gateway Engine Active</strong>
+                <span style={{ color: '#047857' }}>Razorpay & Cashfree webhooks listening with automatic 80G sync.</span>
+              </div>
+              <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: '10px 12px', borderRadius: '6px', fontSize: '0.80rem' }}>
+                <strong style={{ color: '#0F172A', display: 'block' }}>💬 Evolution Go WhatsApp Connected</strong>
+                <span style={{ color: '#64748B' }}>Omnichannel broadcast and trigger messages ready.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Razorpay Full Donor & Transaction Details Modal */}
       {selectedDonationForModal && (
         <div className="modal-backdrop">
@@ -6834,7 +7231,7 @@ export default function App() {
       {/* Embed Code & Integration Snippet Modal */}
       {selectedCampForEmbedModal && (
         <div className="modal-backdrop">
-          <div className="modal-container" style={{ maxWidth: '720px', maxHeight: '88vh', display: 'flex', flexDirection: 'column' }}>
+          <div className="modal-container" style={{ maxWidth: '880px', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
             <div className="modal-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <span style={{ fontSize: '1.4rem' }}>🔌</span>
@@ -6852,13 +7249,25 @@ export default function App() {
               const parentNgo = organizations.find(o => o.id === selectedCampForEmbedModal.organization_id)
                 || (selectedCampForEmbedModal.org_payment_config || selectedCampForEmbedModal.payment_gateways_config ? {
                     id: selectedCampForEmbedModal.organization_id,
-                    name: selectedCampForEmbedModal.orgName || (selectedCampForEmbedModal as any).organization_name || 'NGO Organization',
+                    name: selectedCampForEmbedModal.orgName || (selectedCampForEmbedModal as any).organization_name || 'NGO Partner Organization',
+                    legal_name: (selectedCampForEmbedModal as any).organization_legal_name || selectedCampForEmbedModal.orgName || 'NGO Partner Trust',
+                    eighty_g_urn: (selectedCampForEmbedModal as any).eighty_g_urn || 'AAATC1234F2180G1',
+                    signatory_name: (selectedCampForEmbedModal as any).signatory_name || 'Authorized Signatory',
                     payment_gateways_config: selectedCampForEmbedModal.org_payment_config || selectedCampForEmbedModal.payment_gateways_config
                   } as any : (userSession?.user?.orgName ? {
                     id: userSession.user.orgId,
                     name: userSession.user.orgName,
+                    legal_name: userSession.user.orgName,
+                    eighty_g_urn: 'AAATC1234F2180G1',
+                    signatory_name: 'Authorized Signatory',
                     payment_gateways_config: (selectedCampForEmbedModal as any).payment_gateways_config || {}
                   } as any : undefined));
+
+              const ngoName = parentNgo?.name || 'NGO Partner Organization';
+              const ngoLegalName = parentNgo?.legal_name || parentNgo?.name || 'NGO Partner Trust';
+              const ngoUrn = parentNgo?.eighty_g_urn || 'AAATC1234F2180G1';
+              const ngoSignatory = parentNgo?.signatory_name || 'Authorized Signatory';
+              const ngoApiKey = parentNgo?.api_key || (`ek_live_org_${parentNgo?.slug || 'master'}`);
 
               const ngoRails = extractNgoRails(parentNgo);
               const campAssignedIds = selectedCampForEmbedModal.payment_config?.assigned_gateway_ids || [];
@@ -6866,75 +7275,229 @@ export default function App() {
                 ? ngoRails.filter(r => campAssignedIds.includes(r.id) || campAssignedIds.includes(r.type))
                 : (ngoRails.length > 0 ? ngoRails : []);
 
-              const hasCashfree = alignedRails.some(r => r.type === 'cashfree');
-              const hasRazorpay = alignedRails.some(r => r.type === 'razorpay');
+              const alignedRailTypes = alignedRails.map(r => r.type);
+              const hasCashfree = alignedRailTypes.includes('cashfree');
+              const hasRazorpay = alignedRailTypes.includes('razorpay');
               const primaryGw = selectedCampForEmbedModal.payment_config?.primary_gateway || (alignedRails[0]?.type || 'cashfree');
               const primaryRailObj = alignedRails.find(r => r.type === primaryGw) || alignedRails[0] || { type: primaryGw, name: primaryGw.toUpperCase() + ' Rail' };
 
+              const rawFallback = selectedCampForEmbedModal.payment_config?.fallback_gateway;
+              const fallbackGw = (rawFallback && alignedRailTypes.includes(rawFallback) && rawFallback !== primaryGw)
+                ? rawFallback
+                : (alignedRails.find(r => r.type !== primaryGw)?.type || (alignedRailTypes.length > 1 ? alignedRailTypes.find(t => t !== primaryGw) || '' : ''));
+              const autoFailover = selectedCampForEmbedModal.payment_config?.enable_auto_failover !== false && Boolean(fallbackGw);
+              
+              const rzpKeyId = selectedCampForEmbedModal.payment_config?.razorpay_key_id 
+                || parentNgo?.payment_gateways_config?.razorpay?.key_id 
+                || parentNgo?.payment_gateways_config?.razorpay_key_id 
+                || 'rzp_test_51NgA...';
+              const cfAppId = parentNgo?.payment_gateways_config?.cashfree?.app_id 
+                || parentNgo?.payment_gateways_config?.cashfree_app_id 
+                || 'TEST103849...';
+              const webhookSecret = `ek_sec_${selectedCampForEmbedModal.slug}`;
+
               let dynamicSdkTags = '';
-              if (hasCashfree) {
+              if (hasCashfree || primaryGw === 'cashfree' || fallbackGw === 'cashfree' || alignedRails.length === 0) {
                 dynamicSdkTags += '<script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>\n';
               }
-              if (hasRazorpay) {
+              if (hasRazorpay || primaryGw === 'razorpay' || fallbackGw === 'razorpay' || alignedRails.length === 0) {
                 dynamicSdkTags += '<script src="https://checkout.razorpay.com/v1/checkout.js"></script>\n';
               }
               dynamicSdkTags += `<script src="${getApiBase() || 'http://localhost:5000'}/api/v1/external/embed.js"></script>`;
 
               const alignedRailNames = alignedRails.map(r => r.name).join(', ') || 'Multi-Gateway Rail';
+              const apiKeyVal = selectedCampForEmbedModal.api_key || `ek_live_${selectedCampForEmbedModal.slug}`;
 
-              const apiKeyVal = selectedCampForEmbedModal.api_key || `wg_live_${selectedCampForEmbedModal.slug}`;
-              const jsEmbedSnippet = `<!-- 1. Include Aligned Gateway SDKs & EKhum Universal Embed -->
-<!-- Aligned Rails: ${alignedRailNames} (Primary: ${primaryRailObj.name}) -->
+              // Specialized Option 1: Full-Featured JS Embed Tailored for This Specific NGO & Campaign
+              const jsEmbedSnippet = `<!-- ========================================================================= -->
+<!-- 🏛️ BENEFICIARY NGO: ${ngoName} (${ngoLegalName}) -->
+<!-- 🎯 CAMPAIGN: ${selectedCampForEmbedModal.title} (/${selectedCampForEmbedModal.slug}) -->
+<!-- 🔑 CAMPAIGN API KEY: ${apiKeyVal} -->
+<!-- 🏢 NGO MASTER TOKEN: ${ngoApiKey} -->
+<!-- 💳 ALIGNED GATEWAY RAILS: ${alignedRailNames} -->
+<!-- ⭐ PRIMARY ROUTE: ${primaryRailObj.name}${fallbackGw ? ` | 🔄 FAILOVER ROUTE: ${fallbackGw.toUpperCase()} Rail` : ''} -->
+<!-- 📜 80G REGISTRATION URN: ${ngoUrn} -->
+<!-- ========================================================================= -->
+
+<!-- 1. Include Aligned Gateway SDKs & EKhum Specialized Embed -->
 ${dynamicSdkTags}
 
 <!-- 2. Call EKhum.pay() on your Submit/Donate button click -->
 <script>
   function handleDonateSubmit() {
     EKhum.pay({
+      // 🔑 Specific Campaign Credentials
       apiKey: "${apiKeyVal}",
-      amount: document.getElementById('donation_amount').value,
+      campaignSlug: "${selectedCampForEmbedModal.slug}",
+      
+      // 💳 Multi-Gateway Smart Failover Engine
+      gateway: "${primaryGw}", // Primary Aligned Rail (${primaryRailObj.name})
+      ${fallbackGw ? `fallbackGateway: "${fallbackGw}", // Automatic Failover Rail` : `// Single Rail mode (no failover)`}
+      enableAutoFailover: ${autoFailover},
+      
+      // 💰 Donation & Frequency Data Layer
+      amount: document.getElementById('donation_amount')?.value || 1000,
       currency: "INR",
-      name: document.getElementById('donor_name').value,
-      email: document.getElementById('donor_email').value,
-      phone: document.getElementById('donor_phone').value,
-      taxId: document.getElementById('donor_pan').value,
-      gateway: "${primaryGw}",
+      isMonthly: document.getElementById('is_monthly')?.checked || false, // Set true for Recurring Mandates
+      
+      // 👤 Full Contact KYC Layer (Upserted into ${ngoName}'s CRM)
+      title: document.getElementById('donor_title')?.value || "Mr.", // Mr., Mrs., Ms., Dr., etc.
+      firstName: document.getElementById('donor_first_name')?.value || "Aarav",
+      lastName: document.getElementById('donor_last_name')?.value || "Sharma",
+      name: document.getElementById('donor_name')?.value || "Aarav Sharma",
+      email: document.getElementById('donor_email')?.value || "aarav.sharma@example.com",
+      phone: document.getElementById('donor_phone')?.value || "+919876543210",
+      altPhone: document.getElementById('donor_alt_phone')?.value || "",
+      taxId: document.getElementById('donor_pan')?.value || "ABCDE1234F", // 10-digit PAN (KYC Uppercased)
+      dob: document.getElementById('donor_dob')?.value || "1988-04-15", // YYYY-MM-DD
+      gender: document.getElementById('donor_gender')?.value || "Male",
+      donorType: "Individual", // 'Individual' | 'Corporate' | 'Trust'
+      citizenship: "Indian",
+      
+      // 📍 Full Address Data Layer (PIN code auto-resolves City & State)
+      address: document.getElementById('donor_address')?.value || "Flat 402, Lotus Heights, MG Road",
+      street_address_2: document.getElementById('donor_address_line_2')?.value || "Near Metro Station",
+      pincode: document.getElementById('donor_pincode')?.value || "400001", // 6-digit Indian PIN
+      city: document.getElementById('donor_city')?.value || "Mumbai",
+      state: document.getElementById('donor_state')?.value || "Maharashtra",
+      country: "India",
+
+      // 📜 Statutory 80G Tax Exemption & Form 10BD Flags (Issued by ${ngoLegalName})
+      is80GRequested: true,
+      panHolderName: document.getElementById('pan_holder_name')?.value || "Aarav Sharma",
+      certificateLanguage: "en",
+      isAnonymous: false,
+
+      // 🛡️ DPDP Act Opt-In Consents
+      consentEmail: document.getElementById('consent_email')?.checked ?? true,
+      consentWhatsapp: document.getElementById('consent_whatsapp')?.checked ?? true,
+      consentSms: document.getElementById('consent_sms')?.checked ?? true,
+      preferredChannel: "both", // 'email' | 'whatsapp' | 'sms' | 'both'
+
+      // 📣 Marketing Attribution & Campaign Telemetry
+      utm_source: new URLSearchParams(window.location.search).get('utm_source') || "google_ads",
+      utm_medium: new URLSearchParams(window.location.search).get('utm_medium') || "cpc",
+      utm_campaign: new URLSearchParams(window.location.search).get('utm_campaign') || "${selectedCampForEmbedModal.slug}",
+      fundraiser_id: new URLSearchParams(window.location.search).get('fundraiser_id') || undefined,
+      volunteer_code: new URLSearchParams(window.location.search).get('vol_code') || undefined,
+
+      // 💬 Donor Comments & Tailored Campaign Custom Fields
+      comments: document.getElementById('donor_comments')?.value || "Donation in support of ${selectedCampForEmbedModal.title} for ${ngoName}",
       customFormData: {
-        address: document.getElementById('address')?.value || '',
-        city: document.getElementById('city')?.value || '',
-        comments: "Submitted from NGO landing page"
+        campaign_title: "${selectedCampForEmbedModal.title}",
+        ngo_beneficiary: "${ngoName}",
+        tshirt_size: document.getElementById('tshirt_size')?.value || "L",
+        source_landing_page: window.location.href,
+        referrer: document.referrer
       },
+
+      // Callbacks
       onSuccess: function(res) {
-        alert("Payment Completed! 80G Receipt Ref: " + res.receiptNumber);
+        console.log("EKhum Donation Success for ${selectedCampForEmbedModal.title}:", res);
+        alert("🎉 Thank you for supporting ${ngoName}!\\n\\n80G Tax Receipt Number: " + res.receiptNumber + "\\nIssued under Statutory 80G URN: ${ngoUrn}");
       },
       onError: function(err) {
         console.error("EKhum Donation Error:", err);
-        alert("Donation Failed: " + (err.error || err.message || "Transaction cancelled"));
+        alert("Donation to ${selectedCampForEmbedModal.title} Failed: " + (err.error || err.message || "Transaction cancelled"));
       }
     });
   }
 </script>`;
 
+              // Specialized Option 2: 1-Liner Auto-Bind Snippet Tailored for This Campaign
+              const autoBindSnippet = `<!-- 1. Include Universal EKhum Embed SDK -->
+<script src="${getApiBase() || 'http://localhost:5000'}/api/v1/external/embed.js"></script>
+
+<!-- 2. Auto-bind your HTML form directly to ${selectedCampForEmbedModal.title} (${ngoName}) -->
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    EKhum.autoBind('#donation-form', {
+      apiKey: "${apiKeyVal}",
+      campaignSlug: "${selectedCampForEmbedModal.slug}",
+      gateway: "${primaryGw}",
+      ${fallbackGw ? `fallbackGateway: "${fallbackGw}",` : ''}
+      enableAutoFailover: ${autoFailover},
+      onSuccess: function(res) {
+        alert("Thank you for supporting ${ngoName}!\\n80G Receipt Number: " + res.receiptNumber);
+      },
+      onError: function(err) {
+        alert("Donation Error: " + (err.error || err.message));
+      }
+    });
+  });
+</script>`;
+
+              // Specialized Option 3: Full REST API Spec Tailored for This Campaign
               const restApiSnippet = `POST ${getApiBase() || 'http://localhost:5000'}/api/v1/external/donations/initiate
 Headers:
-  x-EKhum-api-key: "${apiKeyVal}"
+  x-ekhum-api-key: "${apiKeyVal}"
   Content-Type: application/json
 
 Body:
 {
   "api_key": "${apiKeyVal}",
-  "amount": 1000,
+  "campaignSlug": "${selectedCampForEmbedModal.slug}",
+  "amount": 2500,
   "currency": "INR",
   "gateway": "${primaryGw}",
-  "name": "John Doe",
-  "email": "john@example.com",
+  ${fallbackGw ? `"fallback_gateway": "${fallbackGw}",` : ''}
+  "enable_auto_failover": ${autoFailover},
+  
+  // Frequency & Mandates
+  "payment_type": "one_time", // 'one_time' | 'monthly_donation'
+  "is_monthly": false,
+
+  // Full Contact KYC (Stored in ${ngoName}'s Database)
+  "title": "Mr.",
+  "first_name": "Aarav",
+  "last_name": "Sharma",
+  "name": "Aarav Sharma",
+  "email": "aarav.sharma@example.com",
   "phone": "+919876543210",
+  "alt_phone": "+919876543211",
   "taxId": "ABCDE1234F",
+  "birthdate": "1988-04-15",
+  "gender": "Male",
+  "donor_type": "Individual",
+  "citizenship": "Indian",
+
+  // Full Postal Address
+  "street_address_1": "Flat 402, Lotus Heights, MG Road",
+  "street_address_2": "Near Metro Station",
+  "city": "Mumbai",
+  "state": "Maharashtra",
+  "zip_code": "400001",
+  "country": "India",
+
+  // Statutory 80G & Form 10BD Compliance (Issued by ${ngoLegalName})
+  "is_80g_requested": true,
+  "pan_holder_name": "Aarav Sharma",
+  "certificate_language": "en",
+  "isAnonymous": false,
+
+  // DPDP Act Opt-In Consents
+  "consent_email": true,
+  "consent_whatsapp": true,
+  "consent_sms": true,
+  "preferred_channel": "both",
+  "preferred_language": "en",
+
+  // Marketing Attribution & Data Layer
+  "utm_source": "google_ads",
+  "utm_medium": "cpc",
+  "utm_campaign": "${selectedCampForEmbedModal.slug}",
+  "fundraiser_id": "fund_908123",
+  "volunteer_code": "VOL-MUM-44",
+  "referrer": "https://google.com",
+  "landing_page_url": "${selectedCampForEmbedModal.landing_page_url || 'https://ngo-partner.org/donate'}",
+
+  // Staff Notes & Beneficiary Context
+  "comments": "Donating towards ${selectedCampForEmbedModal.title} for ${ngoName}",
   "customFormData": {
-    "address": "123 Marine Drive",
-    "city": "Mumbai",
-    "pincode": "400001",
-    "campaignSlug": "${selectedCampForEmbedModal.slug}"
+    "beneficiary_ngo": "${ngoName}",
+    "campaign_title": "${selectedCampForEmbedModal.title}",
+    "referred_by": "Alumni Network",
+    "tshirt_size": "XL"
   }
 }`;
 
@@ -6946,12 +7509,84 @@ Body:
                 setTimeout(() => setCopiedEmbedKey(null), 2500);
               };
 
+              const handleRunSandboxTest = () => {
+                setSandboxRunning(true);
+                setSandboxErrorResult(null);
+                setSandboxSuccessResult(null);
+
+                const executePay = () => {
+                  const activeEk = (window as any).EKhum || (window as any).DanaPro;
+                  if (!activeEk || typeof activeEk.pay !== 'function') {
+                    setSandboxRunning(false);
+                    setSandboxErrorResult('EKhum Embed SDK is initializing. Please click again in a second.');
+                    return;
+                  }
+
+                  try {
+                    activeEk.pay({
+                      apiKey: apiKeyVal,
+                      campaignSlug: selectedCampForEmbedModal.slug,
+                      amount: Number(sandboxAmount) || 100,
+                      currency: 'INR',
+                      isMonthly: sandboxIsMonthly,
+                      gateway: sandboxGateway === 'auto' ? primaryGw : sandboxGateway,
+                      fallbackGateway: fallbackGw || undefined,
+                      enableAutoFailover: autoFailover,
+                      title: 'Mr.',
+                      firstName: sandboxDonorName.split(' ')[0] || 'Aarav',
+                      lastName: sandboxDonorName.split(' ').slice(1).join(' ') || 'Sharma',
+                      name: sandboxDonorName,
+                      email: sandboxDonorEmail,
+                      phone: sandboxDonorPhone,
+                      taxId: sandboxDonorPan,
+                      is80GRequested: true,
+                      comments: `Test Sandbox payment for ${selectedCampForEmbedModal.title}`,
+                      customFormData: {
+                        is_sandbox_test: true,
+                        campaign_title: selectedCampForEmbedModal.title,
+                        ngo_beneficiary: ngoName
+                      },
+                      onSuccess: function(res: any) {
+                        setSandboxRunning(false);
+                        setSandboxSuccessResult(res);
+                        // Refresh active campaigns and metrics
+                        fetchCampaigns();
+                        fetchStats();
+                      },
+                      onError: function(err: any) {
+                        setSandboxRunning(false);
+                        setSandboxErrorResult(err.error || err.message || 'Payment was cancelled or failed.');
+                      }
+                    });
+                  } catch (e: any) {
+                    setSandboxRunning(false);
+                    setSandboxErrorResult(e.message || 'Execution error');
+                  }
+                };
+
+                const ek = (window as any).EKhum || (window as any).DanaPro;
+                if (!ek || typeof ek.pay !== 'function') {
+                  const script = document.createElement('script');
+                  script.src = `${getApiBase() || 'http://localhost:5000'}/api/v1/external/embed.js`;
+                  script.onload = () => executePay();
+                  script.onerror = () => {
+                    setSandboxRunning(false);
+                    setSandboxErrorResult('Unable to reach backend embed.js server.');
+                  };
+                  document.body.appendChild(script);
+                } else {
+                  executePay();
+                }
+              };
+
               return (
-                <div className="modal-body" style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                  {/* Credentials & Gateway Alignment Box */}
-                  <div style={{ padding: '16px', borderRadius: 'var(--radius-md)', backgroundColor: '#EFF6FF', border: '1px solid #BFDBFE' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                      <h4 style={{ margin: 0, fontSize: '0.9rem', color: '#1E40AF' }}>🔑 EKhum API Key & Gateway Credentials</h4>
+                <div className="modal-body" style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {/* Credentials & Gateway Alignment Box Specialized for NGO & Campaign */}
+                  <div style={{ padding: '14px 16px', borderRadius: 'var(--radius-md)', backgroundColor: '#EFF6FF', border: '1px solid #BFDBFE' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <h4 style={{ margin: 0, fontSize: '0.90rem', color: '#1E40AF', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span>🔑</span> EKhum API Key & Gateway Rails for {selectedCampForEmbedModal.title}
+                      </h4>
                       <button 
                         onClick={() => handleCopy(apiKeyVal, 'api_key')}
                         className="btn btn-secondary" 
@@ -6960,74 +7595,616 @@ Body:
                         {copiedEmbedKey === 'api_key' ? '✅ Copied Key!' : '📋 Copy API Key'}
                       </button>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.82rem' }}>
-                      <div>
-                        <span style={{ color: '#1E3A8A', fontWeight: 600 }}>EKhum Campaign API Key: </span>
-                        <code style={{ fontSize: '0.85rem', color: '#2563EB', background: '#DBEAFE', padding: '2px 8px', borderRadius: '4px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.80rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <span style={{ color: '#1E3A8A', fontWeight: 600 }}>Beneficiary NGO: </span>
+                        <strong style={{ color: '#0F172A' }}>{ngoName}</strong>
+                        <span style={{ color: '#64748B', fontSize: '0.75rem' }}>({ngoLegalName} — 80G URN: <code>{ngoUrn}</code>)</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ color: '#1E3A8A', fontWeight: 600 }}>Campaign API Key: </span>
+                        <code style={{ fontSize: '0.82rem', color: '#2563EB', background: '#DBEAFE', padding: '2px 8px', borderRadius: '4px', fontWeight: 700 }}>
                           {apiKeyVal}
                         </code>
                       </div>
                       <div>
-                        <span style={{ color: '#1E3A8A', fontWeight: 600 }}>Configured Landing Page Domain: </span>
-                        <code>{selectedCampForEmbedModal.landing_page_url || 'Not set (will accept requests from any domain)'}</code>
+                        <span style={{ color: '#1E3A8A', fontWeight: 600 }}>Allowed Origin / Domain: </span>
+                        <code>{selectedCampForEmbedModal.landing_page_url || 'Universal (accepts requests from any domain)'}</code>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '2px' }}>
                         <span style={{ color: '#1E3A8A', fontWeight: 600 }}>Aligned Gateway Rails: </span>
                         {alignedRails.length > 0 ? (
                           alignedRails.map(rail => (
-                            <span key={rail.id} style={{ fontSize: '0.78rem', background: '#DBEAFE', color: '#1E40AF', padding: '2px 8px', borderRadius: '4px', fontWeight: 600 }}>
+                            <span key={rail.id} style={{ fontSize: '0.74rem', background: '#DBEAFE', color: '#1E40AF', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>
                               {rail.type === 'cashfree' ? '⚡' : rail.type === 'razorpay' ? '💳' : rail.type === 'payu' ? '🔴' : rail.type === 'ccavenue' ? '🏛️' : '🏦'} {rail.name}
                             </span>
                           ))
                         ) : (
-                          <span style={{ fontSize: '0.78rem', color: '#64748B' }}>Platform Default</span>
+                          <span style={{ fontSize: '0.74rem', color: '#64748B' }}>Platform Default</span>
                         )}
-                        <span style={{ fontSize: '0.78rem', background: '#ECFDF5', color: '#065F46', padding: '2px 8px', borderRadius: '4px', fontWeight: 700, border: '1px solid #A7F3D0' }}>
+                        <span style={{ fontSize: '0.74rem', background: '#ECFDF5', color: '#065F46', padding: '2px 6px', borderRadius: '4px', fontWeight: 700, border: '1px solid #A7F3D0' }}>
                           ⭐ Primary: {primaryRailObj.name}
                         </span>
+                        {fallbackGw ? (
+                          <span style={{ fontSize: '0.74rem', background: '#FFFBEB', color: '#92400E', padding: '2px 6px', borderRadius: '4px', fontWeight: 600, border: '1px solid #FDE68A' }}>
+                            🔄 Failover: {fallbackGw.toUpperCase()} Rail
+                          </span>
+                        ) : null}
                       </div>
                     </div>
                   </div>
 
-                  {/* Option A: JavaScript SDK Embed Code */}
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <h4 style={{ margin: 0, fontSize: '0.9rem', color: 'var(--primary)' }}>⚡ Option 1: 1-Line EKhum JS Embed (Add to NGO Landing Page HTML)</h4>
+                  {/* Top Tab Switcher */}
+                  <div style={{ display: 'flex', gap: '6px', borderBottom: '1px solid var(--border)', paddingBottom: '8px', overflowX: 'auto' }}>
+                    <button 
+                      onClick={() => setEmbedModalTab('js_embed')}
+                      className={`btn ${embedModalTab === 'js_embed' ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ fontSize: '0.78rem', padding: '6px 12px', whiteSpace: 'nowrap' }}
+                    >
+                      ⚡ 1. Campaign Specialized JS Embed
+                    </button>
+                    <button 
+                      onClick={() => setEmbedModalTab('auto_bind')}
+                      className={`btn ${embedModalTab === 'auto_bind' ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ fontSize: '0.78rem', padding: '6px 12px', whiteSpace: 'nowrap' }}
+                    >
+                      🤖 2. Auto-Bind 1-Liner
+                    </button>
+                    <button 
+                      onClick={() => setEmbedModalTab('rest_api')}
+                      className={`btn ${embedModalTab === 'rest_api' ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ fontSize: '0.78rem', padding: '6px 12px', whiteSpace: 'nowrap' }}
+                    >
+                      📡 3. REST API Spec
+                    </button>
+                    <button 
+                      onClick={() => setEmbedModalTab('tokens')}
+                      className={`btn ${embedModalTab === 'tokens' ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ fontSize: '0.78rem', padding: '6px 12px', whiteSpace: 'nowrap' }}
+                    >
+                      🔑 4. Tokens & Gateway Credentials
+                    </button>
+                    <button 
+                      onClick={() => setEmbedModalTab('data_layer')}
+                      className={`btn ${embedModalTab === 'data_layer' ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ fontSize: '0.78rem', padding: '6px 12px', whiteSpace: 'nowrap' }}
+                    >
+                      📊 5. CRM Data Layer
+                    </button>
+                    <button 
+                      onClick={() => setEmbedModalTab('sandbox')}
+                      className={`btn ${embedModalTab === 'sandbox' ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ fontSize: '0.78rem', padding: '6px 12px', whiteSpace: 'nowrap', backgroundColor: embedModalTab === 'sandbox' ? '#059669' : undefined, color: embedModalTab === 'sandbox' ? '#FFFFFF' : undefined, fontWeight: 700 }}
+                    >
+                      🧪 6. Live Payment Tester (Sandbox)
+                    </button>
+                    {userSession?.user?.role === 'superadmin' && (
                       <button 
-                        onClick={() => handleCopy(jsEmbedSnippet, 'js_embed')}
-                        className="btn btn-secondary" 
-                        style={{ padding: '3px 10px', fontSize: '0.74rem', background: copiedEmbedKey === 'js_embed' ? '#DCFCE7' : '#F1F5F9', color: copiedEmbedKey === 'js_embed' ? '#166534' : '#0F172A', fontWeight: 600 }}
+                        onClick={() => setEmbedModalTab('checkout')}
+                        className={`btn ${embedModalTab === 'checkout' ? 'btn-primary' : 'btn-secondary'}`}
+                        style={{ fontSize: '0.78rem', padding: '6px 12px', whiteSpace: 'nowrap' }}
                       >
-                        {copiedEmbedKey === 'js_embed' ? '✅ Copied Embed Code!' : '📋 Copy JS Snippet'}
+                        🔗 7. Hosted Link
                       </button>
-                    </div>
-                    <pre style={{ backgroundColor: '#0F172A', color: '#38BDF8', padding: '14px', borderRadius: 'var(--radius-md)', fontSize: '0.78rem', overflowX: 'auto', margin: 0, lineHeight: 1.5 }}>
+                    )}
+                  </div>
+
+                  {/* TAB 1: FULL JS EMBED (SPECIALIZED) */}
+                  {embedModalTab === 'js_embed' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <h4 style={{ margin: 0, fontSize: '0.88rem', color: 'var(--primary)' }}>⚡ Specialized JavaScript Embed for {selectedCampForEmbedModal.title}</h4>
+                          <p style={{ margin: 0, fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
+                            Customized for <strong>{ngoName}</strong> with primary rail <strong>{primaryRailObj.name}</strong>{fallbackGw ? `, fallback ${fallbackGw.toUpperCase()}` : ''}, and full Contact CRM attributes.
+                          </p>
+                        </div>
+                        <button 
+                          onClick={() => handleCopy(jsEmbedSnippet, 'js_embed')}
+                          className="btn btn-secondary" 
+                          style={{ padding: '3px 10px', fontSize: '0.74rem', background: copiedEmbedKey === 'js_embed' ? '#DCFCE7' : '#F1F5F9', color: copiedEmbedKey === 'js_embed' ? '#166534' : '#0F172A', fontWeight: 600, whiteSpace: 'nowrap' }}
+                        >
+                          {copiedEmbedKey === 'js_embed' ? '✅ Copied Embed Code!' : '📋 Copy JS Snippet'}
+                        </button>
+                      </div>
+                      <pre style={{ backgroundColor: '#0F172A', color: '#38BDF8', padding: '14px', borderRadius: 'var(--radius-md)', fontSize: '0.76rem', overflowX: 'auto', margin: 0, lineHeight: 1.45, maxHeight: '380px' }}>
 {jsEmbedSnippet}
-                    </pre>
-                  </div>
-
-                  {/* Option B: REST API Endpoint Spec */}
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <h4 style={{ margin: 0, fontSize: '0.9rem', color: 'var(--primary)' }}>📡 Option 2: REST API Backend Payload (`POST /api/v1/external/donations/initiate`)</h4>
-                      <button 
-                        onClick={() => handleCopy(restApiSnippet, 'rest_api')}
-                        className="btn btn-secondary" 
-                        style={{ padding: '3px 10px', fontSize: '0.74rem', background: copiedEmbedKey === 'rest_api' ? '#DCFCE7' : '#F1F5F9', color: copiedEmbedKey === 'rest_api' ? '#166534' : '#0F172A', fontWeight: 600 }}
-                      >
-                        {copiedEmbedKey === 'rest_api' ? '✅ Copied API Payload!' : '📋 Copy REST Spec'}
-                      </button>
+                      </pre>
                     </div>
-                    <pre style={{ backgroundColor: '#0F172A', color: '#34D399', padding: '14px', borderRadius: 'var(--radius-md)', fontSize: '0.78rem', overflowX: 'auto', margin: 0, lineHeight: 1.5 }}>
-{restApiSnippet}
-                    </pre>
-                  </div>
+                  )}
 
-                  {/* Option C: Direct Hosted Checkout Page Link (Superadmin Only) */}
-                  {userSession?.user?.role === 'superadmin' && (
-                    <div>
-                      <h4 style={{ margin: '0 0 8px 0', fontSize: '0.9rem', color: 'var(--primary)' }}>🔗 Option 3: Direct Hosted Payment Checkout URL</h4>
-                      <div style={{ display: 'flex', gap: '8px' }}>
+                  {/* TAB 2: AUTO-BIND 1-LINER */}
+                  {embedModalTab === 'auto_bind' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <h4 style={{ margin: 0, fontSize: '0.88rem', color: 'var(--primary)' }}>🤖 1-Line Zero-Code Form Auto-Bind for {selectedCampForEmbedModal.title}</h4>
+                          <p style={{ margin: 0, fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
+                            Instantly connects any HTML form to {ngoName}'s account. Automatically maps inputs, GTM dataLayer, and executes smart failover.
+                          </p>
+                        </div>
+                        <button 
+                          onClick={() => handleCopy(autoBindSnippet, 'auto_bind')}
+                          className="btn btn-secondary" 
+                          style={{ padding: '3px 10px', fontSize: '0.74rem', background: copiedEmbedKey === 'auto_bind' ? '#DCFCE7' : '#F1F5F9', color: copiedEmbedKey === 'auto_bind' ? '#166534' : '#0F172A', fontWeight: 600, whiteSpace: 'nowrap' }}
+                        >
+                          {copiedEmbedKey === 'auto_bind' ? '✅ Copied Auto-Bind!' : '📋 Copy Auto-Bind Snippet'}
+                        </button>
+                      </div>
+                      <pre style={{ backgroundColor: '#0F172A', color: '#FCD34D', padding: '14px', borderRadius: 'var(--radius-md)', fontSize: '0.76rem', overflowX: 'auto', margin: 0, lineHeight: 1.45 }}>
+{autoBindSnippet}
+                      </pre>
+                      <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: '12px', borderRadius: 'var(--radius-sm)', fontSize: '0.78rem', color: '#334155' }}>
+                        <strong>💡 How `EKhum.autoBind` Operates:</strong>
+                        <ul style={{ margin: '4px 0 0 0', paddingLeft: '18px' }}>
+                          <li>Scans inputs with standard IDs: <code>amount</code>, <code>name</code>, <code>email</code>, <code>phone</code>, <code>pan</code>, <code>address</code>, <code>pincode</code>, <code>city</code>, <code>state</code>, <code>dob</code>.</li>
+                          <li>Auto-resolves Indian PIN codes to City/State without needing extra API calls.</li>
+                          <li>Routes payments dynamically through <strong>{primaryRailObj.name}</strong>{fallbackGw ? ` with auto-failover to ${fallbackGw.toUpperCase()}` : ''}.</li>
+                        </ul>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* TAB 3: REST API SPEC */}
+                  {embedModalTab === 'rest_api' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <h4 style={{ margin: 0, fontSize: '0.88rem', color: 'var(--primary)' }}>📡 REST API Endpoint (`POST /api/v1/external/donations/initiate`)</h4>
+                          <p style={{ margin: 0, fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
+                            Server-to-server payload pre-configured with <strong>{apiKeyVal}</strong> and <strong>{ngoName}</strong> CRM routing.
+                          </p>
+                        </div>
+                        <button 
+                          onClick={() => handleCopy(restApiSnippet, 'rest_api')}
+                          className="btn btn-secondary" 
+                          style={{ padding: '3px 10px', fontSize: '0.74rem', background: copiedEmbedKey === 'rest_api' ? '#DCFCE7' : '#F1F5F9', color: copiedEmbedKey === 'rest_api' ? '#166534' : '#0F172A', fontWeight: 600, whiteSpace: 'nowrap' }}
+                        >
+                          {copiedEmbedKey === 'rest_api' ? '✅ Copied API Payload!' : '📋 Copy REST Spec'}
+                        </button>
+                      </div>
+                      <pre style={{ backgroundColor: '#0F172A', color: '#34D399', padding: '14px', borderRadius: 'var(--radius-md)', fontSize: '0.76rem', overflowX: 'auto', margin: 0, lineHeight: 1.45, maxHeight: '380px' }}>
+{restApiSnippet}
+                      </pre>
+                    </div>
+                  )}
+
+                  {/* TAB 4: TOKENS & GATEWAY CREDENTIALS INSPECTOR */}
+                  {embedModalTab === 'tokens' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '0.80rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <h4 style={{ margin: 0, fontSize: '0.90rem', color: 'var(--primary)' }}>🔑 Connecting Keys, Tokens & Gateway Credentials</h4>
+                          <p style={{ margin: 0, fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
+                            Active credentials, API tokens, and gateway keys bound to this campaign and {ngoName}.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '10px' }}>
+                        {/* Campaign Key Card */}
+                        <div style={{ background: '#F8FAFC', padding: '12px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                          <span style={{ fontSize: '0.72rem', color: '#64748B', textTransform: 'uppercase', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Campaign API Key</span>
+                          <code style={{ fontSize: '0.80rem', color: '#059669', background: '#ECFDF5', padding: '2px 6px', borderRadius: '4px', border: '1px solid #A7F3D0', wordBreak: 'break-all', display: 'block', marginBottom: '6px' }}>
+                            {apiKeyVal}
+                          </code>
+                          <button 
+                            onClick={() => handleCopy(apiKeyVal, 'tok_camp_key')}
+                            style={{ background: 'white', border: '1px solid #CBD5E1', padding: '3px 8px', borderRadius: '4px', fontSize: '0.72rem', cursor: 'pointer', fontWeight: 600 }}
+                          >
+                            {copiedEmbedKey === 'tok_camp_key' ? '✅ Copied' : '📋 Copy'}
+                          </button>
+                        </div>
+
+                        {/* NGO Master Key Card */}
+                        <div style={{ background: '#F8FAFC', padding: '12px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                          <span style={{ fontSize: '0.72rem', color: '#64748B', textTransform: 'uppercase', fontWeight: 700, display: 'block', marginBottom: '4px' }}>NGO Master API Token</span>
+                          <code style={{ fontSize: '0.80rem', color: '#2563EB', background: '#EFF6FF', padding: '2px 6px', borderRadius: '4px', border: '1px solid #BFDBFE', wordBreak: 'break-all', display: 'block', marginBottom: '6px' }}>
+                            {ngoApiKey}
+                          </code>
+                          <button 
+                            onClick={() => handleCopy(ngoApiKey, 'tok_ngo_key')}
+                            style={{ background: 'white', border: '1px solid #CBD5E1', padding: '3px 8px', borderRadius: '4px', fontSize: '0.72rem', cursor: 'pointer', fontWeight: 600 }}
+                          >
+                            {copiedEmbedKey === 'tok_ngo_key' ? '✅ Copied' : '📋 Copy'}
+                          </button>
+                        </div>
+
+                        {/* Webhook Secret Card */}
+                        <div style={{ background: '#F8FAFC', padding: '12px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                          <span style={{ fontSize: '0.72rem', color: '#64748B', textTransform: 'uppercase', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Webhook Secret Signature</span>
+                          <code style={{ fontSize: '0.80rem', color: '#7C3AED', background: '#F5F3FF', padding: '2px 6px', borderRadius: '4px', border: '1px solid #DDD6FE', wordBreak: 'break-all', display: 'block', marginBottom: '6px' }}>
+                            {webhookSecret}
+                          </code>
+                          <button 
+                            onClick={() => handleCopy(webhookSecret, 'tok_wh_sec')}
+                            style={{ background: 'white', border: '1px solid #CBD5E1', padding: '3px 8px', borderRadius: '4px', fontSize: '0.72rem', cursor: 'pointer', fontWeight: 600 }}
+                          >
+                            {copiedEmbedKey === 'tok_wh_sec' ? '✅ Copied' : '📋 Copy'}
+                          </button>
+                        </div>
+
+                        {/* 80G Statutory URN */}
+                        <div style={{ background: '#F8FAFC', padding: '12px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                          <span style={{ fontSize: '0.72rem', color: '#64748B', textTransform: 'uppercase', fontWeight: 700, display: 'block', marginBottom: '4px' }}>80G Registration URN</span>
+                          <code style={{ fontSize: '0.80rem', color: '#D97706', background: '#FFFBEB', padding: '2px 6px', borderRadius: '4px', border: '1px solid #FDE68A', wordBreak: 'break-all', display: 'block', marginBottom: '6px' }}>
+                            {ngoUrn}
+                          </code>
+                          <span style={{ fontSize: '0.72rem', color: '#475569' }}>Signatory: {ngoSignatory}</span>
+                        </div>
+
+                        {/* Primary Payment Rail Credentials */}
+                        <div style={{ background: '#F8FAFC', padding: '12px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                          <span style={{ fontSize: '0.72rem', color: '#64748B', textTransform: 'uppercase', fontWeight: 700, display: 'block', marginBottom: '4px' }}>⭐ Primary Gateway ({primaryGw.toUpperCase()})</span>
+                          <div style={{ fontSize: '0.78rem', color: '#0F172A', fontWeight: 600, marginBottom: '2px' }}>
+                            {primaryGw === 'razorpay' ? 'Razorpay Key ID:' : 'Cashfree App ID:'}
+                          </div>
+                          <code style={{ fontSize: '0.78rem', color: '#0284C7', background: '#E0F2FE', padding: '2px 6px', borderRadius: '4px', display: 'block', marginBottom: '4px' }}>
+                            {primaryGw === 'razorpay' ? rzpKeyId : cfAppId}
+                          </code>
+                          <span style={{ fontSize: '0.70rem', color: '#059669', fontWeight: 600 }}>🟢 Active & Bound to Campaign</span>
+                        </div>
+
+                        {/* Failover Payment Rail Credentials */}
+                        {fallbackGw && (
+                          <div style={{ background: '#F8FAFC', padding: '12px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                            <span style={{ fontSize: '0.72rem', color: '#64748B', textTransform: 'uppercase', fontWeight: 700, display: 'block', marginBottom: '4px' }}>🔄 Auto-Failover Rail ({fallbackGw.toUpperCase()})</span>
+                            <div style={{ fontSize: '0.78rem', color: '#0F172A', fontWeight: 600, marginBottom: '2px' }}>
+                              {fallbackGw === 'cashfree' ? 'Cashfree Fallback App ID:' : 'Razorpay Fallback Key ID:'}
+                            </div>
+                            <code style={{ fontSize: '0.78rem', color: '#D97706', background: '#FEF3C7', padding: '2px 6px', borderRadius: '4px', display: 'block', marginBottom: '4px' }}>
+                              {fallbackGw === 'cashfree' ? cfAppId : rzpKeyId}
+                            </code>
+                            <span style={{ fontSize: '0.70rem', color: '#D97706', fontWeight: 600 }}>⚡ Hot-Standby Failover Ready</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* TAB 5: DATA LAYER DICTIONARY */}
+                  {embedModalTab === 'data_layer' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '0.78rem' }}>
+                      <h4 style={{ margin: 0, fontSize: '0.88rem', color: 'var(--primary)' }}>📊 Supported Contact CRM & Data Layer Attributes for {ngoName}</h4>
+                      <p style={{ margin: 0, color: 'var(--text-secondary)' }}>
+                        All fields passed via <code>EKhum.pay()</code>, <code>EKhum.autoBind()</code>, or the REST API are automatically mapped and stored across our Contact CRM, Giving Rollups, 80G Receipts, and Journeys.
+                      </p>
+
+                      <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', border: '1px solid var(--border)' }}>
+                          <thead>
+                            <tr style={{ background: '#F1F5F9', borderBottom: '2px solid var(--border)' }}>
+                              <th style={{ padding: '8px', fontWeight: 700 }}>Category</th>
+                              <th style={{ padding: '8px', fontWeight: 700 }}>Parameter Keys</th>
+                              <th style={{ padding: '8px', fontWeight: 700 }}>Type</th>
+                              <th style={{ padding: '8px', fontWeight: 700 }}>Description & CRM Mapping</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                              <td style={{ padding: '8px', fontWeight: 600, color: '#1E40AF' }}>Contact Identity</td>
+                              <td style={{ padding: '8px' }}><code>title, firstName, lastName, name, email, phone, altPhone, dob, gender, donorType, citizenship</code></td>
+                              <td style={{ padding: '8px' }}><code>String</code></td>
+                              <td style={{ padding: '8px' }}>Upserts Contact Profile in <code>donors</code> table. Sets title, birthdate, donor category.</td>
+                            </tr>
+                            <tr style={{ borderBottom: '1px solid var(--border)', background: '#F8FAFC' }}>
+                              <td style={{ padding: '8px', fontWeight: 600, color: '#047857' }}>Full Address & PIN</td>
+                              <td style={{ padding: '8px' }}><code>address, street_address_2, pincode, city, state, country</code></td>
+                              <td style={{ padding: '8px' }}><code>String</code></td>
+                              <td style={{ padding: '8px' }}>6-digit Indian PIN code auto-resolves City and State if omitted. Stored in Contact Address & 80G Snapshots.</td>
+                            </tr>
+                            <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                              <td style={{ padding: '8px', fontWeight: 600, color: '#B45309' }}>80G & Form 10BD</td>
+                              <td style={{ padding: '8px' }}><code>taxId (PAN), is80GRequested, panHolderName, certificateLanguage, isAnonymous</code></td>
+                              <td style={{ padding: '8px' }}><code>String / Boolean</code></td>
+                              <td style={{ padding: '8px' }}>Auto-generates statutory 80G receipt, validates 10-digit PAN KYC uppercase, and populates Annual Form 10BD Return.</td>
+                            </tr>
+                            <tr style={{ borderBottom: '1px solid var(--border)', background: '#F8FAFC' }}>
+                              <td style={{ padding: '8px', fontWeight: 600, color: '#7C3AED' }}>DPDP Opt-Ins</td>
+                              <td style={{ padding: '8px' }}><code>consentEmail, consentWhatsapp, consentSms, preferredChannel, preferredLanguage</code></td>
+                              <td style={{ padding: '8px' }}><code>Boolean / String</code></td>
+                              <td style={{ padding: '8px' }}>Records statutory opt-in permissions into <code>consents</code> table for Email, WhatsApp, and SMS communications.</td>
+                            </tr>
+                            <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                              <td style={{ padding: '8px', fontWeight: 600, color: '#DB2777' }}>Attribution & UTM</td>
+                              <td style={{ padding: '8px' }}><code>utm_source, utm_medium, utm_campaign, utm_content, utm_term, fundraiser_id, volunteer_code, referral_code</code></td>
+                              <td style={{ padding: '8px' }}><code>String</code></td>
+                              <td style={{ padding: '8px' }}>Tracks source campaign attribution, agency/volunteer performance, and triggers journey auto-enrollments.</td>
+                            </tr>
+                            <tr style={{ borderBottom: '1px solid var(--border)', background: '#F8FAFC' }}>
+                              <td style={{ padding: '8px', fontWeight: 600, color: '#0284C7' }}>Recurring Mandates</td>
+                              <td style={{ padding: '8px' }}><code>isMonthly, interval ("monthly" | "one_time"), payment_type</code></td>
+                              <td style={{ padding: '8px' }}><code>Boolean / String</code></td>
+                              <td style={{ padding: '8px' }}>Creates recurring monthly mandate subscription record in <code>subscriptions</code> table.</td>
+                            </tr>
+                            <tr>
+                              <td style={{ padding: '8px', fontWeight: 600, color: '#475569' }}>Custom Data & Notes</td>
+                              <td style={{ padding: '8px' }}><code>comments, notes, customFormData (JSON Object), dataLayer (GTM)</code></td>
+                              <td style={{ padding: '8px' }}><code>Object / String</code></td>
+                              <td style={{ padding: '8px' }}>Comments automatically insert into <code>contact_notes</code> and appear in Activity Timeline. Custom JSON saved in donation record.</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* TAB 6: LIVE PAYMENT TESTER (SANDBOX) */}
+                  {embedModalTab === 'sandbox' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', fontSize: '0.85rem' }}>
+                      <div style={{ background: '#ECFDF5', border: '1px solid #A7F3D0', padding: '14px 18px', borderRadius: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                          <span style={{ fontSize: '1.2rem' }}>🧪</span>
+                          <h4 style={{ margin: 0, color: '#065F46', fontSize: '0.95rem', fontWeight: 700 }}>
+                            Live Payment Sandbox Tester for {selectedCampForEmbedModal.title}
+                          </h4>
+                        </div>
+                        <p style={{ margin: 0, color: '#047857', fontSize: '0.80rem', lineHeight: '1.45' }}>
+                          Test the full end-to-end integration by making a simulated donation. This executes the live <code>EKhum.pay()</code> function in your browser, opens the configured payment gateway popup, issues an 80G Tax Receipt, and automatically creates a new contact record in the <strong>Contact CRM</strong>.
+                        </p>
+                      </div>
+
+                      {/* Success Alert Banner */}
+                      {sandboxSuccessResult && (
+                        <div style={{ background: '#F0FDF4', border: '1.5px solid #22C55E', padding: '16px', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '1.4rem' }}>🎉</span>
+                            <div>
+                              <strong style={{ color: '#15803D', fontSize: '0.95rem' }}>Payment & CRM Verification Successful!</strong>
+                              <div style={{ color: '#166534', fontSize: '0.80rem' }}>
+                                Donation received for <strong>{selectedCampForEmbedModal.title}</strong> ({ngoName})
+                              </div>
+                            </div>
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '8px', background: 'white', padding: '10px', borderRadius: '6px', border: '1px solid #DCFCE7', fontSize: '0.78rem' }}>
+                            <div>
+                              <span style={{ color: '#64748B', display: 'block' }}>80G Receipt Number</span>
+                              <strong style={{ color: '#0F172A', fontFamily: 'monospace' }}>{sandboxSuccessResult.receiptNumber || 'REC-VERIFIED'}</strong>
+                            </div>
+                            <div>
+                              <span style={{ color: '#64748B', display: 'block' }}>Gateway Used</span>
+                              <strong style={{ color: '#0284C7' }}>{(sandboxSuccessResult.gateway || primaryGw).toUpperCase()}</strong>
+                            </div>
+                            <div>
+                              <span style={{ color: '#64748B', display: 'block' }}>Donor Contact Synced</span>
+                              <strong style={{ color: '#059669' }}>{sandboxDonorName} ({sandboxDonorEmail})</strong>
+                            </div>
+                            <div>
+                              <span style={{ color: '#64748B', display: 'block' }}>Amount</span>
+                              <strong style={{ color: '#0F172A' }}>₹{sandboxAmount}</strong>
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                            <button 
+                              onClick={() => {
+                                setSelectedCampForEmbedModal(null);
+                                setActiveTab('contacts');
+                              }}
+                              style={{ background: '#16A34A', color: 'white', border: 'none', padding: '6px 14px', borderRadius: '6px', fontSize: '0.80rem', fontWeight: 600, cursor: 'pointer' }}
+                            >
+                              👥 View Contact in Contact CRM →
+                            </button>
+                            <button 
+                              onClick={() => setSandboxSuccessResult(null)}
+                              style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', padding: '6px 12px', borderRadius: '6px', fontSize: '0.80rem', cursor: 'pointer' }}
+                            >
+                              Reset Sandbox
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Error Alert Banner */}
+                      {sandboxErrorResult && (
+                        <div style={{ background: '#FEF2F2', border: '1px solid #F87171', padding: '12px 16px', borderRadius: '8px', color: '#991B1B', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div>
+                            <strong>❌ Payment Test Notice:</strong> {sandboxErrorResult}
+                          </div>
+                          <button 
+                            onClick={() => setSandboxErrorResult(null)}
+                            style={{ background: 'transparent', border: 'none', color: '#991B1B', fontWeight: 700, cursor: 'pointer' }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Interactive Test Form */}
+                      <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: '18px', borderRadius: '10px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+                          {/* Amount */}
+                          <div>
+                            <label style={{ display: 'block', fontWeight: 600, color: '#334155', marginBottom: '4px', fontSize: '0.80rem' }}>
+                              Test Amount (INR ₹)
+                            </label>
+                            <div style={{ display: 'flex', gap: '6px', marginBottom: '6px' }}>
+                              {[10, 100, 500, 1000].map(amt => (
+                                <button
+                                  key={amt}
+                                  type="button"
+                                  onClick={() => setSandboxAmount(amt)}
+                                  style={{
+                                    flex: 1,
+                                    padding: '4px 6px',
+                                    borderRadius: '4px',
+                                    border: sandboxAmount === amt ? '1.5px solid #059669' : '1px solid #CBD5E1',
+                                    background: sandboxAmount === amt ? '#ECFDF5' : 'white',
+                                    color: sandboxAmount === amt ? '#065F46' : '#475569',
+                                    fontWeight: sandboxAmount === amt ? 700 : 500,
+                                    fontSize: '0.75rem',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  ₹{amt}
+                                </button>
+                              ))}
+                            </div>
+                            <input 
+                              type="number"
+                              value={sandboxAmount}
+                              onChange={(e) => setSandboxAmount(Number(e.target.value))}
+                              style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '0.85rem' }}
+                            />
+                          </div>
+
+                          {/* Gateway Route */}
+                          <div>
+                            <label style={{ display: 'block', fontWeight: 600, color: '#334155', marginBottom: '4px', fontSize: '0.80rem' }}>
+                              Payment Route / Gateway
+                            </label>
+                            <select
+                              value={sandboxGateway}
+                              onChange={(e) => setSandboxGateway(e.target.value)}
+                              style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '0.85rem', background: 'white' }}
+                            >
+                              <option value="auto">⭐ Auto-Route (Primary: {primaryGw.toUpperCase()})</option>
+                              {hasRazorpay && <option value="razorpay">💳 Razorpay Gateway Rail</option>}
+                              {hasCashfree && <option value="cashfree">⚡ Cashfree UPI Intent Rail</option>}
+                            </select>
+                          </div>
+
+                          {/* Donor Name */}
+                          <div>
+                            <label style={{ display: 'block', fontWeight: 600, color: '#334155', marginBottom: '4px', fontSize: '0.80rem' }}>
+                              Donor Full Name
+                            </label>
+                            <input 
+                              type="text"
+                              value={sandboxDonorName}
+                              onChange={(e) => setSandboxDonorName(e.target.value)}
+                              style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '0.85rem' }}
+                            />
+                          </div>
+
+                          {/* Donor Email */}
+                          <div>
+                            <label style={{ display: 'block', fontWeight: 600, color: '#334155', marginBottom: '4px', fontSize: '0.80rem' }}>
+                              Donor Email Address
+                            </label>
+                            <input 
+                              type="email"
+                              value={sandboxDonorEmail}
+                              onChange={(e) => setSandboxDonorEmail(e.target.value)}
+                              style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '0.85rem' }}
+                            />
+                          </div>
+
+                          {/* Donor Phone */}
+                          <div>
+                            <label style={{ display: 'block', fontWeight: 600, color: '#334155', marginBottom: '4px', fontSize: '0.80rem' }}>
+                              Mobile / Phone Number
+                            </label>
+                            <input 
+                              type="tel"
+                              value={sandboxDonorPhone}
+                              onChange={(e) => setSandboxDonorPhone(e.target.value)}
+                              style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '0.85rem' }}
+                            />
+                          </div>
+
+                          {/* Donor PAN */}
+                          <div>
+                            <label style={{ display: 'block', fontWeight: 600, color: '#334155', marginBottom: '4px', fontSize: '0.80rem' }}>
+                              Indian PAN (80G Tax Exemption)
+                            </label>
+                            <input 
+                              type="text"
+                              value={sandboxDonorPan}
+                              onChange={(e) => setSandboxDonorPan(e.target.value.toUpperCase())}
+                              style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '0.85rem', textTransform: 'uppercase' }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Frequency Option */}
+                        <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <input 
+                            type="checkbox" 
+                            id="sandbox_is_monthly"
+                            checked={sandboxIsMonthly}
+                            onChange={(e) => setSandboxIsMonthly(e.target.checked)}
+                          />
+                          <label htmlFor="sandbox_is_monthly" style={{ fontSize: '0.82rem', color: '#334155', fontWeight: 600, cursor: 'pointer' }}>
+                            Simulate Monthly Recurring Mandate
+                          </label>
+                        </div>
+
+                        {/* Test Payment Trigger Button */}
+                        <div style={{ marginTop: '16px', display: 'flex', gap: '12px', alignItems: 'center' }}>
+                          <button
+                            type="button"
+                            onClick={handleRunSandboxTest}
+                            disabled={sandboxRunning}
+                            style={{
+                              background: sandboxRunning ? '#94A3B8' : '#059669',
+                              color: 'white',
+                              border: 'none',
+                              padding: '12px 24px',
+                              borderRadius: '8px',
+                              fontSize: '0.90rem',
+                              fontWeight: 700,
+                              cursor: sandboxRunning ? 'not-allowed' : 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                              boxShadow: '0 2px 4px rgba(5, 150, 105, 0.2)'
+                            }}
+                          >
+                            <span>{sandboxRunning ? '⏳ Launching Gateway...' : '🚀 Launch EKhum.pay() Test Payment'}</span>
+                          </button>
+
+                          <a
+                            href={checkoutUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{
+                              color: '#2563EB',
+                              textDecoration: 'none',
+                              fontSize: '0.82rem',
+                              fontWeight: 600,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}
+                          >
+                            Or test on Hosted Checkout Page ↗
+                          </a>
+                        </div>
+                      </div>
+
+                      {/* Testing Help & Sandbox Credentials */}
+                      <div style={{ background: '#F1F5F9', border: '1px solid #CBD5E1', padding: '14px', borderRadius: '8px', fontSize: '0.78rem' }}>
+                        <strong style={{ color: '#0F172A', display: 'block', marginBottom: '6px' }}>
+                          💡 How to complete payments in Test / Sandbox Mode:
+                        </strong>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '10px' }}>
+                          <div>
+                            <span style={{ fontWeight: 700, color: '#1E40AF' }}>💳 Razorpay Test Mode:</span>
+                            <ul style={{ margin: '4px 0 0 0', paddingLeft: '16px', color: '#475569' }}>
+                              <li>Card: <code>4111 1111 1111 1111</code> (Exp: Any future date, CVV: <code>123</code>)</li>
+                              <li>UPI: Select UPI and enter any test ID (e.g. <code>success@razorpay</code>) or click "Success" in popup.</li>
+                            </ul>
+                          </div>
+                          <div>
+                            <span style={{ fontWeight: 700, color: '#065F46' }}>⚡ Cashfree Sandbox Mode:</span>
+                            <ul style={{ margin: '4px 0 0 0', paddingLeft: '16px', color: '#475569' }}>
+                              <li>UPI: Select UPI Intent / QR or enter <code>testsuccess@gocash</code></li>
+                              <li>Card: Click "Simulate Success" inside the modal test window.</li>
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* TAB 7: HOSTED LINK */}
+                  {embedModalTab === 'checkout' && userSession?.user?.role === 'superadmin' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <h4 style={{ margin: '0 0 4px 0', fontSize: '0.88rem', color: 'var(--primary)' }}>🔗 Direct Hosted Payment Checkout URL</h4>
+                      <p style={{ margin: 0, fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
+                        Share this direct URL with donors to donate immediately to <strong>{selectedCampForEmbedModal.title}</strong> ({ngoName}).
+                      </p>
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
                         <input 
                           type="text" 
                           readOnly 

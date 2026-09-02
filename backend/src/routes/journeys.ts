@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import pool from '../config/db';
 import { authenticate } from '../middleware/auth';
+import { executeStep } from '../services/journeyExecutor';
 
 const router = Router();
 router.use(authenticate);
@@ -45,26 +46,94 @@ router.get('/', async (req: Request, res: Response) => {
 
 // Create journey
 router.post('/', async (req: Request, res: Response) => {
+  const client = await pool.connect();
   try {
     const user = (req as any).user;
-    const { journey_name, name, description, entry_type, entry_event_type, entry_segment_id, re_entry_allowed, organization_id } = req.body;
+    const { journey_name, name, description, entry_type, entry_event_type, entry_segment_id, re_entry_allowed, organization_id, steps } = req.body;
     let targetOrgId = user.role === 'superadmin'
       ? (organization_id || user.organization_id || user.organizationId)
       : (user.organization_id || user.organizationId);
 
     if (!targetOrgId) {
-      return res.status(400).json({ success: false, error: 'Organization ID is required. Please select an NGO workspace.' });
+      const orgCheck = await client.query('SELECT id FROM organizations ORDER BY created_at ASC LIMIT 1');
+      if (orgCheck.rows.length > 0) {
+        targetOrgId = orgCheck.rows[0].id;
+      }
     }
 
+    if (!targetOrgId) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'No NGO workspace found. Please register an NGO organization first.',
+        message: 'No NGO workspace found. Please register an NGO organization first.' 
+      });
+    }
+
+    await client.query('BEGIN');
+
     const finalName = journey_name || name || 'Untitled Journey';
-    const result = await pool.query(
+    const result = await client.query(
       `INSERT INTO journeys (organization_id, journey_name, description, entry_type, entry_event_type, entry_segment_id, re_entry_allowed, status)
        VALUES ($1, $2, $3, $4, $5, $6, $7, 'draft') RETURNING *`,
-      [targetOrgId, finalName, description || '', entry_type || 'event', entry_event_type || null, entry_segment_id || null, re_entry_allowed || false]
+      [targetOrgId, finalName, description || '', entry_type || 'event', entry_event_type || 'contact.created', entry_segment_id || null, re_entry_allowed || false]
     );
-    res.json({ success: true, data: result.rows[0] });
+
+    const newJourney = result.rows[0];
+
+    // Seed default starter steps if none passed
+    const initialSteps = Array.isArray(steps) && steps.length > 0 ? steps : [
+      {
+        step_order: 1,
+        step_type: 'send_whatsapp',
+        config: {
+          template_name: 'wa_donation_welcome',
+          subject: 'Instant WhatsApp Welcome & Receipt',
+          message: 'Hello {{donor_name}}! Thank you for supporting our mission with {{ngo_name}}.'
+        }
+      },
+      {
+        step_order: 2,
+        step_type: 'wait',
+        wait_duration_minutes: 2880,
+        config: {
+          duration_label: 'Wait 48 Hours',
+          wait_type: 'duration'
+        }
+      },
+      {
+        step_order: 3,
+        step_type: 'send_email',
+        config: {
+          template_name: 'email_impact_update',
+          subject: 'Your Impact Update from {{ngo_name}}',
+          html_content: '<p>Dear {{donor_name}},</p><p>Thank you for your generous gift. Here is a brief look at the lives being transformed through your support!</p>'
+        }
+      },
+      {
+        step_order: 4,
+        step_type: 'condition',
+        condition_expression: { field: 'total_paid_amount', operator: '>=', value: 5000 },
+        config: {
+          condition_label: 'Major Donor Tier Evaluation (>= ₹5,000)'
+        }
+      }
+    ];
+
+    for (const s of initialSteps) {
+      await client.query(
+        `INSERT INTO journey_steps (journey_id, organization_id, step_order, step_type, wait_duration_minutes, template_id, condition_expression, true_branch_step_id, false_branch_step_id, config)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+        [newJourney.id, targetOrgId, s.step_order, s.step_type, s.wait_duration_minutes || null, s.template_id || null, s.condition_expression || null, s.true_branch_step_id || null, s.false_branch_step_id || null, s.config || {}]
+      );
+    }
+
+    await client.query('COMMIT');
+    res.json({ success: true, data: newJourney, message: 'Donor journey created successfully with default visual workflow steps.' });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
+    await client.query('ROLLBACK');
+    res.status(500).json({ success: false, error: err.message, message: err.message });
+  } finally {
+    client.release();
   }
 });
 
@@ -374,6 +443,104 @@ router.get('/:id/stats', async (req: Request, res: Response) => {
     });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Duplicate Journey
+router.post('/:id/duplicate', async (req: Request, res: Response) => {
+  const client = await pool.connect();
+  try {
+    const { id } = req.params;
+    const user = (req as any).user;
+    await client.query('BEGIN');
+
+    const origRes = await client.query('SELECT * FROM journeys WHERE id = $1', [id]);
+    if (origRes.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, error: 'Source journey not found.' });
+    }
+
+    const orig = origRes.rows[0];
+    const newName = `${orig.journey_name} (Copy)`;
+
+    const newJRes = await client.query(
+      `INSERT INTO journeys (organization_id, journey_name, description, entry_type, entry_event_type, entry_segment_id, re_entry_allowed, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'draft') RETURNING *`,
+      [orig.organization_id, newName, orig.description, orig.entry_type, orig.entry_event_type, orig.entry_segment_id, orig.re_entry_allowed]
+    );
+
+    const newJourney = newJRes.rows[0];
+
+    const stepsRes = await client.query('SELECT * FROM journey_steps WHERE journey_id = $1 ORDER BY step_order ASC', [id]);
+    for (const s of stepsRes.rows) {
+      await client.query(
+        `INSERT INTO journey_steps (journey_id, organization_id, step_order, step_type, wait_duration_minutes, template_id, condition_expression, true_branch_step_id, false_branch_step_id, config)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+        [newJourney.id, orig.organization_id, s.step_order, s.step_type, s.wait_duration_minutes, s.template_id, s.condition_expression, s.true_branch_step_id, s.false_branch_step_id, s.config]
+      );
+    }
+
+    await client.query('COMMIT');
+    res.json({ success: true, data: newJourney, message: 'Journey duplicated successfully as draft.' });
+  } catch (err: any) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ success: false, error: err.message, message: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// Test Fire Journey (Runs immediate simulation with a test contact)
+router.post('/:id/test-fire', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const user = (req as any).user;
+
+    const jRes = await pool.query('SELECT * FROM journeys WHERE id = $1', [id]);
+    if (jRes.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Journey not found' });
+    }
+    const journey = jRes.rows[0];
+
+    // Find first step
+    const firstStep = await pool.query('SELECT id FROM journey_steps WHERE journey_id = $1 ORDER BY step_order ASC LIMIT 1', [id]);
+    const stepId = firstStep.rows.length > 0 ? firstStep.rows[0].id : null;
+
+    // Find or create sample donor for testing
+    let contactId: string;
+    const donorRes = await pool.query('SELECT id FROM donors WHERE organization_id = $1 ORDER BY created_at DESC LIMIT 1', [journey.organization_id]);
+    if (donorRes.rows.length > 0) {
+      contactId = donorRes.rows[0].id;
+    } else {
+      const newDonor = await pool.query(
+        `INSERT INTO donors (organization_id, name, first_name, last_name, email, phone, tax_id)
+         VALUES ($1, 'Aarav Sharma (Test)', 'Aarav', 'Sharma', 'aarav.sharma@example.com', '+919876543210', 'ABCDE1234F') RETURNING id`,
+        [journey.organization_id]
+      );
+      contactId = newDonor.rows[0].id;
+    }
+
+    // Insert active enrolment
+    const enrolRes = await pool.query(
+      `INSERT INTO journey_enrolments (journey_id, organization_id, contact_id, current_step_id, next_action_due_at, status)
+       VALUES ($1, $2, $3, $4, NOW(), 'active') RETURNING *`,
+      [id, journey.organization_id, contactId, stepId]
+    );
+
+    const enrolment = enrolRes.rows[0];
+
+    // Execute step asynchronously
+    if (stepId) {
+      executeStep(enrolment.id).catch(err => console.error('Error during test journey step execution:', err));
+    }
+
+    res.json({
+      success: true,
+      data: enrolment,
+      message: `✅ Test trigger executed! Contact enrolled and Step 1 dispatched for "${journey.journey_name}".`
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message, message: err.message });
   }
 });
 

@@ -9,6 +9,12 @@ export interface ContactRollupMetrics {
   totalGiftCountPaid: number;
   totalGiftValuePaid: number;
   lastGiftAmountPaid: number | null;
+  averageGiftAmount: number;
+  largestGiftAmount: number | null;
+  largestGiftDate: string | null;
+  donorTier: 'Platinum' | 'Gold' | 'Silver' | 'Bronze';
+  donorLifecycleStage: 'lead' | 'first_time' | 'active_regular' | 'monthly_retained' | 'major_donor' | 'lapsed';
+  daysSinceLastGift: number | null;
   firstGiftCampaignId: string | null;
   lastGiftCampaignId: string | null;
   firstGiftCampaignTitle?: string;
@@ -30,6 +36,8 @@ export async function recalculateContactRollups(donorId: string, orgId?: string)
       `SELECT 
          COUNT(*) FILTER (WHERE status IN ('completed', 'paid', 'success')) as total_paid_count,
          COALESCE(SUM(amount) FILTER (WHERE status IN ('completed', 'paid', 'success')), 0) as total_paid_sum,
+         COALESCE(AVG(amount) FILTER (WHERE status IN ('completed', 'paid', 'success')), 0) as avg_paid_amount,
+         COALESCE(MAX(amount) FILTER (WHERE status IN ('completed', 'paid', 'success')), 0) as max_paid_amount,
          COUNT(*) FILTER (WHERE status IN ('completed', 'paid', 'success') AND (subscription_id IS NULL OR payment_type = 'one_time')) as onetime_count,
          COUNT(*) FILTER (WHERE status IN ('completed', 'paid', 'success') AND (subscription_id IS NOT NULL OR payment_type = 'monthly_donation')) as monthly_count
        FROM donations 
@@ -39,6 +47,8 @@ export async function recalculateContactRollups(donorId: string, orgId?: string)
 
     const paidCount = Number(donRes.rows[0]?.total_paid_count || 0);
     const paidSum = Number(donRes.rows[0]?.total_paid_sum || 0);
+    const avgPaid = Math.round(Number(donRes.rows[0]?.avg_paid_amount || 0));
+    const maxPaid = Number(donRes.rows[0]?.max_paid_amount || 0);
     const onetimeCount = Number(donRes.rows[0]?.onetime_count || 0);
 
     // 2. Count active and total Monthly Donations / Subscriptions
@@ -51,8 +61,9 @@ export async function recalculateContactRollups(donorId: string, orgId?: string)
       [donorId]
     );
     const totalSubscriptions = Number(subRes.rows[0]?.total_subscriptions || 0);
+    const activeSubscriptions = Number(subRes.rows[0]?.active_subscriptions || 0);
 
-    // 3. Find First and Last Gift Details
+    // 3. Find First and Last Gift Details & Largest Gift
     const firstGiftRes = await pool.query(
       `SELECT d.amount, d.created_at, d.campaign_id, c.title as campaign_title
        FROM donations d
@@ -73,8 +84,18 @@ export async function recalculateContactRollups(donorId: string, orgId?: string)
       [donorId]
     );
 
+    const largestGiftRes = await pool.query(
+      `SELECT d.amount, d.created_at
+       FROM donations d
+       WHERE d.donor_id = $1 AND d.status IN ('completed', 'paid', 'success')
+       ORDER BY d.amount DESC, d.created_at DESC
+       LIMIT 1`,
+      [donorId]
+    );
+
     const firstGift = firstGiftRes.rows[0] || null;
     const lastGift = lastGiftRes.rows[0] || null;
+    const largestGift = largestGiftRes.rows[0] || null;
 
     // 4. Find all NGOs & Campaigns this donor has given to
     const multiNgoRes = await pool.query(
@@ -91,10 +112,41 @@ export async function recalculateContactRollups(donorId: string, orgId?: string)
 
     const firstGiftDate = firstGift ? firstGift.created_at : null;
     const lastGiftDate = lastGift ? lastGift.created_at : null;
+    const largestGiftDate = largestGift ? largestGift.created_at : null;
     const firstGiftCampaignId = firstGift ? firstGift.campaign_id : null;
     const lastGiftCampaignId = lastGift ? lastGift.campaign_id : null;
     const lastGiftAmount = lastGift ? Number(lastGift.amount) : null;
-    const contactStatus = (paidCount > 0 || totalSubscriptions > 0) ? 'donor' : 'lead';
+    
+    // Calculate Days since last gift
+    let daysSinceLastGift: number | null = null;
+    if (lastGiftDate) {
+      const diffMs = Date.now() - new Date(lastGiftDate).getTime();
+      daysSinceLastGift = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    }
+
+    // Determine Donor Tier
+    let donorTier: 'Platinum' | 'Gold' | 'Silver' | 'Bronze' = 'Bronze';
+    if (paidSum >= 100000) donorTier = 'Platinum';
+    else if (paidSum >= 25000) donorTier = 'Gold';
+    else if (paidSum >= 5000) donorTier = 'Silver';
+
+    // Determine Donor Lifecycle Stage
+    let donorLifecycleStage: 'lead' | 'first_time' | 'active_regular' | 'monthly_retained' | 'major_donor' | 'lapsed' = 'lead';
+    if (paidCount === 0 && totalSubscriptions === 0) {
+      donorLifecycleStage = 'lead';
+    } else if (paidSum >= 50000) {
+      donorLifecycleStage = 'major_donor';
+    } else if (activeSubscriptions > 0) {
+      donorLifecycleStage = 'monthly_retained';
+    } else if (daysSinceLastGift !== null && daysSinceLastGift > 180) {
+      donorLifecycleStage = 'lapsed';
+    } else if (paidCount > 1) {
+      donorLifecycleStage = 'active_regular';
+    } else {
+      donorLifecycleStage = 'first_time';
+    }
+
+    const contactStatus = (paidCount > 0 || totalSubscriptions > 0) ? (daysSinceLastGift !== null && daysSinceLastGift > 180 ? 'lapsed' : 'donor') : 'lead';
 
     // 5. Update Contact Record in Database
     await pool.query(
@@ -138,6 +190,12 @@ export async function recalculateContactRollups(donorId: string, orgId?: string)
       totalGiftCountPaid: paidCount,
       totalGiftValuePaid: paidSum,
       lastGiftAmountPaid: lastGiftAmount,
+      averageGiftAmount: avgPaid,
+      largestGiftAmount: maxPaid > 0 ? maxPaid : null,
+      largestGiftDate,
+      donorTier,
+      donorLifecycleStage,
+      daysSinceLastGift,
       firstGiftCampaignId,
       lastGiftCampaignId,
       firstGiftCampaignTitle: firstGift?.campaign_title,

@@ -110,23 +110,55 @@ export const SegmentBuilder: React.FC = () => {
   ];
 
   return (
-    <div style={{ fontFamily: 'var(--font-body)', padding: '24px', color: 'var(--secondary)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px', alignItems: 'center' }}>
-        <div>
-          <h1 style={{ fontFamily: 'var(--font-heading)', margin: 0 }}>Donor Segments & Cohorts</h1>
-          <p style={{ color: '#64748b', margin: '4px 0 0 0', fontSize: '0.9rem' }}>
-            Build dynamic and static donor target audiences for omnichannel broadcast campaigns and automated journeys.
-          </p>
+    <div style={{ fontFamily: 'var(--font-sans)', padding: '16px', background: '#F8FAFC', minHeight: '100vh', color: '#0F172A' }}>
+      {/*   Standard Lightning Header */}
+      <div className="slds-page-header" style={{ marginBottom: '16px' }}>
+        <div className="slds-page-header__top">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div className="slds-object-icon" style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)' }}>
+              🎯
+            </div>
+            <div>
+              <span className="slds-object-eyebrow">Audience Cloud</span>
+              <h2 className="slds-object-title">
+                Donor Segments & Dynamic Cohorts
+              </h2>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button 
+              onClick={() => setIsModalOpen(true)}
+              className="btn btn-primary"
+            >
+              <span>➕</span>
+              <span>Create Segment</span>
+            </button>
+          </div>
         </div>
-        <button 
-          onClick={() => setIsModalOpen(true)}
-          style={{ background: 'var(--primary)', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
-        >
-          ➕ Create Segment
-        </button>
+
+        <div className="slds-highlights-ribbon">
+          <div className="slds-highlight-item">
+            <span className="slds-highlight-item__label">Total Segments</span>
+            <span className="slds-highlight-item__value">
+              {segments.length} Audiences
+            </span>
+          </div>
+          <div className="slds-highlight-item">
+            <span className="slds-highlight-item__label">Dynamic Queries</span>
+            <span className="slds-highlight-item__value" style={{ color: '#059669' }}>
+              Real-time Active
+            </span>
+          </div>
+          <div className="slds-highlight-item">
+            <span className="slds-highlight-item__label">Targeting Channels</span>
+            <span className="slds-highlight-item__value">
+              WhatsApp & Email
+            </span>
+          </div>
+        </div>
       </div>
 
-      <div style={{ background: '#fff', borderRadius: '10px', border: '1px solid #e2e8f0', padding: '24px' }}>
+      <div style={{ background: '#FFFFFF', borderRadius: '10px', border: '1px solid #E2E8F0', padding: '20px' }}>
         <DataTable data={segments} columns={columns} loading={loading} emptyMessage="No segments created yet. Click 'Create Segment' to create your first dynamic donor audience." />
       </div>
 
@@ -182,10 +214,19 @@ export const SegmentBuilder: React.FC = () => {
 
           {previewRows.length > 0 && (
             <div style={{ maxHeight: '140px', overflowY: 'auto', background: '#F8FAFC', padding: '10px', borderRadius: '6px', border: '1px solid #E2E8F0', fontSize: '12px' }}>
-              <strong>Matching Donors Preview:</strong>
+              <strong>Matching Donors Preview ({previewRows.length}):</strong>
               {previewRows.map((r, i) => (
-                <div key={r.id || i} style={{ padding: '3px 0', borderBottom: '1px solid #F1F5F9' }}>
-                  {r.name || 'Donor'} ({r.email || r.phone || 'No direct info'}) - {r.city || 'India'}
+                <div key={r.id || i} style={{ padding: '3px 0', borderBottom: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between' }}>
+                  <span>
+                    {r.id ? (
+                      <a href={`#contact=${r.id}`} target="_blank" rel="noreferrer" style={{ color: '#059669', fontWeight: 600, textDecoration: 'none' }}>
+                        {r.name || 'Donor'}
+                      </a>
+                    ) : (
+                      <span>{r.name || 'Donor'}</span>
+                    )} ({r.email || r.phone || 'No direct info'})
+                  </span>
+                  <span style={{ color: '#64748B' }}>{r.city || 'India'}</span>
                 </div>
               ))}
             </div>

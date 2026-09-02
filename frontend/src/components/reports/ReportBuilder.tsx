@@ -121,22 +121,57 @@ export const ReportBuilder: React.FC = () => {
   }));
 
   return (
-    <div style={{ fontFamily: 'var(--font-body)', padding: '24px', color: 'var(--secondary)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-        <div>
-          <h1 style={{ fontFamily: 'var(--font-heading)', margin: 0 }}>Custom Report Builder</h1>
-          <p style={{ color: '#64748b', margin: '4px 0 0 0', fontSize: '0.9rem' }}>
-            Build and execute dynamic reports across PostgreSQL CRM donors, transactions, campaigns, and statutory 80G filings.
-          </p>
+    <div style={{ fontFamily: 'var(--font-sans)', padding: '16px', background: '#F8FAFC', minHeight: '100vh', color: '#0F172A' }}>
+      {/*   Standard Lightning Header */}
+      <div className="slds-page-header" style={{ marginBottom: '16px' }}>
+        <div className="slds-page-header__top">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div className="slds-object-icon" style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)' }}>
+              📈
+            </div>
+            <div>
+              <span className="slds-object-eyebrow">Analytics & BI Cloud</span>
+              <h2 className="slds-object-title">
+                Custom Report Builder & Analytics Studio
+              </h2>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button 
+              onClick={handleSaveReport}
+              disabled={saving}
+              className="btn btn-primary"
+            >
+              {saving ? 'Saving...' : '💾 Save Report Definition'}
+            </button>
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: '12px' }}>
-          <button 
-            onClick={handleSaveReport}
-            disabled={saving}
-            style={{ background: 'var(--primary)', color: '#fff', border: 'none', padding: '9px 18px', borderRadius: '6px', cursor: saving ? 'wait' : 'pointer', fontWeight: 600, fontSize: '13px' }}
-          >
-            {saving ? 'Saving...' : '💾 Save Report Definition'}
-          </button>
+
+        <div className="slds-highlights-ribbon">
+          <div className="slds-highlight-item">
+            <span className="slds-highlight-item__label">Primary Object</span>
+            <span className="slds-highlight-item__value" style={{ textTransform: 'capitalize' }}>
+              {selectedObject}
+            </span>
+          </div>
+          <div className="slds-highlight-item">
+            <span className="slds-highlight-item__label">Selected Columns</span>
+            <span className="slds-highlight-item__value" style={{ color: '#059669' }}>
+              {selectedColumns.length} Fields
+            </span>
+          </div>
+          <div className="slds-highlight-item">
+            <span className="slds-highlight-item__label">Preview Rows</span>
+            <span className="slds-highlight-item__value">
+              {previewData.length} Records
+            </span>
+          </div>
+          <div className="slds-highlight-item">
+            <span className="slds-highlight-item__label">Visualization</span>
+            <span className="slds-highlight-item__value" style={{ textTransform: 'capitalize' }}>
+              {chartType === 'none' ? 'Tabular Grid' : chartType}
+            </span>
+          </div>
         </div>
       </div>
 

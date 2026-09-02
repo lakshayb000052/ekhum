@@ -44,7 +44,7 @@ pool.connect((err, client, release) => {
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             name VARCHAR(255) NOT NULL,
             slug VARCHAR(255) UNIQUE NOT NULL,
-            api_key VARCHAR(255) UNIQUE DEFAULT ('wg_live_' || md5(random()::text)),
+            api_key VARCHAR(255) UNIQUE DEFAULT ('ek_live_' || md5(random()::text)),
             logo_url VARCHAR(2048),
             tax_id_country VARCHAR(10) NOT NULL,
             primary_currency VARCHAR(3) DEFAULT 'INR',
@@ -74,7 +74,7 @@ pool.connect((err, client, release) => {
             title VARCHAR(255) NOT NULL,
             description TEXT,
             slug VARCHAR(255) UNIQUE NOT NULL,
-            api_key VARCHAR(255) UNIQUE DEFAULT ('wg_live_' || md5(random()::text)),
+            api_key VARCHAR(255) UNIQUE DEFAULT ('ek_live_' || md5(random()::text)),
             landing_page_url VARCHAR(2048),
             form_fields JSONB DEFAULT '[]'::jsonb,
             is_active BOOLEAN DEFAULT TRUE,
@@ -292,12 +292,6 @@ pool.connect((err, client, release) => {
       console.log(' Running EKhum schema migrations...');
       await runMigrations(pool);
       console.log(' EKhum migrations completed successfully.');
-
-      // Auto-seed core platform data (Superadmin, NGO Admin, Campaigns, Journeys, System Settings)
-      const runSeed = require('./seed').default;
-      if (runSeed) {
-        await runSeed(pool);
-      }
     } catch (e: any) {
       console.error(' EKhum migration error:', e.message);
     }

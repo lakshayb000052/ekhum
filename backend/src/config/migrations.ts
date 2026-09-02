@@ -721,7 +721,7 @@ const migrations: Migration[] = [
     `
   },
   {
-    name: '005_salesforce_crm_complete_schema',
+    name: '005_donor_crm_complete_schema',
     up: `
       -- 1. Complete Contact Object fields (donors)
       ALTER TABLE donors
@@ -817,7 +817,7 @@ const migrations: Migration[] = [
         UNIQUE(organization_id, receipt_number, financial_year)
       );
 
-      -- 5. Indexes for high performance Salesforce-style CRM lookups
+      -- 5. Indexes for high performance CRM lookups
       CREATE INDEX IF NOT EXISTS idx_donations_donor_id ON donations(donor_id);
       CREATE INDEX IF NOT EXISTS idx_donations_subscription_id ON donations(subscription_id);
       CREATE INDEX IF NOT EXISTS idx_donations_campaign_id ON donations(campaign_id);
@@ -829,6 +829,53 @@ const migrations: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_eighty_g_payment_id ON eighty_g_receipts(payment_id);
       CREATE INDEX IF NOT EXISTS idx_email_comm_contact_id ON email_communications(contact_id);
       CREATE INDEX IF NOT EXISTS idx_whatsapp_comm_contact_id ON whatsapp_communications(contact_id);
+    `
+  },
+  {
+    name: '006_contact_notes_and_activity_timeline',
+    up: `
+      -- 1. Create contact_notes table for CRM Notes & Call Logs
+      CREATE TABLE IF NOT EXISTS contact_notes (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        contact_id UUID NOT NULL REFERENCES donors(id) ON DELETE CASCADE,
+        author_name VARCHAR(255) DEFAULT 'System Staff',
+        note_type VARCHAR(50) DEFAULT 'general_note', -- 'general_note', 'call_log', 'meeting', 'task_followup'
+        title VARCHAR(255) NOT NULL,
+        content TEXT NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      -- 2. Performance indexes for contact timeline
+      CREATE INDEX IF NOT EXISTS idx_contact_notes_contact_id ON contact_notes(contact_id);
+      CREATE INDEX IF NOT EXISTS idx_events_contact_id ON events(contact_id);
+      CREATE INDEX IF NOT EXISTS idx_journey_enrolments_contact_id ON journey_enrolments(contact_id);
+    `
+  },
+  {
+    name: '007_cleanup_legacy_prefixes_and_test_data',
+    up: `
+      -- 1. Update API Key Default Constraints to standard ek_live_
+      ALTER TABLE organizations ALTER COLUMN api_key SET DEFAULT ('ek_live_' || md5(random()::text));
+      ALTER TABLE campaigns ALTER COLUMN api_key SET DEFAULT ('ek_live_' || md5(random()::text));
+
+      -- 2. Update all existing Organizations API keys from legacy prefixes to ek_live_
+      UPDATE organizations 
+      SET api_key = REGEXP_REPLACE(api_key, '^(wg_live_|wg_test_|dp_live_|dp_test_)', 'ek_live_')
+      WHERE api_key ~ '^(wg_live_|wg_test_|dp_live_|dp_test_)';
+
+      -- 3. Update all existing Campaigns API keys from legacy prefixes to ek_live_
+      UPDATE campaigns 
+      SET api_key = REGEXP_REPLACE(api_key, '^(wg_live_|wg_test_|dp_live_|dp_test_)', 'ek_live_')
+      WHERE api_key ~ '^(wg_live_|wg_test_|dp_live_|dp_test_)';
+
+      -- 4. Clean out legacy dummy/test/prefix data across tables
+      DELETE FROM contact_notes WHERE author_name LIKE '%test%' OR content LIKE '%test%';
+      DELETE FROM eighty_g_receipts WHERE receipt_number LIKE '%test%' OR receipt_number LIKE '%MOCK%';
+      DELETE FROM compliance_receipts WHERE receipt_number LIKE '%test%' OR receipt_number LIKE '%MOCK%';
+      DELETE FROM donations WHERE status = 'initiated' AND created_at < NOW() - INTERVAL '30 minutes';
+      DELETE FROM donors WHERE email LIKE 'donor_%@external.org' OR email LIKE 'test_%@%';
     `
   }
 ];

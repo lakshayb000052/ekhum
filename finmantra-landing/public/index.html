@@ -504,7 +504,7 @@
       <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 24px; border-bottom: 1px solid #334155; padding-bottom: 16px;">
         <div>
           <h3 style="margin: 0; font-size: 1.2rem; color: #34D399; font-family: 'Outfit', sans-serif;">🔌 EKhum Developer Integration Code (Embedded on this Page)</h3>
-          <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #94A3B8;">Campaign API Key: <code style="color: #6EE7B7; background: rgba(52,211,153,0.1); padding: 2px 8px; border-radius: 4px;">wg_live_childfundeducation_946342</code> &bull; Campaign Slug: <code>child_fund_education</code></p>
+          <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #94A3B8;">Campaign API Key: <code style="color: #6EE7B7; background: rgba(52,211,153,0.1); padding: 2px 8px; border-radius: 4px;">ek_live_childfundeducation_946342</code> &bull; Campaign Slug: <code>child_fund_education</code></p>
         </div>
       </div>
 
@@ -521,7 +521,7 @@
 &lt;script&gt;
 function handleDonateSubmit() {
   EKhum.pay({
-    apiKey: "wg_live_childfundeducation_946342",
+    apiKey: "ek_live_childfundeducation_946342",
     amount: document.getElementById('donation_amount').value,
     currency: "INR",
     name: document.getElementById('donor_name').value,
@@ -549,11 +549,11 @@ function handleDonateSubmit() {
           <h4 style="margin: 0 0 8px 0; color: #FBBF24; font-size: 0.95rem;">📡 Option 2: REST API Backend Integration</h4>
           <p style="font-size: 0.78rem; color: #94A3B8; margin-bottom: 12px;">Endpoint: <code>POST https://EKhum-backend-mvxa.onrender.com/api/v1/external/donations/initiate</code></p>
           <pre style="background: #090D16; color: #FDE68A; padding: 14px; border-radius: 8px; font-size: 0.78rem; overflow-x: auto; margin: 0; line-height: 1.4;"><code>// Headers:
-// x-EKhum-api-key: "wg_live_childfundeducation_946342"
+// x-EKhum-api-key: "ek_live_childfundeducation_946342"
 // Content-Type: application/json
 
 {
-  "api_key": "wg_live_childfundeducation_946342",
+  "api_key": "ek_live_childfundeducation_946342",
   "amount": 1000,
   "currency": "INR",
   "name": "John Doe",
@@ -588,7 +588,7 @@ function handleDonateSubmit() {
 
     function handleDonateSubmit() {
       EKhum.pay({
-        apiKey: "wg_live_childfundeducation_946342",
+        apiKey: "ek_live_childfundeducation_946342",
         amount: document.getElementById('donation_amount').value,
         currency: "INR",
         name: document.getElementById('donor_name').value,

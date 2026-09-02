@@ -1,43 +1,71 @@
-/* Base styling rules and design tokens for Wegive */
+/* ==========================================================================
+   Ekhum — Enterprise Design System White & Emerald Green Theme
+   ========================================================================== */
 
 :root {
-  /* Color Palette - Wegive Emerald Green and Deep Navy */
-  --primary: hsl(160, 84%, 39%);
-  --primary-hover: hsl(160, 84%, 31%);
-  --primary-light: hsl(160, 84%, 96%);
+  /* Emerald Green Brand Theme */
+  --primary: #059669;
+  --primary-hover: #047857;
+  --primary-dark: #064E3B;
+  --primary-light: #ECFDF5;
+  --primary-border: #A7F3D0;
   
-  --secondary: hsl(222, 47%, 11%);
-  --secondary-hover: hsl(222, 47%, 7%);
-  --secondary-light: hsl(210, 40%, 96%);
+  /* Surface & Canvas Colors */
+  --background: #F8FAFC;
+  --canvas-bg: #F8FAFC;
+  --surface: #FFFFFF;
+  --surface-hover: #F1F5F9;
+  --surface-alt: #F8FAFC;
   
-  --background: hsl(210, 40%, 98%);
-  --surface: hsl(0, 0%, 100%);
+  /* Neutral Slate Typography */
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --text-light: #94A3B8;
+  --text-muted: #64748B;
   
-  --text-primary: hsl(222, 47%, 11%);
-  --text-secondary: hsl(215, 16%, 47%);
-  --text-light: hsl(215, 16%, 65%);
+  /* SLDS Borders */
+  --border: #E2E8F0;
+  --border-default: #CBD5E1;
+  --border-focus: #059669;
+  --border-subtle: #F1F5F9;
   
-  --border: hsl(214, 32%, 91%);
-  --border-focus: hsl(160, 84%, 39%);
+  /* Status Color Palette */
+  --success: #059669;
+  --success-bg: #ECFDF5;
+  --success-border: #A7F3D0;
   
-  --error: hsl(0, 75%, 60%);
-  --success: hsl(160, 84%, 39%);
-  --warning: hsl(38, 92%, 50%);
-  --info: hsl(200, 80%, 40%);
+  --warning: #D97706;
+  --warning-bg: #FFFBEB;
+  --warning-border: #FDE68A;
+  
+  --error: #DC2626;
+  --error-bg: #FEF2F2;
+  --error-border: #FECACA;
+  
+  --info: #0284C7;
+  --info-bg: #F0F9FF;
+  --info-border: #BAE6FD;
+
+  --purple: #7C3AED;
+  --purple-bg: #F5F3FF;
+  --purple-border: #DDD6FE;
   
   /* Fonts */
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-  --font-heading: 'Outfit', var(--font-sans);
+  --font-heading: 'Outfit', 'Inter', system-ui, sans-serif;
   
-  /* Shadows */
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.05);
-  --shadow-md: 0 4px 12px rgba(15,23,42,0.05), 0 2px 4px rgba(15,23,42,0.02);
-  --shadow-lg: 0 12px 32px rgba(15,23,42,0.08), 0 4px 12px rgba(15,23,42,0.04);
+  /* SLDS Elevation & Shadows */
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.06), 0 2px 4px rgba(15, 23, 42, 0.03);
+  --shadow-lg: 0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
+  --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.06), 0 1px 2px 0 rgba(0, 0, 0, 0.04);
   
   /* Borders */
+  --radius-xs: 4px;
   --radius-sm: 6px;
-  --radius-md: 12px;
-  --radius-lg: 18px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
   --radius-full: 9999px;
   
   /* Transitions */
@@ -56,7 +84,7 @@ body {
   font-family: var(--font-sans);
   background-color: var(--background);
   color: var(--text-primary);
-  line-height: 1.6;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -73,82 +101,324 @@ h1, h2, h3, h4, h5, h6 {
   display: flex;
   height: 100vh;
   overflow: hidden;
+  background-color: var(--background);
+}
+
+/* ==========================================================================
+   Enterprise Lightning Layout Classes
+   ========================================================================== */
+
+/* 1. SLDS Top Global Utility Header */
+.slds-global-header {
+  height: 52px;
+  background-color: #FFFFFF;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.slds-global-search {
+  display: flex;
+  align-items: center;
+  background-color: #F1F5F9;
+  border: 1px solid #CBD5E1;
+  border-radius: 8px;
+  padding: 6px 12px;
+  width: 380px;
+  transition: all var(--transition-fast);
+}
+
+.slds-global-search:focus-within {
+  background-color: #FFFFFF;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.15);
+}
+
+/* 2. SLDS Object Page Header & Highlights */
+.slds-page-header {
+  background-color: #FFFFFF;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-sm);
+}
+
+.slds-page-header__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.slds-object-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  box-shadow: 0 2px 6px rgba(5, 150, 105, 0.25);
+  flex-shrink: 0;
+}
+
+.slds-object-eyebrow {
+  font-size: 0.70rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  display: block;
+  margin-bottom: 2px;
+}
+
+.slds-object-title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+/* 3. SLDS Highlights Ribbon */
+.slds-highlights-ribbon {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 16px;
+  padding-top: 14px;
+  margin-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.slds-highlight-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.slds-highlight-item__label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 2px;
+}
+
+.slds-highlight-item__value {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* 4. SLDS Path Stage Chevron Bar */
+.slds-path {
+  display: flex;
+  background-color: #FFFFFF;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-sm);
+}
+
+.slds-path__stage {
+  flex: 1;
+  padding: 10px 14px;
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background-color: #F8FAFC;
+  border-right: 1px solid var(--border);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all var(--transition-fast);
+  position: relative;
+}
+
+.slds-path__stage.completed {
+  background-color: #ECFDF5;
+  color: #065F46;
+  border-right-color: #A7F3D0;
+}
+
+.slds-path__stage.active {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  color: #FFFFFF;
+  font-weight: 700;
+  box-shadow: inset 0 -2px 0 #064E3B;
+}
+
+.slds-path__stage:last-child {
+  border-right: none;
+}
+
+/* 5. SLDS Activity Timeline */
+.slds-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+  padding-left: 18px;
+}
+
+.slds-timeline::before {
+  content: '';
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 6px;
+  width: 2px;
+  background-color: var(--border);
+}
+
+.slds-timeline-item {
+  position: relative;
+  background-color: #FFFFFF;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  box-shadow: var(--shadow-xs);
+}
+
+.slds-timeline-item__badge {
+  position: absolute;
+  left: -20px;
+  top: 14px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background-color: var(--primary);
+  border: 2px solid #FFFFFF;
+}
+
+/* 6. SLDS Card */
+.slds-card {
+  background-color: #FFFFFF;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.slds-card__header {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #FFFFFF;
+}
+
+.slds-card__title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.slds-card__body {
+  padding: 18px;
 }
 
 /* Sidebar Navigation */
 .sidebar {
-  width: 260px;
-  background-color: var(--surface);
+  width: 250px;
+  background-color: #FFFFFF;
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  padding: 24px;
-  height: 100vh;
+  padding: 14px 10px;
+  height: calc(100vh - 52px);
   overflow-y: auto;
+  box-shadow: 1px 0 3px rgba(15, 23, 42, 0.02);
+  flex-shrink: 0;
 }
 
-.brand-section {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 32px;
-}
-
-.brand-name {
-  font-family: var(--font-heading);
-  font-size: 1.25rem;
+.nav-section-title {
+  font-size: 0.68rem;
   font-weight: 700;
-  background: linear-gradient(135deg, var(--primary), var(--secondary));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #94A3B8;
+  padding: 10px 12px 4px 12px;
+  display: block;
 }
 
 .nav-links {
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
 }
 
 .nav-link {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
-  color: var(--text-secondary);
+  gap: 10px;
+  padding: 8px 12px;
+  color: #475569;
   text-decoration: none;
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   font-weight: 500;
-  font-size: 0.95rem;
-  transition: var(--transition-fast);
+  font-size: 0.86rem;
+  transition: all var(--transition-fast);
+  border-left: 3px solid transparent;
 }
 
-.nav-link:hover, .nav-link.active {
-  background-color: var(--primary-light);
-  color: var(--primary);
+.nav-link:hover {
+  background-color: #F1F5F9;
+  color: #0F172A;
+}
+
+.nav-link.active {
+  background-color: #ECFDF5;
+  color: #065F46;
+  font-weight: 700;
+  border-left-color: #059669;
 }
 
 /* Main Dashboard Panel */
 .main-content {
   flex: 1;
-  padding: 24px;
-  height: 100vh;
+  padding: 16px 20px;
+  height: calc(100vh - 52px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  background-color: var(--background);
 }
 
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 32px;
+  margin-bottom: 24px;
 }
 
 /* Cards & Grid Systems */
 .grid {
   display: grid;
-  gap: 24px;
+  gap: 16px;
 }
 
 .grid-cols-4 {
@@ -164,27 +434,27 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .card {
-  background-color: var(--surface);
+  background-color: #FFFFFF;
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
-  padding: 24px;
+  padding: 20px;
   box-shadow: var(--shadow-sm);
   transition: transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .card:hover {
-  transform: translateY(-2px);
   box-shadow: var(--shadow-md);
 }
 
 .stat-card {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
+  border-radius: var(--radius-md);
 }
 
 .stat-label {
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -193,7 +463,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .stat-value {
   font-family: var(--font-heading);
-  font-size: 2rem;
+  font-size: 1.75rem;
   font-weight: 700;
   color: var(--text-primary);
 }
@@ -202,54 +472,58 @@ h1, h2, h3, h4, h5, h6 {
 .data-table {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 16px;
+  margin-top: 12px;
 }
 
 .data-table th {
   text-align: left;
-  padding: 14px 16px;
+  padding: 10px 14px;
   border-bottom: 2px solid var(--border);
+  background-color: #F8FAFC;
   color: var(--text-secondary);
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
 }
 
 .data-table td {
-  padding: 14px 16px;
+  padding: 12px 14px;
   border-bottom: 1px solid var(--border);
   color: var(--text-primary);
-  font-size: 0.95rem;
+  font-size: 0.88rem;
 }
 
 .data-table tr:hover {
-  background-color: var(--background);
+  background-color: #F8FAFC;
 }
 
 /* Badges */
 .badge {
   display: inline-flex;
   align-items: center;
-  padding: 4px 10px;
-  font-size: 0.75rem;
+  padding: 3px 8px;
+  font-size: 0.72rem;
   font-weight: 600;
   border-radius: var(--radius-full);
 }
 
 .badge-success {
-  background-color: hsl(145, 60%, 94%);
-  color: var(--success);
+  background-color: #ECFDF5;
+  color: #065F46;
+  border: 1px solid #A7F3D0;
 }
 
 .badge-pending {
-  background-color: hsl(38, 90%, 94%);
-  color: var(--warning);
+  background-color: #FFFBEB;
+  color: #92400E;
+  border: 1px solid #FDE68A;
 }
 
 .badge-failed {
-  background-color: hsl(0, 75%, 94%);
-  color: var(--error);
+  background-color: #FEF2F2;
+  color: #991B1B;
+  border: 1px solid #FECACA;
 }
 
 /* Buttons */
@@ -257,10 +531,11 @@ h1, h2, h3, h4, h5, h6 {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 10px 20px;
+  gap: 6px;
+  padding: 8px 16px;
   border-radius: var(--radius-sm);
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: 0.85rem;
   cursor: pointer;
   border: none;
   transition: var(--transition-fast);
@@ -269,7 +544,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .btn-primary {
   background-color: var(--primary);
-  color: white;
+  color: #FFFFFF;
 }
 
 .btn-primary:hover {
@@ -277,13 +552,14 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .btn-secondary {
-  background-color: white;
+  background-color: #FFFFFF;
   color: var(--text-primary);
-  border: 1px solid var(--border);
+  border: 1px solid #CBD5E1;
 }
 
 .btn-secondary:hover {
-  background-color: var(--background);
+  background-color: #F8FAFC;
+  border-color: #94A3B8;
 }
 
 /* Checkout Widget Interface (Light Theme Overlay) */

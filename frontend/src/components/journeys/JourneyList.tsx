@@ -118,6 +118,34 @@ export const JourneyList: React.FC<{ onSelectJourney: (journey: any) => void }> 
     }
   };
 
+  const duplicateJourney = async (id: string) => {
+    try {
+      const data = await apiFetch(`/api/journeys/${id}/duplicate`, { method: 'POST' });
+      if (data && data.success) {
+        alert(data.message || '✅ Journey duplicated successfully!');
+        fetchJourneys();
+      } else {
+        alert(data?.error || data?.message || 'Failed to duplicate journey.');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error duplicating journey.');
+    }
+  };
+
+  const testFireJourney = async (id: string, name: string) => {
+    try {
+      const data = await apiFetch(`/api/journeys/${id}/test-fire`, { method: 'POST' });
+      if (data && data.success) {
+        alert(data.message || `✅ Test event fired for "${name}"!`);
+        fetchJourneys();
+      } else {
+        alert(data?.error || data?.message || 'Failed to test-fire journey.');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error executing test-fire.');
+    }
+  };
+
   const deleteJourney = async (id: string) => {
     if (!confirm('Are you sure you want to permanently delete this journey and all its steps?')) return;
     try {
@@ -197,7 +225,7 @@ export const JourneyList: React.FC<{ onSelectJourney: (journey: any) => void }> 
       key: 'actions', 
       label: 'Actions', 
       render: (_: any, row: any) => (
-        <div style={{ display: 'flex', gap: '8px' }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }} onClick={e => e.stopPropagation()}>
           <button 
             onClick={() => onSelectJourney(row)}
             style={{ padding: '6px 12px', background: '#059669', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}
@@ -207,18 +235,32 @@ export const JourneyList: React.FC<{ onSelectJourney: (journey: any) => void }> 
           {row.status !== 'active' ? (
             <button 
               onClick={() => updateStatus(row.id, 'activate')} 
-              style={{ padding: '6px 10px', background: '#ECFDF5', color: '#059669', border: '1px solid #A7F3D0', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}
+              style={{ padding: '6px 10px', background: '#ECFDF5', color: '#059669', border: '1px solid #A7F3D0', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}
             >
               Activate
             </button>
           ) : (
             <button 
               onClick={() => updateStatus(row.id, 'pause')} 
-              style={{ padding: '6px 10px', background: '#FFFBEB', color: '#D97706', border: '1px solid #FDE68A', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}
+              style={{ padding: '6px 10px', background: '#FFFBEB', color: '#D97706', border: '1px solid #FDE68A', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}
             >
               Pause
             </button>
           )}
+          <button 
+            onClick={() => testFireJourney(row.id, row.journey_name || row.name)} 
+            style={{ padding: '6px 10px', background: '#F0FDF4', color: '#059669', border: '1px solid #BBF7D0', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}
+            title="Test fire this journey"
+          >
+            🧪 Test
+          </button>
+          <button 
+            onClick={() => duplicateJourney(row.id)} 
+            style={{ padding: '6px 10px', background: '#F8FAFC', color: '#475569', border: '1px solid #CBD5E1', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}
+            title="Duplicate journey"
+          >
+            📋 Copy
+          </button>
           <button 
             onClick={() => deleteJourney(row.id)} 
             style={{ padding: '6px 10px', background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}
@@ -235,39 +277,70 @@ export const JourneyList: React.FC<{ onSelectJourney: (journey: any) => void }> 
   const draft = filteredJourneys.filter(j => j.status === 'draft').length;
 
   return (
-    <div style={{ padding: '24px', background: '#f8fafc', minHeight: '100vh', color: '#0F172A', fontFamily: 'Inter, system-ui, sans-serif' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
-        <div>
-          <h1 style={{ margin: 0, color: '#0F172A', fontSize: '1.75rem', fontWeight: 700 }}>Donor Journeys</h1>
-          <p style={{ color: '#64748B', margin: '4px 0 0 0', fontSize: '0.9rem' }}>Automated multi-channel Email & WhatsApp lifecycle workflows</p>
-        </div>
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          {organizations.length > 0 && (
-            <select
-              value={selectedOrgFilter}
-              onChange={e => setSelectedOrgFilter(e.target.value)}
-              style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '13px', background: '#FFFFFF', fontWeight: 600, color: '#1E293B' }}
+    <div style={{ padding: '16px', background: '#F8FAFC', minHeight: '100vh', color: '#0F172A', fontFamily: 'var(--font-sans)' }}>
+      {/*   Standard Lightning Header */}
+      <div className="slds-page-header" style={{ marginBottom: '16px' }}>
+        <div className="slds-page-header__top">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div className="slds-object-icon" style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)' }}>
+              ⚡
+            </div>
+            <div>
+              <span className="slds-object-eyebrow">Automation Cloud</span>
+              <h2 className="slds-object-title">
+                Donor Journey Builder & Lifecycle Automations
+              </h2>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            {organizations.length > 0 && (
+              <select
+                value={selectedOrgFilter}
+                onChange={e => setSelectedOrgFilter(e.target.value)}
+                style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '12px', background: '#FFFFFF', fontWeight: 600, color: '#1E293B' }}
+              >
+                <option value="all">🏛️ All NGO Workspaces</option>
+                {organizations.map(org => (
+                  <option key={org.id} value={org.id}>{org.name}</option>
+                ))}
+              </select>
+            )}
+            <button 
+              onClick={() => setIsModalOpen(true)}
+              className="btn btn-primary"
             >
-              <option value="all">🏛️ All NGO Workspaces</option>
-              {organizations.map(org => (
-                <option key={org.id} value={org.id}>{org.name}</option>
-              ))}
-            </select>
-          )}
-          <button 
-            onClick={() => setIsModalOpen(true)}
-            style={{ background: '#059669', color: 'white', padding: '10px 20px', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 6px -1px rgba(5, 150, 105, 0.2)' }}
-          >
-            <span>➕</span>
-            <span>Create New Journey</span>
-          </button>
+              <span>➕</span>
+              <span>Create New Journey</span>
+            </button>
+          </div>
         </div>
-      </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
-        <KpiCard title="Total Journeys" value={total.toString()} />
-        <KpiCard title="Active Automated Journeys" value={active.toString()} />
-        <KpiCard title="Draft Workflows" value={draft.toString()} />
+        <div className="slds-highlights-ribbon">
+          <div className="slds-highlight-item">
+            <span className="slds-highlight-item__label">Total Journeys</span>
+            <span className="slds-highlight-item__value">
+              {total} Workflows
+            </span>
+          </div>
+          <div className="slds-highlight-item">
+            <span className="slds-highlight-item__label">Active Automated</span>
+            <span className="slds-highlight-item__value" style={{ color: '#059669' }}>
+              {active} Active
+            </span>
+          </div>
+          <div className="slds-highlight-item">
+            <span className="slds-highlight-item__label">Drafts</span>
+            <span className="slds-highlight-item__value">
+              {draft} Drafts
+            </span>
+          </div>
+          <div className="slds-highlight-item">
+            <span className="slds-highlight-item__label">Channels</span>
+            <span className="slds-highlight-item__value">
+              WhatsApp & AWS SES
+            </span>
+          </div>
+        </div>
       </div>
 
       <div style={{ display: 'flex', gap: '10px', marginBottom: '16px' }}>

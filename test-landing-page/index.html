@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clean Water & Child Nutrition 2026 — Live NGO Landing Page</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --primary: #059669;
+      --primary-hover: #047857;
+      --primary-light: #ECFDF5;
+      --bg: #F8FAFC;
+      --text-main: #0F172A;
+      --text-muted: #64748B;
+      --border: #E2E8F0;
+      --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background-color: var(--bg);
+      color: var(--text-main);
+      line-height: 1.5;
+    }
+    .top-strip {
+      background: linear-gradient(90deg, #064E3B 0%, #059669 100%);
+      color: #FFFFFF;
+      padding: 8px 20px;
+      font-size: 0.80rem;
+      font-weight: 600;
+    }
+    .container {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+    header {
+      background: #FFFFFF;
+      border-bottom: 1px solid var(--border);
+      padding: 16px 0;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .ngo-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .ngo-logo-badge {
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #059669 0%, #047857 100%);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+      font-weight: 800;
+    }
+    .ngo-name {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+    .ngo-tag {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 40px;
+      padding: 48px 0;
+      align-items: start;
+    }
+    @media (max-width: 900px) {
+      .main-grid { grid-template-columns: 1fr; }
+    }
+    .campaign-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      background: var(--primary-light);
+      border: 1px solid #A7F3D0;
+      color: var(--primary);
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
+    .hero-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 2.25rem;
+      font-weight: 800;
+      line-height: 1.2;
+      color: var(--text-main);
+      margin-bottom: 16px;
+    }
+    .hero-desc {
+      font-size: 1.05rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+    .impact-metrics {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .impact-card {
+      background: #FFFFFF;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+    }
+    .impact-value {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--primary);
+    }
+    .impact-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+    .donation-card {
+      background: #FFFFFF;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      box-shadow: var(--shadow-lg);
+      padding: 28px;
+    }
+    .card-heading {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.3rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .card-sub {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      margin-bottom: 20px;
+    }
+    .freq-tabs {
+      display: flex;
+      background: #F1F5F9;
+      padding: 4px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+    }
+    .freq-btn {
+      flex: 1;
+      border: none;
+      background: transparent;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .freq-btn.active {
+      background: #FFFFFF;
+      color: var(--text-main);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .amount-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .amount-pill {
+      border: 1.5px solid var(--border);
+      background: #FFFFFF;
+      padding: 12px 8px;
+      border-radius: 10px;
+      text-align: center;
+      font-weight: 700;
+      font-size: 1kzem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .amount-pill:not(.selected):hover {
+      border-color: var(--primary);
+      background: var(--primary-light);
+    }
+    .amount-pill.selected {
+      border-color: var(--primary);
+      background: var(--primary-light);
+      color: var(--primary);
+    }
+    .form-group {
+      margin-bottom: 14px;
+    }
+    .form-label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-main);
+      margin-bottom: 5px;
+    }
+    .form-input {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.12);
+    }
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.82rem;
+      color: var(--text-main);
+      margin: 14px 0;
+      cursor: pointer;
+    }
+    .btn-donate {
+      width: 100%;
+      background: linear-gradient(135deg, #059669 0%, #047857 100%);
+      color: #FFFFFF;
+      border: none;
+      padding: 14px 20px;
+      border-radius: 10px;
+      font-size: 1.05rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25);
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .btn-donate:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(5, 150, 105, 0.35);
+    }
+    .debug-panel {
+      background: #0F172A;
+      border-radius: 12px;
+      padding: 16px;
+      color: #E2E8F0;
+      font-family: monospace;
+      font-size: 0.78rem;
+      margin-top: 24px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .debug-title {
+      color: #10B981;
+      font-weight: 700;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(4px);
+      z-index: 999;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal-box {
+      background: #FFFFFF;
+      border-radius: 20px;
+      max-width: 500px;
+      width: 100%;
+      padding: 32px;
+      text-align: center;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+      position: relative;
+    }
+    .modal-icon {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: #ECFDF5;
+      color: #059669;
+      font-size: 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 16px auto;
+    }
+  </style>
+
+  <!-- 1. Gateway SDKs -->
+  <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+  <!-- 2. EKhum Universal Individual Giving Embed -->
+  <script src="http://localhost:5000/embed.js"></script>
+</head>
+<body>
+
+  <!-- Top bar -->
+  <div class="top-strip">
+    <div class="container" style="display:flex; justify-content:space-between; width:100%;">
+      <span>🛡️ 80G Tax Exemption URN: AAATC1234F2180G1 • ChildFund</span>
+      <span>🔒 256-Bit SSL Encrypted & Direct NGO Payout</span>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <header>
+    <div class="container header-content">
+      <div class="ngo-brand">
+        <div class="ngo-logo-badge">🌟</div>
+        <div>
+          <div class="ngo-name">ChildFund</div>
+          <div class="ngo-tag">Beneficiary NGO • Registered 80G Tax Exempted Organization</div>
+        </div>
+      </div>
+      <div>
+        <span style="font-size: 0.78rem; background:#ECFDF5; color:#065F46; padding:6px 14px; border-radius:20px; font-weight:700; border:1px solid #A7F3D0;">
+          ⚡ Primary Rail: Razorpay • Failover: Cashfree
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Grid -->
+  <main class="container main-grid">
+    
+    <!-- Left Campaign Pitch -->
+    <div>
+      <div class="campaign-badge">🎯 Campaign: Child Fund (/chilf_fund_camp)</div>
+      <h1 class="hero-title">Empower Vulnerable Children with Health, Nutrition & Education</h1>
+      <p class="hero-desc">
+        Your contribution directly provides life-saving healthcare kits, clean nutrition, and continuous schooling for underprivileged children. 
+        All donations are 100% tax-exempt under Section 80G with instant receipt generation.
+      </p>
+
+      <div class="impact-metrics">
+        <div class="impact-card">
+          <div class="impact-value">5,000+</div>
+          <div class="impact-label">Children Impacted</div>
+        </div>
+        <div class="impact-card">
+          <div class="impact-value">100%</div>
+          <div class="impact-label">Direct Payout (0% Cut)</div>
+        </div>
+        <div class="impact-card">
+          <div class="impact-value">Instant</div>
+          <div class="impact-label">80G Tax Exemption</div>
+        </div>
+      </div>
+
+      <div style="background:#FFFFFF; border:1px solid var(--border); border-radius:12px; padding:18px; margin-bottom:18px;">
+        <h3 style="font-size:0.92rem; font-weight:700; margin-bottom:10px; color:var(--text-main);">
+          🛡️ Enterprise Multi-Gateway Infrastructure for ChildFund
+        </h3>
+        <ul style="list-style:none; display:flex; flex-direction:column; gap:8px; font-size:0.82rem; color:var(--text-muted);">
+          <li>⭐ <strong>Primary Gateway Rail:</strong> Razorpay Gateway Rail (Instant UPI & Cards)</li>
+          <li>🔄 <strong>Failover Gateway Rail:</strong> Cashfree UPI Intent Rail (Zero-Downtime Redundancy)</li>
+          <li>📜 <strong>Statutory Compliance:</strong> Automated Form 10BD Filing & Digitally Signed 80G Receipts</li>
+          <li>📱 <strong>WhatsApp Multi-Channel:</strong> Instant dispatch of tax receipts to registered mobile numbers</li>
+        </ul>
+      </div>
+
+      <!-- Live Embed Event Log -->
+      <div class="debug-panel">
+        <div class="debug-title">
+          <span>🔌 EKhum Embed SDK Live Event Log</span>
+          <span style="font-size:0.68rem; color:#94A3B8;">Origin: http://localhost:2000</span>
+        </div>
+        <div id="log-container">[Ready] Embed SDK Initialized. Ready for ChildFund payments...</div>
+      </div>
+    </div>
+
+    <!-- Right Donation Form Box -->
+    <div class="donation-card">
+      <h2 class="card-heading">Make a Contribution</h2>
+      <p class="card-sub">Select donation amount and fill donor CRM details</p>
+
+      <!-- Frequency Tabs -->
+      <div class="freq-tabs">
+        <button type="button" class="freq-btn active" id="tab-one-time" onclick="setFrequency(false)">One-Time Gift</button>
+        <button type="button" class="freq-btn" id="tab-monthly" onclick="setFrequency(true)">Monthly Support</button>
+      </div>
+      <input type="checkbox" id="is_monthly" style="display:none;" />
+
+      <!-- Amount Selector -->
+      <label class="form-label">Select Amount (INR)</label>
+      <div class="amount-grid">
+        <div class="amount-pill" onclick="setAmount(500)">₹500</div>
+        <div class="amount-pill selected" onclick="setAmount(1000)">₹1,000</div>
+        <div class="amount-pill" onclick="setAmount(2500)">₹2,500</div>
+        <div class="amount-pill" onclick="setAmount(5000)">₹5,000</div>
+        <div class="amount-pill" onclick="setAmount(10000)">₹10,000</div>
+        <div class="amount-pill" onclick="setAmount('custom')">Custom</div>
+      </div>
+
+      <!-- Main Donation Form -->
+      <form id="childFundDonationForm" onsubmit="handleDonateSubmit(event)">
+        
+        <div class="form-group">
+          <label class="form-label">Donation Amount (₹)</label>
+          <input type="number" id="donation_amount" class="form-input" value="1000" min="1" required />
+        </div>
+
+        <div style="font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:#64748B; margin:14px 0 8px 0;">
+          👤 Donor Identity (KYC Details)
+        </div>
+
+        <div style="display:grid; grid-template-columns: 80px 1fr 1fr; gap:8px;">
+          <div class="form-group">
+            <label class="form-label">Title</label>
+            <select id="donor_title" class="form-input" style="padding:8px 4px;">
+              <option value="Mr.">Mr.</option>
+              <option value="Mrs.">Mrs.</option>
+              <option value="Ms.">Ms.</option>
+              <option value="Dr.">Dr.</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">First Name</label>
+            <input type="text" id="donor_first_name" class="form-input" value="Aarav" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Last Name</label>
+            <input type="text" id="donor_last_name" class="form-input" value="Sharma" required />
+          </div>
+        </div>
+
+        <input type="hidden" id="donor_name" value="Aarav Sharma" />
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+          <div class="form-group">
+            <label class="form-label">Email Address</label>
+            <input type="email" id="donor_email" class="form-input" value="aarav.sharma@example.com" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Mobile (WhatsApp)</label>
+            <input type="tel" id="donor_phone" class="form-input" value="+919876543210" required />
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+          <div class="form-group">
+            <label class="form-label">PAN Number (For 80G Exemption)</label>
+            <input type="text" id="donor_pan" class="form-input" value="ABCDE1234F" maxlength="10" style="text-transform:uppercase; font-family:monospace; font-weight:700;" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Name as per PAN</label>
+            <input type="text" id="pan_holder_name" class="form-input" value="Aarav Sharma" />
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+          <div class="form-group">
+            <label class="form-label">Date of Birth</label>
+            <input type="date" id="donor_dob" class="form-input" value="1988-04-15" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Gender</label>
+            <select id="donor_gender" class="form-input">
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:#64748B; margin:14px 0 8px 0;">
+          📍 Residential Address (Auto-Resolved)
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Street Address</label>
+          <input type="text" id="donor_address" class="form-input" value="Flat 402, Lotus Heights, MG Road" />
+        </div>
+
+        <div style="display:grid; grid-template-columns: 100px 1fr 1fr; gap:8px;">
+          <div class="form-group">
+            <label class="form-label">PIN Code</label>
+            <input type="text" id="donor_pincode" class="form-input" value="400001" maxlength="6" onchange="handlePincodeLookup(this.value)" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">City</label>
+            <input type="text" id="donor_city" class="form-input" value="Mumbai" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">State</label>
+            <input type="text" id="donor_state" class="form-input" value="Maharashtra" />
+          </div>
+        </div>
+
+        <div style="font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:#64748B; margin:14px 0 8px 0;">
+          🛡️ Consent & Custom Campaign Options
+        </div>
+
+        <div style="display:flex; gap:16px; flex-wrap:wrap; margin-bottom:8px;">
+          <label class="checkbox-row">
+            <input type="checkbox" id="consent_email" checked />
+            <span>Email Updates</span>
+          </label>
+          <label class="checkbox-row">
+            <input type="checkbox" id="consent_whatsapp" checked />
+            <span>WhatsApp Receipts</span>
+          </label>
+          <label class="checkbox-row">
+            <input type="checkbox" id="consent_sms" checked />
+            <span>SMS Alerts</span>
+          </label>
+        </div>
+
+        <div style="display:grid; grid-template-columns: 100px 1fr; gap:8px;">
+          <div class="form-group">
+            <label class="form-label">T-Shirt Size</label>
+            <select id="tshirt_size" class="form-input">
+              <option value="S">S</option>
+              <option value="M">M</option>
+              <option value="L" selected>L</option>
+              <option value="XL">XL</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Donor Comment</label>
+            <input type="text" id="donor_comments" class="form-input" value="Donation in support of Child Fund for ChildFund" />
+          </div>
+        </div>
+
+        <button type="submit" id="btn-donate-submit" class="btn-donate">
+          <span>💳 Donate ₹<span id="btn-amount-label">1,000</span> via ChildFund Rails</span>
+        </button>
+      </form>
+    </div>
+  </main>
+
+  <!-- Success Confirmation Modal -->
+  <div class="modal-overlay" id="successModal">
+    <div class="modal-box">
+      <div class="modal-icon">🎉</div>
+      <h2 style="font-family:'Outfit', sans-serif; font-size:1.45rem; font-weight:800; color:#064E3B; margin-bottom:6px;">
+        Thank You for Supporting ChildFund!
+      </h2>
+      <p style="font-size:0.88rem; color:var(--text-muted); margin-bottom:18px;">
+        Your donation of <strong style="color:#059669;" id="modal-amount">₹1,000</strong> has been processed via EKhum Multi-Gateway Rails.
+      </p>
+
+      <div style="background:#F8FAFC; border:1px solid var(--border); border-radius:10px; padding:14px; text-align:left; font-size:0.80rem; margin-bottom:18px;">
+        <div style="margin-bottom:5px;"><strong>Transaction ID:</strong> <code id="modal-tx-id">pay_123456</code></div>
+        <div style="margin-bottom:5px;"><strong>Campaign:</strong> Child Fund (/chilf_fund_camp)</div>
+        <div style="margin-bottom:5px;"><strong>Beneficiary NGO:</strong> ChildFund</div>
+        <div><strong>80G Statutory URN:</strong> AAATC1234F2180G1</div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <a id="modal-receipt-link" href="#" target="_blank" class="btn-donate" style="text-decoration:none; margin-top:0;">
+          📄 Download 80G Tax Receipt
+        </a>
+        <button type="button" onclick="closeModal()" style="padding:8px; background:none; border:none; color:var(--text-muted); cursor:pointer; font-weight:600; font-size:0.85rem;">
+          Close Window
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- 2. Call EKhum.pay() on Submit / Donate Button Click -->
+  <!-- ========================================================================= -->
+  <script>
+    function log(msg) {
+      var container = document.getElementById('log-container');
+      if (!container) return;
+      var line = document.createElement('div');
+      line.style.marginTop = '4px';
+      line.innerHTML = '<span style="color:#64748B;">[' + new Date().toLocaleTimeString() + ']</span> ' + msg;
+      container.appendChild(line);
+      container.scrollTop = container.scrollHeight;
+      console.log(msg);
+    }
+
+    function setFrequency(isMonthly) {
+      document.getElementById('is_monthly').checked = isMonthly;
+      document.getElementById('tab-one-time').classList.toggle('active', !isMonthly);
+      document.getElementById('tab-monthly').classList.toggle('active', isMonthly);
+      log('Frequency set to: <strong>' + (isMonthly ? 'Monthly Recurring Support' : 'One-Time Gift') + '</strong>');
+    }
+
+    function setAmount(val) {
+      document.querySelectorAll('.amount-pill').forEach(function(el) { el.classList.remove('selected'); });
+      if (val === 'custom') {
+        document.getElementById('donation_amount').focus();
+      } else {
+        document.getElementById('donation_amount').value = val;
+        document.getElementById('btn-amount-label').innerText = Number(val).toLocaleString();
+      }
+      log('Amount selected: ₹' + val);
+    }
+
+    document.getElementById('donation_amount').addEventListener('input', function(e) {
+      var val = Number(e.target.value) || 0;
+      document.getElementById('btn-amount-label').innerText = val.toLocaleString();
+    });
+
+    function handlePincodeLookup(pin) {
+      if (pin && pin.length === 6) {
+        log('📍 Auto-resolving PIN Code ' + pin + '...');
+        fetch('http://localhost:5000/api/contacts/pincode/' + pin)
+          .then(function(r) { return r.json(); })
+          .then(function(res) {
+            if (res && res.success && res.data) {
+              if (res.data.city) document.getElementById('donor_city').value = res.data.city;
+              if (res.data.state) document.getElementById('donor_state').value = res.data.state;
+              log('✅ PIN Code Resolved: ' + res.data.city + ', ' + res.data.state);
+            }
+          })
+          .catch(function(e) {});
+      }
+    }
+
+    function handleDonateSubmit(e) {
+      if (e && e.preventDefault) e.preventDefault();
+
+      var fName = document.getElementById('donor_first_name')?.value || 'Aarav';
+      var lName = document.getElementById('donor_last_name')?.value || 'Sharma';
+      var fullName = (fName + ' ' + lName).trim();
+      document.getElementById('donor_name').value = fullName;
+
+      var amount = Number(document.getElementById('donation_amount')?.value) || 1000;
+      var btn = document.getElementById('btn-donate-submit');
+      btn.disabled = true;
+      btn.innerText = '⚡ Connecting to ChildFund Rails...';
+
+      log('🚀 Calling <code>EKhum.pay()</code> with Campaign API Key <code>ek_live_chilffundcamp_809074</code>...');
+
+      if (typeof window.EKhum !== 'undefined' && window.EKhum.pay) {
+        window.EKhum.pay({
+          // 🔑 Specific Campaign Credentials
+          apiKey: "ek_live_chilffundcamp_809074",
+          campaignSlug: "chilf_fund_camp",
+          
+          // 💳 Multi-Gateway Smart Failover Engine
+          gateway: "razorpay", // Primary Aligned Rail (Razorpay Gateway Rail)
+          fallbackGateway: "cashfree", // Automatic Failover Rail
+          enableAutoFailover: true,
+          
+          // 💰 Donation & Frequency Data Layer
+          amount: amount,
+          currency: "INR",
+          isMonthly: document.getElementById('is_monthly')?.checked || false,
+          
+          // 👤 Full Contact KYC Layer (Upserted into ChildFund's CRM)
+          title: document.getElementById('donor_title')?.value || "Mr.",
+          firstName: fName,
+          lastName: lName,
+          name: fullName,
+          email: document.getElementById('donor_email')?.value || "aarav.sharma@example.com",
+          phone: document.getElementById('donor_phone')?.value || "+919876543210",
+          altPhone: document.getElementById('donor_alt_phone')?.value || "",
+          taxId: document.getElementById('donor_pan')?.value || "ABCDE1234F",
+          dob: document.getElementById('donor_dob')?.value || "1988-04-15",
+          gender: document.getElementById('donor_gender')?.value || "Male",
+          donorType: "Individual",
+          citizenship: "Indian",
+          
+          // 📍 Full Address Data Layer
+          address: document.getElementById('donor_address')?.value || "Flat 402, Lotus Heights, MG Road",
+          pincode: document.getElementById('donor_pincode')?.value || "400001",
+          city: document.getElementById('donor_city')?.value || "Mumbai",
+          state: document.getElementById('donor_state')?.value || "Maharashtra",
+          country: "India",
+
+          // 📜 Statutory 80G Tax Exemption & Form 10BD Flags
+          is80GRequested: true,
+          panHolderName: document.getElementById('pan_holder_name')?.value || fullName,
+          certificateLanguage: "en",
+          isAnonymous: false,
+
+          // 🛡️ Consent Management (DPDP Act / GDPR)
+          consentEmail: document.getElementById('consent_email')?.checked ?? true,
+          consentWhatsapp: document.getElementById('consent_whatsapp')?.checked ?? true,
+          consentSms: document.getElementById('consent_sms')?.checked ?? true,
+          preferredChannel: "both",
+
+          // 📣 Marketing Attribution & Telemetry
+          utm_source: new URLSearchParams(window.location.search).get('utm_source') || "google_ads",
+          utm_medium: new URLSearchParams(window.location.search).get('utm_medium') || "cpc",
+          utm_campaign: new URLSearchParams(window.location.search).get('utm_campaign') || "chilf_fund_camp",
+          fundraiser_id: new URLSearchParams(window.location.search).get('fundraiser_id') || undefined,
+          volunteer_code: new URLSearchParams(window.location.search).get('vol_code') || undefined,
+
+          // 💬 Donor Comments & Custom Fields
+          comments: document.getElementById('donor_comments')?.value || "Donation in support of Child Fund for ChildFund",
+          customFormData: {
+            campaign_title: "Child Fund",
+            ngo_beneficiary: "ChildFund",
+            tshirt_size: document.getElementById('tshirt_size')?.value || "L",
+            source_landing_page: window.location.href,
+            referrer: document.referrer
+          },
+
+          // Callbacks
+          onSuccess: function(res) {
+            btn.disabled = false;
+            btn.innerHTML = '<span>💳 Donate ₹' + amount.toLocaleString() + ' via ChildFund Rails</span>';
+            log('✅ <span style="color:#10B981;">Donation Successful for ChildFund!</span> ' + JSON.stringify(res));
+
+            document.getElementById('modal-amount').innerText = '₹' + amount.toLocaleString();
+            document.getElementById('modal-tx-id').innerText = res.payment_id || res.transaction_id || 'TXN_' + Date.now();
+            if (res.receipt_url) {
+              document.getElementById('modal-receipt-link').href = res.receipt_url;
+            }
+            document.getElementById('successModal').style.display = 'flex';
+          },
+          onError: function(err) {
+            btn.disabled = false;
+            btn.innerHTML = '<span>💳 Donate ₹' + amount.toLocaleString() + ' via ChildFund Rails</span>';
+            log('❌ <span style="color:#EF4444;">Donation Error / Cancelled:</span> ' + (err.error || err.message || JSON.stringify(err)));
+          }
+        });
+      } else {
+        log('⚠️ Fallback: Calling Direct REST Endpoint <code>/api/v1/external/donations/initiate</code>...');
+        fetch('http://localhost:5000/api/v1/external/donations/initiate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-ekhum-api-key': 'ek_live_chilffundcamp_809074'
+          },
+          body: JSON.stringify({
+            campaignSlug: 'chilf_fund_camp',
+            amount: amount,
+            currency: 'INR',
+            name: fullName,
+            firstName: fName,
+            lastName: lName,
+            email: document.getElementById('donor_email')?.value,
+            phone: document.getElementById('donor_phone')?.value,
+            taxId: document.getElementById('donor_pan')?.value,
+            city: document.getElementById('donor_city')?.value,
+            state: document.getElementById('donor_state')?.value,
+            pincode: document.getElementById('donor_pincode')?.value,
+            is80GRequested: true
+          })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          btn.disabled = false;
+          btn.innerHTML = '<span>💳 Donate ₹' + amount.toLocaleString() + ' via ChildFund Rails</span>';
+          log('✅ Direct Gateway Response: ' + JSON.stringify(data));
+          if (data.success) {
+            document.getElementById('modal-amount').innerText = '₹' + amount.toLocaleString();
+            document.getElementById('modal-tx-id').innerText = data.orderId || data.donationId || 'TXN_' + Date.now();
+            document.getElementById('successModal').style.display = 'flex';
+          }
+        })
+        .catch(function(err) {
+          btn.disabled = false;
+          btn.innerHTML = '<span>💳 Donate ₹' + amount.toLocaleString() + ' via ChildFund Rails</span>';
+          log('❌ Error: ' + err.message);
+        });
+      }
+    }
+
+    function closeModal() {
+      document.getElementById('successModal').style.display = 'none';
+    }
+
+    window.addEventListener('load', function() {
+      if (typeof window.EKhum !== 'undefined') {
+        log('✅ <strong>EKhum Embed SDK Loaded.</strong> Connected to ChildFund campaign rails.');
+      } else {
+        log('⚠️ EKhum SDK Initializing...');
+      }
+    });
+  </script>
+</body>
+</html>

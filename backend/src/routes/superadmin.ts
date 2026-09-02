@@ -396,7 +396,7 @@ router.post('/campaigns', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: 'Specified NGO Organization does not exist in the database. Please create or assign an existing NGO first.' });
     }
 
-    const generatedApiKey = `wg_live_${slug.replace(/[^a-z0-9]/gi, '')}_${Date.now().toString().slice(-6)}`;
+    const generatedApiKey = `ek_live_${slug.replace(/[^a-z0-9]/gi, '')}_${Date.now().toString().slice(-6)}`;
     const query = `
       INSERT INTO campaigns (organization_id, title, description, slug, api_key, landing_page_url, goal_amount, is_active, payment_config, permissions, form_fields)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
@@ -467,13 +467,13 @@ router.post('/organizations/:id/provision-key', async (req: Request, res: Respon
 
     const org = orgRows[0];
     const generatedKeyId = `rzp_test_${org.slug.replace(/[^a-z0-9]/gi, '').slice(0, 8)}_${Date.now().toString().slice(-6)}`;
-    const generatedKeySecret = `wg_sec_${Math.random().toString(36).slice(2, 12)}`;
+    const generatedKeySecret = `ek_sec_${Math.random().toString(36).slice(2, 12)}`;
 
     const updatedConfig = {
       ...(org.payment_gateways_config || {}),
       razorpay_key_id: generatedKeyId,
       razorpay_key_secret: generatedKeySecret,
-      provisioned_by: 'danapro_superadmin',
+      provisioned_by: 'ekhum_superadmin',
       provisioned_at: new Date().toISOString()
     };
 
@@ -481,7 +481,7 @@ router.post('/organizations/:id/provision-key', async (req: Request, res: Respon
 
     return res.status(200).json({
       success: true,
-      message: 'DanaPro Admin Managed Razorpay Key provisioned successfully!',
+      message: 'EKhum Admin Managed Razorpay Key provisioned successfully!',
       keyId: generatedKeyId,
       keySecret: generatedKeySecret
     });
@@ -490,7 +490,7 @@ router.post('/organizations/:id/provision-key', async (req: Request, res: Respon
   }
 });
 
-// 8A-2. Auto-provision DanaPro Admin Managed Sub-Key for Campaign
+// 8A-2. Auto-provision EKhum Admin Managed Sub-Key for Campaign
 router.post('/campaigns/:id/provision-key', async (req: Request, res: Response) => {
   const { id } = req.params;
   try {
@@ -501,13 +501,13 @@ router.post('/campaigns/:id/provision-key', async (req: Request, res: Response) 
 
     const camp = campRows[0];
     const generatedKeyId = `rzp_test_${camp.slug.replace(/[^a-z0-9]/gi, '').slice(0, 8)}_${Date.now().toString().slice(-6)}`;
-    const generatedKeySecret = `wg_sec_${Math.random().toString(36).slice(2, 12)}`;
+    const generatedKeySecret = `ek_sec_${Math.random().toString(36).slice(2, 12)}`;
 
     const updatedConfig = {
       ...(camp.payment_config || {}),
       razorpay_key_id: generatedKeyId,
       razorpay_key_secret: generatedKeySecret,
-      provisioned_by: 'danapro_superadmin',
+      provisioned_by: 'ekhum_superadmin',
       provisioned_at: new Date().toISOString()
     };
 

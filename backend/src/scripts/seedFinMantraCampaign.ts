@@ -17,12 +17,12 @@ async function seedFinMantra() {
       orgId = newOrg.rows[0].id;
     }
 
-    // 2. Insert or update finmantra_campaign with api_key = 'dp_live_1a4f11d71db045bb16af1f7d9318a7a4'
+    // 2. Insert or update finmantra_campaign with api_key = 'ek_live_finmantra_campaign_946342'
     const campRes = await pool.query(
       `INSERT INTO campaigns (organization_id, title, description, slug, api_key, landing_page_url, is_active, approval_status, goal_amount)
-       VALUES ($1, 'FinMantra Empowerment Campaign 2026', 'Official FinMantra NGO Campaign for Financial Empowerment', 'finmantra_campaign', 'dp_live_1a4f11d71db045bb16af1f7d9318a7a4', 'http://localhost:8000', true, 'approved', 500000)
+       VALUES ($1, 'FinMantra Empowerment Campaign 2026', 'Official FinMantra NGO Campaign for Financial Empowerment', 'finmantra_campaign', 'ek_live_finmantra_campaign_946342', 'http://localhost:8000', true, 'approved', 500000)
        ON CONFLICT (slug) 
-       DO UPDATE SET api_key = 'dp_live_1a4f11d71db045bb16af1f7d9318a7a4', is_active = true, approval_status = 'approved', landing_page_url = 'http://localhost:8000'
+       DO UPDATE SET api_key = 'ek_live_finmantra_campaign_946342', is_active = true, approval_status = 'approved', landing_page_url = 'http://localhost:8000'
        RETURNING id, title, slug, api_key`,
       [orgId]
     );

@@ -13,7 +13,7 @@ import {
   extractNgoGatewayRails,
   getSystemSettings 
 } from '../services/paymentRouter';
-import { recalculateContactRollups, updateSubscriptionStats } from '../services/contactRollupService';
+import { recalculateContactRollups, lookupIndianPincode, updateSubscriptionStats } from '../services/contactRollupService';
 
 const router = Router();
 
@@ -87,41 +87,129 @@ router.get(['/campaigns/:slug', '/landing-pages/:slug'], async (req: Request, re
 router.post('/donations/initiate', async (req: Request, res: Response): Promise<void> => {
   try {
     const apiKey = (req.headers['x-ekhum-api-key'] || req.headers['x-wegive-api-key'] || req.headers['x-danapro-api-key'] || req.query.api_key || req.body.api_key) as string;
-    const { 
+    
+    // Extract body and fallback to customFormData or dataLayer
+    const customData = req.body.customFormData || req.body.custom_form_data || req.body.custom_fields || {};
+    const dataLayerObj = req.body.dataLayer || req.body.data_layer || {};
+
+    const {
+      // Identity & Contact
       title,
       first_name,
+      firstName,
       last_name,
-      name, 
-      email, 
-      phone, 
+      lastName,
+      name,
+      donor_name,
+      donorName,
+      email,
+      donor_email,
+      donorEmail: inputDonorEmail,
+      phone,
       mobile,
+      donor_phone,
+      donorPhone: inputDonorPhone,
+      donor_mobile,
+      alt_phone,
+      alternate_phone,
+      whatsapp_number,
+      taxId,
+      tax_id,
+      pan,
+      pan_number,
+      panNumber,
+      pan_holder_name,
       birthdate,
       date_of_birth,
-      taxId, 
-      tax_id,
-      pan_number,
+      dob,
+      birth_date,
+      gender,
+      donor_type,
+      donorType,
+      citizenship,
+
+      // Address
       address,
       street_address_1,
       street_address_2,
+      address_line_1,
+      address_line_2,
+      apartment,
+      line1,
+      line2,
       city,
       state,
       zip_code,
       pincode,
+      pin,
+      postal_code,
+      postalCode,
       country,
+
+      // Statutory & 80G / 10BD
+      is_80g_requested,
+      requires_80g,
+      is80GRequested,
+      certificate_language,
+      isAnonymous = false,
+      is_anonymous,
+      anon_donor,
+
+      // Consent & DPDP
+      consent_email,
+      consentEmail,
+      consent_whatsapp,
+      consentWhatsapp,
+      consent_sms,
+      consentSms,
+      consent_calling,
+      consentCalling,
+      preferred_channel,
+      preferred_language,
+
+      // Marketing Attribution & UTM
+      utm_source,
+      utmSource,
+      utm_medium,
+      utmMedium,
+      utm_campaign,
+      utmCampaign,
+      utm_content,
+      utmContent,
+      utm_term,
+      utmTerm,
+      referrer,
+      landing_page_url,
+      landingPageUrl,
+      device_type,
+      deviceType,
+      sub_campaign_id,
+      fundraiser_id,
+      volunteer_code,
+      referral_code,
+
+      // Staff Notes / Donor Comments
+      comments,
+      notes,
+      message,
+      donor_comment,
+
+      // Frequency & Payment
       payment_type,
       paymentType,
       is_monthly,
-      amount, 
-      currency = 'INR', 
-      isAnonymous = false, 
-      customFormData = {}, 
-      campaignSlug, 
-      requestedGateway, 
-      forceSandbox = false 
+      isMonthly,
+      interval,
+      frequency,
+      amount,
+      currency = 'INR',
+      campaignSlug,
+      requestedGateway,
+      forceSandbox = false
     } = req.body;
 
     if (!apiKey) {
-      res.status(401).json({ error: 'Unauthorized: Missing DanaPro API Key (x-danapro-api-key header or api_key payload parameter required)' });
+      res.status(401).json({ error: 'Unauthorized: Missing DanaPro / EKhum API Key (x-ekhum-api-key header or api_key payload parameter required)' });
       return;
     }
 
@@ -136,10 +224,12 @@ router.post('/donations/initiate', async (req: Request, res: Response): Promise<
       FROM campaigns c
       JOIN organizations o ON c.organization_id = o.id
       WHERE c.api_key = $1 OR o.api_key = $1
-         OR REPLACE(c.api_key, 'wg_live_', 'wg_test_') = $1
-         OR REPLACE(c.api_key, 'wg_test_', 'wg_live_') = $1
-         OR REPLACE(o.api_key, 'wg_live_', 'wg_test_') = $1
-         OR REPLACE(o.api_key, 'wg_test_', 'wg_live_') = $1
+         OR REPLACE(c.api_key, 'ek_live_', 'ek_test_') = $1
+         OR REPLACE(c.api_key, 'ek_test_', 'ek_live_') = $1
+         OR REPLACE(o.api_key, 'ek_live_', 'ek_test_') = $1
+         OR REPLACE(o.api_key, 'ek_test_', 'ek_live_') = $1
+         OR REPLACE(c.api_key, 'wg_live_', 'ek_live_') = $1
+         OR REPLACE(o.api_key, 'wg_live_', 'ek_live_') = $1
     `;
     let queryParams: any[] = [apiKey];
 
@@ -171,24 +261,44 @@ router.post('/donations/initiate', async (req: Request, res: Response): Promise<
       } catch (e) {}
     }
 
-    // 2. Insert or update Donor in database with full Salesforce CRM attributes
-    const donorFirstName = first_name || '';
-    const donorLastName = last_name || '';
-    const donorDisplayName = name || (first_name || last_name ? `${title ? title + ' ' : ''}${donorFirstName} ${donorLastName}`.trim() : null) || 'Valued Donor';
-    const donorPhone = phone || mobile || null;
-    const donorTaxId = (taxId || tax_id || pan_number || '').toUpperCase().trim() || null;
-    const donorBirthdate = birthdate || date_of_birth || null;
-    const donorAddr1 = street_address_1 || address || null;
-    const donorAddr2 = street_address_2 || null;
-    const donorZip = zip_code || pincode || null;
-    const donorEmail = email || `donor_${Date.now()}@external.org`;
+    // 2. Comprehensive Field Normalization
+    const donorTitle = title || customData.title || null;
+    const donorFirstName = first_name || firstName || customData.first_name || customData.firstName || '';
+    const donorLastName = last_name || lastName || customData.last_name || customData.lastName || '';
+    const rawName = name || donor_name || donorName || customData.name || (donorFirstName || donorLastName ? `${donorTitle ? donorTitle + ' ' : ''}${donorFirstName} ${donorLastName}`.trim() : null);
+    const donorDisplayName = rawName || 'Valued Donor';
+    const donorPhone = phone || mobile || donor_phone || inputDonorPhone || donor_mobile || customData.phone || customData.mobile || null;
+    const donorAltPhone = alt_phone || alternate_phone || whatsapp_number || customData.alt_phone || null;
+    const donorTaxId = (taxId || tax_id || pan || pan_number || panNumber || customData.pan || customData.taxId || customData.tax_id || '').toUpperCase().trim() || null;
+    const donorBirthdate = birthdate || date_of_birth || dob || birth_date || customData.birthdate || customData.dob || null;
+    
+    let donorAddr1 = street_address_1 || address || address_line_1 || line1 || customData.address || customData.street_address_1 || null;
+    let donorAddr2 = street_address_2 || address_line_2 || apartment || line2 || customData.street_address_2 || null;
+    let donorZip = zip_code || pincode || pin || postal_code || postalCode || customData.pincode || customData.zip_code || null;
+    let donorCity = city || customData.city || null;
+    let donorState = state || customData.state || null;
+    let donorCountry = country || customData.country || 'India';
+    const donorEmail = email || donor_email || inputDonorEmail || customData.email || `donor_${Date.now()}@external.org`;
 
+    // Automated Indian Postal Lookup if PIN is provided and City/State are empty
+    if (donorZip && donorZip.length === 6 && (!donorCity || !donorState)) {
+      const pinResult = lookupIndianPincode(donorZip);
+      if (pinResult) {
+        if (!donorCity) donorCity = pinResult.city;
+        if (!donorState) donorState = pinResult.state;
+      }
+    }
+
+    const donorPrefLang = preferred_language || customData.preferred_language || 'en';
+    const donorPrefChannel = preferred_channel || customData.preferred_channel || 'both';
+
+    // Insert or update Donor in database with full Contact CRM attributes
     const donorRes = await pool.query(
       `INSERT INTO donors (
         organization_id, title, first_name, last_name, name, email, phone, 
         birthdate, tax_id, country, street_address_1, street_address_2, 
-        city, state, zip_code, contact_status
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'donor')
+        city, state, zip_code, preferred_language, preferred_channel, contact_status
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 'donor')
       ON CONFLICT (organization_id, email) 
       DO UPDATE SET 
         title = COALESCE(EXCLUDED.title, donors.title),
@@ -203,11 +313,13 @@ router.post('/donations/initiate', async (req: Request, res: Response): Promise<
         city = COALESCE(EXCLUDED.city, donors.city),
         state = COALESCE(EXCLUDED.state, donors.state),
         zip_code = COALESCE(EXCLUDED.zip_code, donors.zip_code),
+        preferred_language = COALESCE(EXCLUDED.preferred_language, donors.preferred_language),
+        preferred_channel = COALESCE(EXCLUDED.preferred_channel, donors.preferred_channel),
         updated_at = NOW()
       RETURNING *`,
       [
         organizationId,
-        title || null,
+        donorTitle,
         donorFirstName,
         donorLastName,
         donorDisplayName,
@@ -215,18 +327,58 @@ router.post('/donations/initiate', async (req: Request, res: Response): Promise<
         donorPhone,
         donorBirthdate,
         donorTaxId,
-        country || 'India',
+        donorCountry,
         donorAddr1,
         donorAddr2,
-        city || null,
-        state || null,
+        donorCity,
+        donorState,
         donorZip,
+        donorPrefLang,
+        donorPrefChannel
       ]
     );
     const donor = donorRes.rows[0];
 
-    // Check if this is a Monthly Donation
-    const isMonthlyDonation = payment_type === 'monthly_donation' || paymentType === 'monthly_donation' || is_monthly === true;
+    // Record DPDP Opt-In Consent Permissions in consents table
+    const emailConsentGiven = consent_email ?? consentEmail ?? customData.consent_email ?? true;
+    const whatsappConsentGiven = consent_whatsapp ?? consentWhatsapp ?? customData.consent_whatsapp ?? true;
+    const smsConsentGiven = consent_sms ?? consentSms ?? customData.consent_sms ?? true;
+
+    try {
+      const consentEntries = [
+        { channel: 'Email', status: emailConsentGiven ? 'Active' : 'Opted-Out' },
+        { channel: 'WhatsApp', status: whatsappConsentGiven ? 'Active' : 'Opted-Out' },
+        { channel: 'SMS', status: smsConsentGiven ? 'Active' : 'Opted-Out' }
+      ];
+      for (const ce of consentEntries) {
+        await pool.query(
+          `INSERT INTO consents (organization_id, contact_id, channel, status, source, consent_text_version, captured_at)
+           VALUES ($1, $2, $3, $4, 'External Landing Page / Embed', 'DPDP Opt-In v1', NOW())
+           ON CONFLICT (organization_id, contact_id, channel)
+           DO UPDATE SET status = EXCLUDED.status, updated_at = NOW()`,
+          [organizationId, donor.id, ce.channel, ce.status]
+        );
+      }
+    } catch (e) {
+      console.warn('[Consent Sync Notice]:', e);
+    }
+
+    // If comments / notes are provided, record staff note in contact_notes table
+    const donorComment = comments || notes || message || donor_comment || customData.comments || customData.notes;
+    if (donorComment) {
+      try {
+        await pool.query(
+          `INSERT INTO contact_notes (organization_id, contact_id, author_name, note_type, title, content)
+           VALUES ($1, $2, 'Landing Page Donor', 'general_note', 'Donor Form Comment / Note', $3)`,
+          [organizationId, donor.id, String(donorComment)]
+        );
+      } catch (e) {
+        console.warn('[Note Insert Notice]:', e);
+      }
+    }
+
+    // Check if this is a Monthly / Recurring Mandate
+    const isMonthlyDonation = payment_type === 'monthly_donation' || paymentType === 'monthly_donation' || is_monthly === true || isMonthly === true || interval === 'monthly' || frequency === 'monthly';
     let subscriptionId: string | null = null;
     if (isMonthlyDonation) {
       const subRes = await pool.query(
@@ -241,12 +393,45 @@ router.post('/donations/initiate', async (req: Request, res: Response): Promise<
           campaign.id,
           Number(amount),
           currency.toUpperCase(),
-          requestedGateway || 'razorpay',
+          requestedGateway || 'cashfree',
           Boolean(donorTaxId)
         ]
       );
       subscriptionId = subRes.rows[0]?.id || null;
     }
+
+    // Structure Comprehensive Data Layer Metadata
+    const mergedDataLayer = {
+      ...(customData || {}),
+      dataLayer: dataLayerObj,
+      utm: {
+        source: utm_source || utmSource || customData.utm_source || null,
+        medium: utm_medium || utmMedium || customData.utm_medium || null,
+        campaign: utm_campaign || utmCampaign || customData.utm_campaign || null,
+        content: utm_content || utmContent || customData.utm_content || null,
+        term: utm_term || utmTerm || customData.utm_term || null
+      },
+      attribution: {
+        referrer: referrer || req.headers.referer || null,
+        landing_page_url: landing_page_url || landingPageUrl || (req.headers.origin || req.headers.referer || null),
+        device_type: device_type || deviceType || customData.device_type || null,
+        sub_campaign_id: sub_campaign_id || customData.sub_campaign_id || null,
+        fundraiser_id: fundraiser_id || customData.fundraiser_id || null,
+        volunteer_code: volunteer_code || customData.volunteer_code || null,
+        referral_code: referral_code || customData.referral_code || null
+      },
+      tax_compliance: {
+        is_80g_requested: is_80g_requested ?? requires_80g ?? is80GRequested ?? Boolean(donorTaxId),
+        pan_holder_name: pan_holder_name || customData.pan_holder_name || donorDisplayName,
+        certificate_language: certificate_language || donorPrefLang
+      },
+      demographics: {
+        gender: gender || customData.gender || null,
+        donor_type: donor_type || donorType || customData.donor_type || 'individual',
+        citizenship: citizenship || customData.citizenship || 'Indian',
+        alt_phone: donorAltPhone
+      }
+    };
 
     // 3. Initiate payment via Multi-Gateway Smart Router
     const paymentResult = await initiateMultiGatewayPayment({
@@ -261,7 +446,7 @@ router.post('/donations/initiate', async (req: Request, res: Response): Promise<
       donorEmail: donor.email,
       donorPhone: donor.phone,
       donorTaxId: donor.tax_id,
-      customFormData,
+      customFormData: mergedDataLayer,
       paymentConfig: campaign.payment_config,
       orgPaymentConfig: campaign.org_payment_config,
       requestedGateway,
@@ -269,6 +454,7 @@ router.post('/donations/initiate', async (req: Request, res: Response): Promise<
     });
 
     // 4. Insert Initiated Donation into Database
+    const finalIsAnonymous = isAnonymous || is_anonymous || anon_donor || false;
     const donationRes = await pool.query(
       `INSERT INTO donations (
         organization_id, campaign_id, donor_id, subscription_id, payment_type, amount, currency, net_amount, fee_covered,
@@ -288,8 +474,8 @@ router.post('/donations/initiate', async (req: Request, res: Response): Promise<
         0.00,
         paymentResult.gateway,
         paymentResult.orderId,
-        isAnonymous,
-        JSON.stringify({ ...(customFormData || {}), isFallback: paymentResult.isFallback, failoverReason: paymentResult.failoverReason })
+        finalIsAnonymous,
+        JSON.stringify({ ...mergedDataLayer, isFallback: paymentResult.isFallback, failoverReason: paymentResult.failoverReason })
       ]
     );
 
@@ -410,7 +596,9 @@ router.post('/donations/verify', async (req: Request, res: Response): Promise<vo
 
     // 1. Fetch donation and donor records
     const donRes = await pool.query(
-      `SELECT d.*, c.title as campaign_title, c.payment_config as camp_payment_config, o.name as org_name, o.payment_gateways_config as org_payment_config, dn.email as donor_email, dn.name as donor_name, dn.id as donor_db_id, dn.phone as donor_phone
+      `SELECT d.*, c.title as campaign_title, c.payment_config as camp_payment_config, o.name as org_name, o.payment_gateways_config as org_payment_config, 
+              dn.email as donor_email, dn.name as donor_name, dn.id as donor_db_id, dn.phone as donor_phone, dn.tax_id as donor_tax_id,
+              dn.street_address_1, dn.city, dn.state, dn.zip_code, dn.country
        FROM donations d
        JOIN campaigns c ON d.campaign_id = c.id
        JOIN organizations o ON d.organization_id = o.id
@@ -478,9 +666,50 @@ router.post('/donations/verify', async (req: Request, res: Response): Promise<vo
 
     const updatedDonation = updateRes.rows[0];
 
-    // 4. Generate 80G Receipt PDF Record
-    const receiptNum = `80G-${resolvedGateway.toUpperCase().slice(0, 3)}-${Date.now().toString().slice(-6)}`;
+    // 4. Generate 80G Statutory Receipt & Compliance Records
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    const fy = month >= 4 ? `${year}-${String(year + 1).slice(2)}` : `${year - 1}-${String(year).slice(2)}`;
+    const receiptNum = `80G-${resolvedGateway.toUpperCase().slice(0, 3)}-${fy}-${Date.now().toString().slice(-6)}`;
     const pdfUrl = `http://localhost:5000/receipts/${receiptNum}.pdf`;
+
+    const donorAddressSnapshot = [
+      donation.street_address_1,
+      donation.city,
+      donation.state ? `${donation.state} ${donation.zip_code || ''}` : donation.zip_code,
+      donation.country || 'India'
+    ].filter(Boolean).join(', ') || 'Address on file';
+
+    // Insert into eighty_g_receipts for Contact CRM & 80G Manager
+    try {
+      await pool.query(
+        `INSERT INTO eighty_g_receipts (
+          organization_id, contact_id, payment_id, monthly_donation_id, receipt_number, financial_year,
+          donation_date, amount, donor_name_snapshot, donor_pan_snapshot, donor_address_snapshot, pdf_url,
+          email_delivery_status, whatsapp_delivery_status
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'delivered', 'delivered')
+        ON CONFLICT (organization_id, receipt_number, financial_year) DO NOTHING`,
+        [
+          donation.organization_id,
+          donation.donor_db_id,
+          donationId,
+          updatedDonation.subscription_id || null,
+          receiptNum,
+          fy,
+          now.toISOString().split('T')[0],
+          Number(updatedDonation.amount),
+          donation.donor_name || 'Valued Donor',
+          taxId || donation.donor_tax_id || 'PAN_PENDING',
+          donorAddressSnapshot,
+          pdfUrl
+        ]
+      );
+    } catch (e) {
+      console.warn('[80G Insert Notice]:', e);
+    }
+
+    // Insert into compliance_receipts for backward compatibility
     await pool.query(
       `INSERT INTO compliance_receipts (donation_id, receipt_number, tax_regime, receipt_pdf_url, transaction_hash, metadata)
        VALUES ($1, $2, '80G', $3, md5($4), $5)
@@ -1061,9 +1290,149 @@ router.get('/embed.js', (req: Request, res: Response) => {
   var EKhum = DanaPro;
   var WeGive = DanaPro;
   
+  // Helper: Extract URL Query Parameters (UTMs, Referrals, etc.)
+  function getUrlParams() {
+    var params = {};
+    try {
+      var query = window.location.search.substring(1);
+      if (query) {
+        var pairs = query.split('&');
+        for (var i = 0; i < pairs.length; i++) {
+          var pair = pairs[i].split('=');
+          if (pair[0]) {
+            params[decodeURIComponent(pair[0])] = decodeURIComponent(pair[1] || '');
+          }
+        }
+      }
+    } catch (e) {}
+    return params;
+  }
+
+  // Helper: Inspect window.dataLayer (GTM / Segment / Tealium)
+  function getGtmDataLayer() {
+    var combined = {};
+    try {
+      if (window.dataLayer && Array.isArray(window.dataLayer)) {
+        for (var i = 0; i < window.dataLayer.length; i++) {
+          var entry = window.dataLayer[i];
+          if (entry && typeof entry === 'object' && !Array.isArray(entry)) {
+            for (var k in entry) {
+              if (entry.hasOwnProperty(k) && typeof entry[k] !== 'function' && k !== 'event' && !k.startsWith('gtm.')) {
+                combined[k] = entry[k];
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {}
+    return combined;
+  }
+
+  // Helper: Find DOM input value by multiple candidate IDs / names / selectors
+  function findInputValue(candidates, rootEl) {
+    var root = rootEl || document;
+    for (var i = 0; i < candidates.length; i++) {
+      var c = candidates[i];
+      try {
+        var el = root.getElementById ? root.getElementById(c) : null;
+        if (!el && root.querySelector) {
+          el = root.querySelector('[name="' + c + '"]') || root.querySelector('#' + c) || root.querySelector('.' + c);
+        }
+        if (el) {
+          if (el.type === 'checkbox') return el.checked;
+          if (el.value !== undefined && el.value !== null && el.value.toString().trim() !== '') {
+            return el.value.toString().trim();
+          }
+        }
+      } catch (e) {}
+    }
+    return undefined;
+  }
+
+  // Auto-Detect all standard Data Layer fields from DOM, URL, and GTM
+  DanaPro.extractDataLayer = function(formElement) {
+    var root = formElement || document;
+    var urlParams = getUrlParams();
+    var gtmLayer = getGtmDataLayer();
+
+    var amountVal = findInputValue(['donation_amount', 'amount', 'give_amount', 'selected_amount', 'ask_amount'], root);
+    var titleVal = findInputValue(['donor_title', 'title', 'salutation'], root);
+    var firstNameVal = findInputValue(['first_name', 'firstName', 'fname', 'given_name'], root);
+    var lastNameVal = findInputValue(['last_name', 'lastName', 'lname', 'family_name'], root);
+    var nameVal = findInputValue(['donor_name', 'name', 'full_name', 'fullName'], root);
+    var emailVal = findInputValue(['donor_email', 'email', 'user_email', 'mail'], root);
+    var phoneVal = findInputValue(['donor_phone', 'phone', 'mobile', 'donor_mobile', 'contact_number', 'tel'], root);
+    var altPhoneVal = findInputValue(['alt_phone', 'alternate_phone', 'whatsapp_number', 'whatsapp_phone'], root);
+    var taxIdVal = findInputValue(['donor_pan', 'taxId', 'tax_id', 'pan', 'pan_number', 'panNumber'], root);
+    var dobVal = findInputValue(['birthdate', 'date_of_birth', 'dob', 'birth_date'], root);
+    var genderVal = findInputValue(['gender', 'donor_gender'], root);
+    var donorTypeVal = findInputValue(['donor_type', 'donorType'], root);
+    var citizenshipVal = findInputValue(['citizenship', 'nationality'], root);
+
+    // Address
+    var addr1Val = findInputValue(['street_address_1', 'address', 'address_line_1', 'street_address', 'line1'], root);
+    var addr2Val = findInputValue(['street_address_2', 'address_line_2', 'apartment', 'suite', 'line2'], root);
+    var cityVal = findInputValue(['city', 'donor_city', 'town'], root);
+    var stateVal = findInputValue(['state', 'donor_state', 'province'], root);
+    var zipVal = findInputValue(['zip_code', 'pincode', 'pin', 'postal_code', 'postalCode', 'zip'], root);
+    var countryVal = findInputValue(['country', 'donor_country'], root) || 'India';
+
+    // 80G & Consents
+    var req80gVal = findInputValue(['is_80g_requested', 'requires_80g', 'is80GRequested', 'claim_80g', 'need_80g'], root);
+    var consentEmailVal = findInputValue(['consent_email', 'consentEmail'], root);
+    var consentWaVal = findInputValue(['consent_whatsapp', 'consentWhatsapp', 'opt_in_whatsapp'], root);
+    var consentSmsVal = findInputValue(['consent_sms', 'consentSms'], root);
+    var commentsVal = findInputValue(['comments', 'notes', 'message', 'donor_comment', 'remarks'], root);
+
+    // Frequency
+    var freqVal = findInputValue(['donation_frequency', 'interval', 'frequency', 'giving_type'], root);
+
+    return {
+      amount: amountVal,
+      title: titleVal,
+      firstName: firstNameVal,
+      lastName: lastNameVal,
+      name: nameVal,
+      email: emailVal,
+      phone: phoneVal,
+      altPhone: altPhoneVal,
+      taxId: taxIdVal,
+      dob: dobVal,
+      gender: genderVal,
+      donorType: donorTypeVal,
+      citizenship: citizenshipVal,
+      address: addr1Val,
+      street_address_2: addr2Val,
+      city: cityVal,
+      state: stateVal,
+      pincode: zipVal,
+      country: countryVal,
+      is80GRequested: req80gVal,
+      consentEmail: consentEmailVal,
+      consentWhatsapp: consentWaVal,
+      consentSms: consentSmsVal,
+      comments: commentsVal,
+      frequency: freqVal,
+      utm: {
+        source: urlParams.utm_source || gtmLayer.utm_source || undefined,
+        medium: urlParams.utm_medium || gtmLayer.utm_medium || undefined,
+        campaign: urlParams.utm_campaign || gtmLayer.utm_campaign || undefined,
+        content: urlParams.utm_content || gtmLayer.utm_content || undefined,
+        term: urlParams.utm_term || gtmLayer.utm_term || undefined
+      },
+      referral: {
+        ref: urlParams.ref || urlParams.referral || undefined,
+        fundraiserId: urlParams.fundraiser_id || urlParams.fundraiser || undefined,
+        volunteerCode: urlParams.volunteer_code || urlParams.volunteer || undefined
+      },
+      dataLayer: gtmLayer
+    };
+  };
+
+  // Main Entry: EKhum.pay(config)
   DanaPro.pay = function(config) {
     if (!config || !config.apiKey) {
-      alert('DanaPro Integration Error: apiKey is required in EKhum.pay({ apiKey: "wg_live_..." })');
+      alert('EKhum Integration Error: apiKey is required in EKhum.pay({ apiKey: "ek_live_..." })');
       return;
     }
     
@@ -1079,17 +1448,108 @@ router.get('/embed.js', (req: Request, res: Response) => {
     var baseServerUrl = config.serverUrl || inferredServerUrl || 'http://localhost:5000';
     var endpoint = baseServerUrl + '/api/v1/external/donations/initiate';
     
+    // Auto-detect fields from DOM / GTM as fallback
+    var autoData = DanaPro.extractDataLayer(config.formElement);
+
+    // Merge Contact Identity
+    var contactCfg = config.contact || {};
+    var addressCfg = config.address || {};
+    var consentCfg = config.consent || {};
+    var utmCfg = config.utm || {};
+
+    var finalAmount = config.amount !== undefined ? config.amount : autoData.amount;
+    var finalTitle = config.title || contactCfg.title || autoData.title;
+    var finalFirstName = config.first_name || config.firstName || contactCfg.firstName || autoData.firstName;
+    var finalLastName = config.last_name || config.lastName || contactCfg.lastName || autoData.lastName;
+    var finalName = config.name || config.donorName || contactCfg.name || autoData.name || (finalFirstName || finalLastName ? ((finalTitle ? finalTitle + ' ' : '') + (finalFirstName || '') + ' ' + (finalLastName || '')).trim() : undefined);
+    var finalEmail = config.email || config.donorEmail || contactCfg.email || autoData.email;
+    var finalPhone = config.phone || config.mobile || config.donorPhone || contactCfg.phone || autoData.phone;
+    var finalAltPhone = config.alt_phone || config.altPhone || contactCfg.altPhone || autoData.altPhone;
+    var finalTaxId = config.taxId || config.tax_id || config.pan || config.pan_number || contactCfg.pan || autoData.taxId;
+    var finalDob = config.birthdate || config.dob || config.date_of_birth || contactCfg.dob || autoData.dob;
+    var finalGender = config.gender || contactCfg.gender || autoData.gender;
+    var finalDonorType = config.donor_type || config.donorType || contactCfg.donorType || autoData.donorType;
+    var finalCitizenship = config.citizenship || contactCfg.citizenship || autoData.citizenship;
+
+    // Merge Address
+    var finalAddr1 = config.street_address_1 || config.address || addressCfg.address || addressCfg.street_address_1 || autoData.address;
+    var finalAddr2 = config.street_address_2 || addressCfg.street_address_2 || autoData.street_address_2;
+    var finalCity = config.city || addressCfg.city || autoData.city;
+    var finalState = config.state || addressCfg.state || autoData.state;
+    var finalZip = config.zip_code || config.pincode || config.pin || addressCfg.pincode || addressCfg.zip_code || autoData.pincode;
+    var finalCountry = config.country || addressCfg.country || autoData.country || 'India';
+
+    // Merge Statutory & Consents
+    var final80g = config.is_80g_requested !== undefined ? config.is_80g_requested : (config.is80GRequested !== undefined ? config.is80GRequested : (autoData.is80GRequested !== undefined ? autoData.is80GRequested : Boolean(finalTaxId)));
+    var finalConsentEmail = config.consent_email !== undefined ? config.consent_email : (consentCfg.email !== undefined ? consentCfg.email : (autoData.consentEmail !== undefined ? autoData.consentEmail : true));
+    var finalConsentWa = config.consent_whatsapp !== undefined ? config.consent_whatsapp : (consentCfg.whatsapp !== undefined ? consentCfg.whatsapp : (autoData.consentWhatsapp !== undefined ? autoData.consentWhatsapp : true));
+    var finalConsentSms = config.consent_sms !== undefined ? config.consent_sms : (consentCfg.sms !== undefined ? consentCfg.sms : (autoData.consentSms !== undefined ? autoData.consentSms : true));
+    var finalComments = config.comments || config.notes || autoData.comments;
+
+    // Merge Frequency
+    var isMonthly = config.is_monthly === true || config.isMonthly === true || config.interval === 'monthly' || config.frequency === 'monthly' || autoData.frequency === 'monthly';
+
+    // Merge Marketing & Tag layers
+    var mergedCustomData = Object.assign({}, autoData.dataLayer, config.customFormData || {}, config.custom_fields || {});
+
     var payload = {
       api_key: config.apiKey,
-      amount: config.amount,
+      amount: finalAmount,
       currency: config.currency || 'INR',
-      name: config.name,
-      email: config.email,
-      phone: config.phone,
-      taxId: config.taxId,
+      
+      // Identity
+      title: finalTitle,
+      first_name: finalFirstName,
+      last_name: finalLastName,
+      name: finalName,
+      email: finalEmail,
+      phone: finalPhone,
+      alt_phone: finalAltPhone,
+      taxId: finalTaxId,
+      birthdate: finalDob,
+      gender: finalGender,
+      donor_type: finalDonorType,
+      citizenship: finalCitizenship,
+
+      // Address
+      street_address_1: finalAddr1,
+      street_address_2: finalAddr2,
+      city: finalCity,
+      state: finalState,
+      zip_code: finalZip,
+      country: finalCountry,
+
+      // 80G & Consents
+      is_80g_requested: final80g,
+      consent_email: finalConsentEmail,
+      consent_whatsapp: finalConsentWa,
+      consent_sms: finalConsentSms,
+      comments: finalComments,
+
+      // Frequency
+      payment_type: isMonthly ? 'monthly_donation' : 'one_time',
+      is_monthly: isMonthly,
+      interval: isMonthly ? 'monthly' : 'one_time',
+
+      // Campaign & Gateway
       campaignSlug: config.campaignSlug,
       requestedGateway: config.gateway,
-      customFormData: config.customFormData || {}
+
+      // UTM & Marketing Attribution
+      utm_source: config.utm_source || utmCfg.source || autoData.utm.source,
+      utm_medium: config.utm_medium || utmCfg.medium || autoData.utm.medium,
+      utm_campaign: config.utm_campaign || utmCfg.campaign || autoData.utm.campaign,
+      utm_content: config.utm_content || utmCfg.content || autoData.utm.content,
+      utm_term: config.utm_term || utmCfg.term || autoData.utm.term,
+      referrer: document.referrer || undefined,
+      landing_page_url: window.location.href,
+      device_type: /Mobi|Android/i.test(navigator.userAgent) ? 'mobile' : 'desktop',
+      fundraiser_id: config.fundraiser_id || autoData.referral.fundraiserId,
+      volunteer_code: config.volunteer_code || autoData.referral.volunteerCode,
+      referral_code: config.referral_code || autoData.referral.ref,
+
+      dataLayer: autoData.dataLayer,
+      customFormData: mergedCustomData
     };
     
     fetch(endpoint, {
@@ -1124,7 +1584,7 @@ router.get('/embed.js', (req: Request, res: Response) => {
             razorpaySignature: resp ? resp.razorpay_signature : null,
             payuPaymentId: resp ? resp.payu_payment_id : undefined,
             cashfreePaymentId: resp ? resp.cashfree_payment_id : undefined,
-            customFormData: config.customFormData || {}
+            customFormData: mergedCustomData
           })
         })
         .then(function(vRes) { return vRes.json(); })
@@ -1152,7 +1612,7 @@ router.get('/embed.js', (req: Request, res: Response) => {
         
         var orgName = data.organization ? data.organization.name : 'NGO Partner';
         var campTitle = data.campaign ? data.campaign.title : 'Empowerment Campaign';
-        var donorName = config.name || 'Generous Donor';
+        var donorName = finalName || 'Generous Donor';
         var gw = (data.gateway || 'gateway').toLowerCase();
         
         var gwIcon = '💳';
@@ -1281,7 +1741,7 @@ router.get('/embed.js', (req: Request, res: Response) => {
           }
         };
         
-        if (data.orderId && !data.orderId.startsWith('order_wg_ext_') && !data.orderId.startsWith('order_rzp_')) {
+        if (data.orderId && !data.orderId.startsWith('order_ek_ext_') && !data.orderId.startsWith('order_wg_ext_') && !data.orderId.startsWith('order_rzp_')) {
           options.order_id = data.orderId;
         }
         
@@ -1312,12 +1772,27 @@ router.get('/embed.js', (req: Request, res: Response) => {
       }
     })
     .catch(function(err) {
-      console.error('DanaPro Integration Error:', err);
+      console.error('DanaPro / EKhum Integration Error:', err);
       if (typeof config.onError === 'function') {
         config.onError({ error: err.message || 'Failed to connect to server' });
       } else {
         alert('Integration Error: ' + (err.message || 'Failed to connect to server'));
       }
+    });
+  };
+
+  // Convenience: EKhum.autoBind('#my-form', { apiKey: '...' })
+  DanaPro.autoBind = function(selectorOrElement, options) {
+    var opts = options || {};
+    var formEl = typeof selectorOrElement === 'string' ? document.querySelector(selectorOrElement) : selectorOrElement;
+    if (!formEl) {
+      console.warn('[EKhum autoBind]: Target form element not found for selector:', selectorOrElement);
+      return;
+    }
+    formEl.addEventListener('submit', function(e) {
+      e.preventDefault();
+      var config = Object.assign({}, opts, { formElement: formEl });
+      DanaPro.pay(config);
     });
   };
 

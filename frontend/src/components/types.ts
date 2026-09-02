@@ -84,10 +84,19 @@ export interface Contact {
   multi_ngo_names?: string;
   multi_campaign_titles?: string;
   active_subscriptions?: number;
+  donor_tier?: 'Platinum' | 'Gold' | 'Silver' | 'Bronze';
+  donor_lifecycle_stage?: 'lead' | 'first_time' | 'active_regular' | 'monthly_retained' | 'major_donor' | 'lapsed';
+  days_since_last_gift?: number | null;
   summary?: {
     total_donated?: number;
     gift_count?: number;
     active_subscriptions?: number;
+    average_gift_amount?: number;
+    largest_gift_amount?: number;
+    largest_gift_date?: string;
+    days_since_last_gift?: number;
+    donor_tier?: 'Platinum' | 'Gold' | 'Silver' | 'Bronze';
+    donor_lifecycle_stage?: 'lead' | 'first_time' | 'active_regular' | 'monthly_retained' | 'major_donor' | 'lapsed';
     first_gift_date?: string;
     last_gift_date?: string;
     first_gift_campaign?: string;
@@ -97,6 +106,7 @@ export interface Contact {
     email_count?: number;
     whatsapp_count?: number;
     eighty_g_count?: number;
+    notes_count?: number;
   };
   monthly_donations?: MonthlyDonation[];
   payments?: Payment[];
@@ -106,8 +116,33 @@ export interface Contact {
   whatsapp_communications?: WhatsAppCommunication[];
   consents?: Consent[];
   journeys?: JourneyEnrolment[];
+  notes?: ContactNote[];
+  timeline?: ContactTimelineItem[];
   created_at: string;
   updated_at?: string;
+}
+
+export interface ContactNote {
+  id: string;
+  organization_id?: string;
+  contact_id: string;
+  author_name: string;
+  note_type: 'general_note' | 'call_log' | 'meeting' | 'task_followup' | string;
+  title: string;
+  content: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface ContactTimelineItem {
+  id: string;
+  type: 'payment' | 'mandate' | 'eighty_g' | 'email' | 'whatsapp' | 'note' | 'journey' | string;
+  title: string;
+  description: string;
+  status?: string;
+  timestamp: string;
+  icon: string;
+  color: string;
 }
 
 export interface MonthlyDonation {
@@ -250,6 +285,8 @@ export interface TenBDExport {
   organization_id?: string;
   financial_year: string;
   fy?: string;
+  acknowledgement_number?: string;
+  filing_date?: string;
   record_count?: number;
   total_amount?: number;
   excluded_record_count?: number;

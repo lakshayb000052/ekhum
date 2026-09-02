@@ -15,14 +15,14 @@ router.get('/pincode/:pincode', (req: Request, res: Response) => {
   return res.json({ success: true, data: result });
 });
 
-// GET /api/contacts — list donors/contacts with advanced search, status filter, and multi-NGO support
+// GET /api/contacts — list donors/contacts with advanced search, status filter, list views, and multi-NGO support
 router.get('/', authenticate, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     const organization_id = user?.role === 'superadmin' 
       ? (req.query.organizationId as string | undefined) 
       : (user?.organizationId || user?.organization_id);
-    const { search, status, page = 1, limit = 50 } = req.query;
+    const { search, status, listView, sortBy = 'created_at', sortOrder = 'desc', page = 1, limit = 100 } = req.query;
     const offset = (Number(page) - 1) * Number(limit);
     
     let query = `
@@ -67,6 +67,24 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
       query += ` AND LOWER(d.contact_status) = LOWER($${paramIndex++})`;
       params.push(status);
     }
+
+    // Donor CRM List View Filters
+    if (listView) {
+      if (listView === 'active_donors') {
+        query += ` AND COALESCE(d.total_paid_amount, 0) > 0`;
+      } else if (listView === 'monthly_donors') {
+        query += ` AND COALESCE(d.total_monthly_donations, 0) > 0`;
+      } else if (listView === 'major_donors') {
+        query += ` AND COALESCE(d.total_paid_amount, 0) >= 25000`;
+      } else if (listView === 'leads') {
+        query += ` AND (COALESCE(d.total_paid_amount, 0) = 0 OR LOWER(d.contact_status) = 'lead')`;
+      } else if (listView === 'lapsed') {
+        query += ` AND d.last_gift_date IS NOT NULL AND d.last_gift_date < CURRENT_DATE - INTERVAL '180 days'`;
+      } else if (listView === 'missing_pan') {
+        query += ` AND (d.tax_id IS NULL OR TRIM(d.tax_id) = '' OR UPPER(d.tax_id) = 'PAN_PENDING') AND COALESCE(d.total_paid_amount, 0) > 0`;
+      }
+    }
+
     if (search) {
       query += ` AND (
         d.first_name ILIKE $${paramIndex} OR 
@@ -83,11 +101,63 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
       paramIndex++;
     }
 
-    query += ` ORDER BY d.created_at DESC LIMIT $${paramIndex++} OFFSET $${paramIndex}`;
+    // Sort order
+    const allowedSortColumns: Record<string, string> = {
+      name: 'display_name',
+      first_name: 'd.first_name',
+      last_name: 'd.last_name',
+      email: 'd.email',
+      phone: 'd.phone',
+      total_paid_amount: 'COALESCE(d.total_paid_amount, 0)',
+      total_monthly_donations: 'COALESCE(d.total_monthly_donations, 0)',
+      last_gift_date: 'd.last_gift_date',
+      created_at: 'd.created_at'
+    };
+    const orderColumn = allowedSortColumns[String(sortBy)] || 'd.created_at';
+    const direction = String(sortOrder).toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+
+    query += ` ORDER BY ${orderColumn} ${direction} LIMIT $${paramIndex++} OFFSET $${paramIndex}`;
     params.push(Number(limit), offset);
 
     const result = await pool.query(query, params);
     
+    // Add computed metrics on each returned row
+    const enrichedRows = result.rows.map(row => {
+      const paid = Number(row.total_paid_amount || 0);
+      const lastGift = row.last_gift_date ? new Date(row.last_gift_date) : null;
+      let daysSinceLast = null;
+      if (lastGift) {
+        daysSinceLast = Math.floor((Date.now() - lastGift.getTime()) / (1000 * 60 * 60 * 24));
+      }
+
+      let tier: 'Platinum' | 'Gold' | 'Silver' | 'Bronze' = 'Bronze';
+      if (paid >= 100000) tier = 'Platinum';
+      else if (paid >= 25000) tier = 'Gold';
+      else if (paid >= 5000) tier = 'Silver';
+
+      let stage: 'lead' | 'first_time' | 'active_regular' | 'monthly_retained' | 'major_donor' | 'lapsed' = 'lead';
+      if (paid === 0 && Number(row.total_monthly_donations || 0) === 0) {
+        stage = 'lead';
+      } else if (paid >= 50000) {
+        stage = 'major_donor';
+      } else if (Number(row.total_monthly_donations || 0) > 0) {
+        stage = 'monthly_retained';
+      } else if (daysSinceLast !== null && daysSinceLast > 180) {
+        stage = 'lapsed';
+      } else if (Number(row.total_gift_count_paid || 0) > 1) {
+        stage = 'active_regular';
+      } else {
+        stage = 'first_time';
+      }
+
+      return {
+        ...row,
+        donor_tier: tier,
+        donor_lifecycle_stage: stage,
+        days_since_last_gift: daysSinceLast
+      };
+    });
+
     let countQuery = `SELECT COUNT(*) FROM donors WHERE 1=1`;
     const countParams: any[] = [];
     if (organization_id && organization_id !== 'all') {
@@ -98,7 +168,7 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
 
     res.json({ 
       success: true, 
-      data: result.rows,
+      data: enrichedRows,
       pagination: {
         total: parseInt(countResult.rows[0]?.count || '0'),
         page: Number(page),
@@ -110,7 +180,7 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/contacts/:id — get 360° Salesforce-style contact detail with all related objects & histories
+// GET /api/contacts/:id — get 360° contact detail with all related objects & histories
 router.get('/:id', authenticate, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
@@ -273,26 +343,75 @@ router.get('/:id', authenticate, async (req: Request, res: Response) => {
       ORDER BY je.entered_at DESC
     `, [id]);
 
-    // Financial KPI Aggregates
+    // 9. Contact Notes / Call Logs
+    let notesRes = { rows: [] as any[] };
+    try {
+      notesRes = await pool.query(`
+        SELECT * FROM contact_notes WHERE contact_id = $1 ORDER BY created_at DESC
+      `, [id]);
+    } catch (e) {}
+
+    // Financial KPI Aggregates & CRM Analytics
+    const paidSum = Number(contact.total_paid_amount || 0);
+    const completedPayments = paymentsRes.rows.filter((p: any) => p.status === 'completed' || p.status === 'paid' || p.status === 'success');
+    const giftCount = completedPayments.length;
+    const avgGift = giftCount > 0 ? Math.round(paidSum / giftCount) : 0;
+    const largestPayment = completedPayments.sort((a: any, b: any) => Number(b.amount) - Number(a.amount))[0] || null;
+
+    let daysSinceLast = null;
+    if (contact.last_gift_date) {
+      daysSinceLast = Math.floor((Date.now() - new Date(contact.last_gift_date).getTime()) / (1000 * 60 * 60 * 24));
+    }
+
+    let donorTier: 'Platinum' | 'Gold' | 'Silver' | 'Bronze' = 'Bronze';
+    if (paidSum >= 100000) donorTier = 'Platinum';
+    else if (paidSum >= 25000) donorTier = 'Gold';
+    else if (paidSum >= 5000) donorTier = 'Silver';
+
+    let donorLifecycleStage: 'lead' | 'first_time' | 'active_regular' | 'monthly_retained' | 'major_donor' | 'lapsed' = 'lead';
+    if (giftCount === 0 && monthlyDonationsRes.rows.length === 0) {
+      donorLifecycleStage = 'lead';
+    } else if (paidSum >= 50000) {
+      donorLifecycleStage = 'major_donor';
+    } else if (monthlyDonationsRes.rows.some((m: any) => m.status === 'active')) {
+      donorLifecycleStage = 'monthly_retained';
+    } else if (daysSinceLast !== null && daysSinceLast > 180) {
+      donorLifecycleStage = 'lapsed';
+    } else if (giftCount > 1) {
+      donorLifecycleStage = 'active_regular';
+    } else {
+      donorLifecycleStage = 'first_time';
+    }
+
     const summary = {
-      total_donated: Number(contact.total_paid_amount || 0),
-      gift_count: Number(contact.total_gift_count_paid || paymentsRes.rows.filter((p: any) => p.status === 'completed' || p.status === 'paid').length),
+      total_donated: paidSum,
+      gift_count: giftCount,
       active_subscriptions: monthlyDonationsRes.rows.filter((s: any) => s.status === 'active').length,
+      average_gift_amount: avgGift,
+      largest_gift_amount: largestPayment ? Number(largestPayment.amount) : null,
+      largest_gift_date: largestPayment ? largestPayment.payment_date || largestPayment.created_at : null,
+      days_since_last_gift: daysSinceLast,
+      donor_tier: donorTier,
+      donor_lifecycle_stage: donorLifecycleStage,
       first_gift_date: contact.first_gift_date,
       last_gift_date: contact.last_gift_date,
       first_gift_campaign: contact.first_gift_campaign_title || 'Direct Donation',
       last_gift_campaign: contact.last_gift_campaign_title || 'Direct Donation',
       total_monthly_donations: Number(contact.total_monthly_donations || monthlyDonationsRes.rows.length),
-      total_onetime_donations: Number(contact.total_onetime_donations || paymentsRes.rows.filter((p: any) => p.payment_type === 'one_time').length),
+      total_onetime_donations: Number(contact.total_onetime_donations || completedPayments.filter((p: any) => p.payment_type === 'one_time').length),
       email_count: emailRes.rows.length,
       whatsapp_count: whatsappRes.rows.length,
-      eighty_g_count: eightyGRes.rows.length
+      eighty_g_count: eightyGRes.rows.length,
+      notes_count: notesRes.rows.length
     };
 
     res.json({
       success: true,
       data: {
         ...contact,
+        donor_tier: donorTier,
+        donor_lifecycle_stage: donorLifecycleStage,
+        days_since_last_gift: daysSinceLast,
         summary,
         monthly_donations: monthlyDonationsRes.rows,
         payments: paymentsRes.rows,
@@ -301,7 +420,8 @@ router.get('/:id', authenticate, async (req: Request, res: Response) => {
         email_communications: emailRes.rows,
         whatsapp_communications: whatsappRes.rows,
         consents: consentRes.rows,
-        journeys: journeyRes.rows
+        journeys: journeyRes.rows,
+        notes: notesRes.rows
       }
     });
   } catch (error: any) {
@@ -309,7 +429,7 @@ router.get('/:id', authenticate, async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/contacts — create donor/contact with complete Salesforce KYC & Address attributes
+// POST /api/contacts — create donor/contact with complete KYC & Address attributes
 router.post('/', authenticate, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
@@ -643,6 +763,308 @@ router.put('/monthly-donations/:subId', authenticate, async (req: Request, res: 
   }
 });
 
+// POST /api/contacts/:id/notes — log staff note / call log / task
+router.post('/:id/notes', authenticate, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const { id } = req.params;
+    const { title, content, note_type = 'general_note', author_name } = req.body;
+
+    if (!title || !content) {
+      return res.status(400).json({ success: false, message: 'Title and content are required.' });
+    }
+
+    const contactRes = await pool.query('SELECT organization_id FROM donors WHERE id = $1', [id]);
+    if (contactRes.rows.length === 0) return res.status(404).json({ success: false, message: 'Contact not found' });
+    const orgId = contactRes.rows[0].organization_id;
+
+    const author = author_name || user?.email?.split('@')[0] || 'System Staff';
+
+    const insertRes = await pool.query(
+      `INSERT INTO contact_notes (organization_id, contact_id, author_name, note_type, title, content)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING *`,
+      [orgId, id, author, note_type, title, content]
+    );
+
+    res.status(201).json({ success: true, data: insertRes.rows[0], message: 'Note recorded successfully.' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// GET /api/contacts/:id/timeline — unified activity timeline stream
+router.get('/:id/timeline', authenticate, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const [payments, mandates, eightyG, emails, whatsapps, notes, journeys] = await Promise.all([
+      pool.query(`SELECT id, amount, currency, status, payment_gateway, payment_method, created_at, 'payment' as item_type FROM donations WHERE donor_id = $1 ORDER BY created_at DESC LIMIT 50`, [id]),
+      pool.query(`SELECT id, amount, status, payment_gateway, created_at, 'mandate' as item_type FROM subscriptions WHERE donor_id = $1 ORDER BY created_at DESC LIMIT 20`, [id]),
+      pool.query(`SELECT id, receipt_number, amount, financial_year, generated_at as created_at, 'eighty_g' as item_type FROM eighty_g_receipts WHERE contact_id = $1 ORDER BY generated_at DESC LIMIT 30`, [id]),
+      pool.query(`SELECT id, subject_line, status, created_at, 'email' as item_type FROM email_communications WHERE contact_id = $1 ORDER BY created_at DESC LIMIT 30`, [id]),
+      pool.query(`SELECT id, template_name, status, created_at, 'whatsapp' as item_type FROM whatsapp_communications WHERE contact_id = $1 ORDER BY created_at DESC LIMIT 30`, [id]),
+      pool.query(`SELECT id, title, content, note_type, author_name, created_at, 'note' as item_type FROM contact_notes WHERE contact_id = $1 ORDER BY created_at DESC LIMIT 50`, [id]),
+      pool.query(`SELECT je.id, j.journey_name, je.status, je.entered_at as created_at, 'journey' as item_type FROM journey_enrolments je JOIN journeys j ON je.journey_id = j.id WHERE je.contact_id = $1 ORDER BY je.entered_at DESC LIMIT 20`, [id])
+    ]);
+
+    const timelineItems: any[] = [];
+
+    // Map Payments
+    payments.rows.forEach(p => {
+      const isPaid = p.status === 'completed' || p.status === 'paid' || p.status === 'success';
+      timelineItems.push({
+        id: `pay-${p.id}`,
+        type: 'payment',
+        title: isPaid ? `Donation Received: ₹${Number(p.amount).toLocaleString()}` : `Payment Attempt: ₹${Number(p.amount).toLocaleString()} (${p.status})`,
+        description: `Via ${p.payment_gateway?.toUpperCase() || 'Razorpay'} (${p.payment_method?.toUpperCase() || 'UPI'})`,
+        status: p.status,
+        timestamp: p.created_at,
+        icon: isPaid ? '💰' : '⚠️',
+        color: isPaid ? '#059669' : '#DC2626'
+      });
+    });
+
+    // Map Mandates
+    mandates.rows.forEach(m => {
+      timelineItems.push({
+        id: `man-${m.id}`,
+        type: 'mandate',
+        title: `Monthly Mandate (${m.status?.toUpperCase()}): ₹${Number(m.amount).toLocaleString()}/mo`,
+        description: `Gateway: ${m.payment_gateway?.toUpperCase() || 'Razorpay'}`,
+        status: m.status,
+        timestamp: m.created_at,
+        icon: '🔄',
+        color: '#7C3AED'
+      });
+    });
+
+    // Map 80G Receipts
+    eightyG.rows.forEach(r => {
+      timelineItems.push({
+        id: `rec-${r.id}`,
+        type: 'eighty_g',
+        title: `80G Certificate Issued (${r.receipt_number})`,
+        description: `FY: ${r.financial_year} &bull; Amount: ₹${Number(r.amount).toLocaleString()}`,
+        status: 'Issued',
+        timestamp: r.created_at,
+        icon: '📜',
+        color: '#2563EB'
+      });
+    });
+
+    // Map Emails
+    emails.rows.forEach(e => {
+      timelineItems.push({
+        id: `em-${e.id}`,
+        type: 'email',
+        title: `Email: ${e.subject_line || 'Notification'}`,
+        description: `Status: ${e.status?.toUpperCase() || 'DELIVERED'}`,
+        status: e.status,
+        timestamp: e.created_at,
+        icon: '✉️',
+        color: '#0284C7'
+      });
+    });
+
+    // Map WhatsApp
+    whatsapps.rows.forEach(w => {
+      timelineItems.push({
+        id: `wa-${w.id}`,
+        type: 'whatsapp',
+        title: `WhatsApp: ${w.template_name || 'Update'}`,
+        description: `Status: ${w.status?.toUpperCase() || 'DELIVERED'}`,
+        status: w.status,
+        timestamp: w.created_at,
+        icon: '💬',
+        color: '#16A34A'
+      });
+    });
+
+    // Map Notes
+    notes.rows.forEach(n => {
+      timelineItems.push({
+        id: `note-${n.id}`,
+        type: 'note',
+        title: `Note: ${n.title}`,
+        description: `${n.content} (by ${n.author_name})`,
+        status: n.note_type,
+        timestamp: n.created_at,
+        icon: '📝',
+        color: '#D97706'
+      });
+    });
+
+    // Map Journeys
+    journeys.rows.forEach(j => {
+      timelineItems.push({
+        id: `jrn-${j.id}`,
+        type: 'journey',
+        title: `Enrolled in Journey: "${j.journey_name}"`,
+        description: `Current status: ${j.status}`,
+        status: j.status,
+        timestamp: j.created_at,
+        icon: '🚀',
+        color: '#9333EA'
+      });
+    });
+
+    // Sort strictly chronological descending
+    timelineItems.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    res.json({ success: true, data: timelineItems });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// POST /api/contacts/:id/offline-donation — record manual/offline donation and generate 80G
+router.post('/:id/offline-donation', authenticate, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { 
+      amount, 
+      payment_method = 'CHEQUE', 
+      payment_gateway = 'OFFLINE_MANUAL',
+      campaign_id,
+      gateway_transaction_id,
+      payment_date,
+      generate_receipt = true,
+      notes 
+    } = req.body;
+
+    if (!amount || Number(amount) <= 0) {
+      return res.status(400).json({ success: false, message: 'Valid donation amount is required.' });
+    }
+
+    const contactRes = await pool.query('SELECT * FROM donors WHERE id = $1', [id]);
+    if (contactRes.rows.length === 0) return res.status(404).json({ success: false, message: 'Contact not found' });
+    const contact = contactRes.rows[0];
+    const orgId = contact.organization_id;
+
+    const donationDate = payment_date || new Date().toISOString().split('T')[0];
+    const txnRef = gateway_transaction_id || `OFFLINE-${Date.now().toString().slice(-6)}`;
+
+    // Insert Donation
+    const donRes = await pool.query(
+      `INSERT INTO donations (
+        organization_id, donor_id, campaign_id, amount, currency, status,
+        payment_gateway, payment_method, gateway_transaction_id, payment_type,
+        created_at, custom_form_data
+      ) VALUES ($1, $2, $3, $4, 'INR', 'completed', $5, $6, $7, 'one_time', $8, $9)
+      RETURNING *`,
+      [
+        orgId,
+        id,
+        campaign_id || null,
+        Number(amount),
+        payment_gateway,
+        payment_method,
+        txnRef,
+        donationDate,
+        notes ? JSON.stringify({ manual_notes: notes }) : '{}'
+      ]
+    );
+
+    const donation = donRes.rows[0];
+
+    // Auto-generate 80G receipt if requested
+    let receipt = null;
+    if (generate_receipt) {
+      const year = new Date(donationDate).getFullYear();
+      const month = new Date(donationDate).getMonth() + 1;
+      const fy = month >= 4 ? `${year}-${String(year + 1).slice(2)}` : `${year - 1}-${String(year).slice(2)}`;
+      const receiptNo = `80G-${fy}-${Date.now().toString().slice(-6)}`;
+
+      const recRes = await pool.query(
+        `INSERT INTO eighty_g_receipts (
+          organization_id, contact_id, payment_id, receipt_number, financial_year,
+          donation_date, amount, donor_name_snapshot, donor_pan_snapshot, donor_address_snapshot
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        RETURNING *`,
+        [
+          orgId,
+          id,
+          donation.id,
+          receiptNo,
+          fy,
+          donationDate,
+          Number(amount),
+          contact.name || `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || 'Valued Donor',
+          contact.tax_id || 'PAN_PENDING',
+          `${contact.street_address_1 || ''}, ${contact.city || ''}, ${contact.state || ''} ${contact.zip_code || ''}`.trim()
+        ]
+      );
+      receipt = recRes.rows[0];
+
+      await pool.query('UPDATE donations SET eighty_g_receipt_id = $1 WHERE id = $2', [receipt.id, donation.id]);
+    }
+
+    // Recalculate Rollups
+    await recalculateContactRollups(id, orgId);
+
+    res.status(201).json({ 
+      success: true, 
+      data: { donation, receipt },
+      message: 'Offline donation recorded successfully with 80G receipt.' 
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// POST /api/contacts/:id/enroll-journey — enroll contact into an automation journey
+router.post('/:id/enroll-journey', authenticate, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { journey_id } = req.body;
+
+    if (!journey_id) return res.status(400).json({ success: false, message: 'journey_id is required' });
+
+    const contactRes = await pool.query('SELECT organization_id FROM donors WHERE id = $1', [id]);
+    if (contactRes.rows.length === 0) return res.status(404).json({ success: false, message: 'Contact not found' });
+    const orgId = contactRes.rows[0].organization_id;
+
+    // First step of journey
+    const stepRes = await pool.query('SELECT id FROM journey_steps WHERE journey_id = $1 ORDER BY step_order ASC LIMIT 1', [journey_id]);
+    const firstStepId = stepRes.rows[0]?.id || null;
+
+    const enrRes = await pool.query(
+      `INSERT INTO journey_enrolments (
+        organization_id, journey_id, contact_id, current_step_id, status, entered_at
+      ) VALUES ($1, $2, $3, $4, 'active', NOW())
+      RETURNING *`,
+      [orgId, journey_id, id, firstStepId]
+    );
+
+    res.status(201).json({ success: true, data: enrRes.rows[0], message: 'Contact successfully enrolled in journey.' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// POST /api/contacts/bulk-action — perform bulk operations
+router.post('/bulk-action', authenticate, async (req: Request, res: Response) => {
+  try {
+    const { contact_ids, action, value } = req.body;
+    if (!Array.isArray(contact_ids) || contact_ids.length === 0) {
+      return res.status(400).json({ success: false, message: 'No contact IDs provided.' });
+    }
+
+    if (action === 'change_status') {
+      await pool.query(
+        `UPDATE donors SET contact_status = $1, updated_at = NOW() WHERE id = ANY($2::uuid[])`,
+        [value || 'donor', contact_ids]
+      );
+      return res.json({ success: true, message: `Successfully updated ${contact_ids.length} contacts.` });
+    }
+
+    res.json({ success: true, message: 'Bulk action completed.' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // DELETE /api/contacts/:id — delete contact (Strictly Superadmin Only)
 router.delete('/:id', authenticate, authorizeRole(['superadmin']), async (req: Request, res: Response) => {
   const { id } = req.params;
@@ -656,6 +1078,7 @@ router.delete('/:id', authenticate, authorizeRole(['superadmin']), async (req: R
     await client.query('DELETE FROM journey_enrolments WHERE contact_id = $1', [id]);
     await client.query('DELETE FROM email_communications WHERE contact_id = $1', [id]);
     await client.query('DELETE FROM whatsapp_communications WHERE contact_id = $1', [id]);
+    await client.query('DELETE FROM contact_notes WHERE contact_id = $1', [id]);
     const delRes = await client.query('DELETE FROM donors WHERE id = $1 RETURNING id, name', [id]);
     await client.query('COMMIT');
     if (delRes.rows.length === 0) return res.status(404).json({ success: false, message: 'Contact not found' });

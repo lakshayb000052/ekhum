@@ -169,7 +169,7 @@ When presenting EKhum to non-profits, foundations, and child sponsorship chariti
   - Dedicated isolated database instance & white-label custom domain.
   - Unlimited active journeys, broadcasts, and contacts.
   - Custom Object & Schema Manager tailored to organization hierarchy.
-  - Custom ERP/CRM bi-directional sync (Salesforce, SAP, Dynamics).
+  - Custom ERP/CRM bi-directional sync (SAP, Microsoft Dynamics, NetSuite).
   - 24/7 Priority SLA, dedicated technical relationship manager, and full data migration support.
 
 ---

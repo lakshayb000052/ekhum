@@ -5,8 +5,14 @@ import { StatusBadge } from '../shared/StatusBadge';
 import { apiFetch } from '../shared/api';
 
 export const ApiIntegrations: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'whatsapp' | 'email' | 'keys' | 'webhooks' | 'docs'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'embed' | 'whatsapp' | 'email' | 'keys' | 'webhooks' | 'docs'>('overview');
   
+  // Embed & Campaigns State
+  const [allCampaigns, setAllCampaigns] = useState<any[]>([]);
+  const [selectedEmbedCampaignId, setSelectedEmbedCampaignId] = useState<string>('');
+  const [embedSubTab, setEmbedSubTab] = useState<'js_embed' | 'auto_bind' | 'rest_api' | 'tokens' | 'data_layer' | 'checkout'>('js_embed');
+  const [copiedEmbedKey, setCopiedEmbedKey] = useState<string | null>(null);
+
   // Organization selector for Superadmin
   const [organizations, setOrganizations] = useState<any[]>([]);
   const [selectedOrgId, setSelectedOrgId] = useState<string>('');
@@ -99,7 +105,22 @@ export const ApiIntegrations: React.FC = () => {
     fetchGatewaysOverview();
     fetchApiKeys();
     fetchWebhooks();
+    fetchCampaigns();
   }, []);
+
+  const fetchCampaigns = async () => {
+    try {
+      const data = await apiFetch('/api/campaigns');
+      if (data && data.success && Array.isArray(data.campaigns)) {
+        setAllCampaigns(data.campaigns);
+        if (data.campaigns.length > 0 && !selectedEmbedCampaignId) {
+          setSelectedEmbedCampaignId(data.campaigns[0].id);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load campaigns:', err);
+    }
+  };
 
   const checkUserRole = async () => {
     try {
@@ -758,6 +779,7 @@ export const ApiIntegrations: React.FC = () => {
       <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid #E2E8F0', marginBottom: '24px', background: 'white', padding: '8px 16px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', flexWrap: 'wrap' }}>
         {[
           { key: 'overview', label: '📱 Connected Devices & Gateways', count: gateways.length },
+          { key: 'embed', label: '🔌 Embed & Landing Page API', count: allCampaigns.length },
           { key: 'whatsapp', label: '💬 WhatsApp Setup & Pairing' },
           { key: 'email', label: '✉️ Email Delivery (SES / SMTP)' },
           { key: 'keys', label: '🔑 API Keys', count: apiKeys.length },
@@ -1665,6 +1687,563 @@ export const ApiIntegrations: React.FC = () => {
           />
         </div>
       )}
+
+      {/* TAB: EMBED & LANDING PAGE API */}
+      {activeTab === 'embed' && (() => {
+        const selectedCamp = allCampaigns.find(c => c.id === selectedEmbedCampaignId) || allCampaigns[0];
+        
+        if (!selectedCamp) {
+          return (
+            <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #E2E8F0', padding: '40px', textAlign: 'center' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '12px' }}>🔌</div>
+              <h3 style={{ margin: '0 0 8px 0', color: '#0F172A' }}>No Active Campaigns Available</h3>
+              <p style={{ color: '#64748B', maxWidth: '500px', margin: '0 auto 16px auto', fontSize: '0.9rem' }}>
+                Create or approve a campaign to generate live 1-line JS embed snippets, form auto-binders, and CRM REST API endpoints.
+              </p>
+            </div>
+          );
+        }
+
+        const parentNgo = organizations.find(o => o.id === selectedCamp.organization_id)
+          || (selectedCamp.org_payment_config || selectedCamp.payment_gateways_config ? {
+              id: selectedCamp.organization_id,
+              name: selectedCamp.orgName || (selectedCamp as any).organization_name || 'NGO Partner Organization',
+              legal_name: (selectedCamp as any).organization_legal_name || selectedCamp.orgName || 'NGO Partner Trust',
+              eighty_g_urn: (selectedCamp as any).eighty_g_urn || 'AAATC1234F2180G1',
+              signatory_name: (selectedCamp as any).signatory_name || 'Authorized Signatory',
+              payment_gateways_config: selectedCamp.org_payment_config || selectedCamp.payment_gateways_config
+            } as any : undefined);
+
+        const ngoName = parentNgo?.name || 'NGO Partner Organization';
+        const ngoLegalName = parentNgo?.legal_name || parentNgo?.name || 'NGO Partner Trust';
+        const ngoUrn = parentNgo?.eighty_g_urn || 'AAATC1234F2180G1';
+        const ngoSignatory = parentNgo?.signatory_name || 'Authorized Signatory';
+        const ngoApiKey = parentNgo?.api_key || (`ek_live_org_${parentNgo?.slug || 'master'}`);
+
+        const pConfig = selectedCamp.payment_config || {};
+        const assignedIds: string[] = Array.isArray(pConfig.assigned_gateway_ids) ? pConfig.assigned_gateway_ids : [];
+        const primaryGw = pConfig.primary_gateway || (assignedIds[0] || 'cashfree');
+        const fallbackGw = pConfig.fallback_gateway || (assignedIds.find(id => id !== primaryGw) || (primaryGw === 'razorpay' ? 'cashfree' : 'razorpay'));
+        const autoFailover = pConfig.enable_auto_failover !== false;
+        const apiKeyVal = selectedCamp.api_key || `ek_live_${selectedCamp.slug}`;
+        const serverUrl = window.location.origin.includes('localhost') ? 'http://localhost:5000' : window.location.origin;
+        const checkoutUrl = `${window.location.origin}/checkout?campaign=${selectedCamp.slug}`;
+
+        const rzpKeyId = pConfig.razorpay_key_id 
+          || parentNgo?.payment_gateways_config?.razorpay?.key_id 
+          || parentNgo?.payment_gateways_config?.razorpay_key_id 
+          || 'rzp_test_51NgA...';
+        const cfAppId = parentNgo?.payment_gateways_config?.cashfree?.app_id 
+          || parentNgo?.payment_gateways_config?.cashfree_app_id 
+          || 'TEST103849...';
+        const webhookSecret = `ek_sec_${selectedCamp.slug}`;
+
+        let dynamicSdkTags = '';
+        if (assignedIds.includes('cashfree') || primaryGw === 'cashfree' || fallbackGw === 'cashfree' || assignedIds.length === 0) {
+          dynamicSdkTags += '<script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>\n';
+        }
+        if (assignedIds.includes('razorpay') || primaryGw === 'razorpay' || fallbackGw === 'razorpay' || assignedIds.length === 0) {
+          dynamicSdkTags += '<script src="https://checkout.razorpay.com/v1/checkout.js"></script>\n';
+        }
+        dynamicSdkTags += `<script src="${serverUrl}/api/v1/external/embed.js"></script>`;
+
+        const handleCopy = (text: string, key: string) => {
+          navigator.clipboard.writeText(text);
+          setCopiedEmbedKey(key);
+          setTimeout(() => setCopiedEmbedKey(null), 2500);
+        };
+
+        const jsEmbedSnippet = `<!-- ========================================================================= -->
+<!-- 🏛️ BENEFICIARY NGO: ${ngoName} (${ngoLegalName}) -->
+<!-- 🎯 CAMPAIGN: ${selectedCamp.title} (/${selectedCamp.slug}) -->
+<!-- 🔑 CAMPAIGN API KEY: ${apiKeyVal} -->
+<!-- 🏢 NGO MASTER TOKEN: ${ngoApiKey} -->
+<!-- ⭐ PRIMARY ROUTE: ${primaryGw.toUpperCase()} Rail | 🔄 FAILOVER ROUTE: ${fallbackGw.toUpperCase()} Rail -->
+<!-- 📜 80G REGISTRATION URN: ${ngoUrn} -->
+<!-- ========================================================================= -->
+
+<!-- 1. Include Aligned Gateway SDKs & EKhum Specialized Embed -->
+${dynamicSdkTags}
+
+<!-- 2. Call EKhum.pay() on your Submit/Donate button click -->
+<script>
+  function handleDonateSubmit() {
+    EKhum.pay({
+      // 🔑 Specific Campaign Credentials
+      apiKey: "${apiKeyVal}",
+      campaignSlug: "${selectedCamp.slug}",
+      
+      // 💳 Multi-Gateway Smart Failover Engine
+      gateway: "${primaryGw}", // Primary Aligned Rail
+      fallbackGateway: "${fallbackGw}", // Automatic Failover Rail
+      enableAutoFailover: ${autoFailover},
+      
+      // 💰 Donation & Frequency Data Layer
+      amount: document.getElementById('donation_amount')?.value || 1000,
+      currency: "INR",
+      isMonthly: document.getElementById('is_monthly')?.checked || false, // Set true for Recurring Mandates
+      
+      // 👤 Full   Contact KYC Layer (Upserted into ${ngoName}'s CRM)
+      title: document.getElementById('donor_title')?.value || "Mr.", // Mr., Mrs., Ms., Dr., etc.
+      firstName: document.getElementById('donor_first_name')?.value || "Aarav",
+      lastName: document.getElementById('donor_last_name')?.value || "Sharma",
+      name: document.getElementById('donor_name')?.value || "Aarav Sharma",
+      email: document.getElementById('donor_email')?.value || "aarav.sharma@example.com",
+      phone: document.getElementById('donor_phone')?.value || "+919876543210",
+      altPhone: document.getElementById('donor_alt_phone')?.value || "",
+      taxId: document.getElementById('donor_pan')?.value || "ABCDE1234F", // 10-digit PAN (KYC Uppercased)
+      dob: document.getElementById('donor_dob')?.value || "1988-04-15", // YYYY-MM-DD
+      gender: document.getElementById('donor_gender')?.value || "Male",
+      donorType: "Individual", // 'Individual' | 'Corporate' | 'Trust'
+      citizenship: "Indian",
+      
+      // 📍 Full Address Data Layer (PIN code auto-resolves City & State)
+      address: document.getElementById('donor_address')?.value || "Flat 402, Lotus Heights, MG Road",
+      street_address_2: document.getElementById('donor_address_line_2')?.value || "Near Metro Station",
+      pincode: document.getElementById('donor_pincode')?.value || "400001", // 6-digit Indian PIN
+      city: document.getElementById('donor_city')?.value || "Mumbai",
+      state: document.getElementById('donor_state')?.value || "Maharashtra",
+      country: "India",
+
+      // 📜 Statutory 80G Tax Exemption & Form 10BD Flags (Issued by ${ngoLegalName})
+      is80GRequested: true,
+      panHolderName: document.getElementById('pan_holder_name')?.value || "Aarav Sharma",
+      certificateLanguage: "en",
+      isAnonymous: false,
+
+      // 🛡️ DPDP Act Opt-In Consents
+      consentEmail: document.getElementById('consent_email')?.checked ?? true,
+      consentWhatsapp: document.getElementById('consent_whatsapp')?.checked ?? true,
+      consentSms: document.getElementById('consent_sms')?.checked ?? true,
+      preferredChannel: "both", // 'email' | 'whatsapp' | 'sms' | 'both'
+
+      // 📣 Marketing Attribution & Campaign Telemetry
+      utm_source: new URLSearchParams(window.location.search).get('utm_source') || "google_ads",
+      utm_medium: new URLSearchParams(window.location.search).get('utm_medium') || "cpc",
+      utm_campaign: new URLSearchParams(window.location.search).get('utm_campaign') || "${selectedCamp.slug}",
+      fundraiser_id: new URLSearchParams(window.location.search).get('fundraiser_id') || undefined,
+      volunteer_code: new URLSearchParams(window.location.search).get('vol_code') || undefined,
+
+      // 💬 Donor Comments & Tailored Campaign Custom Fields
+      comments: document.getElementById('donor_comments')?.value || "Donation in support of ${selectedCamp.title} for ${ngoName}",
+      customFormData: {
+        campaign_title: "${selectedCamp.title}",
+        ngo_beneficiary: "${ngoName}",
+        tshirt_size: document.getElementById('tshirt_size')?.value || "L",
+        source_landing_page: window.location.href,
+        referrer: document.referrer
+      },
+
+      // Callbacks
+      onSuccess: function(res) {
+        console.log("EKhum Donation Success for ${selectedCamp.title}:", res);
+        alert("🎉 Thank you for supporting ${ngoName}!\\n\\n80G Tax Receipt Number: " + res.receiptNumber + "\\nIssued under Statutory 80G URN: ${ngoUrn}");
+      },
+      onError: function(err) {
+        console.error("EKhum Donation Error:", err);
+        alert("Donation to ${selectedCamp.title} Failed: " + (err.error || err.message || "Transaction cancelled"));
+      }
+    });
+  }
+</script>`;
+
+        const autoBindSnippet = `<!-- 1. Include Universal EKhum Embed SDK in <head> -->
+<script src="${serverUrl}/api/v1/external/embed.js"></script>
+
+<!-- 2. Auto-bind your HTML form directly to ${selectedCamp.title} (${ngoName}) -->
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    EKhum.autoBind('#donation-form', {
+      apiKey: "${apiKeyVal}",
+      campaignSlug: "${selectedCamp.slug}",
+      gateway: "${primaryGw}",
+      fallbackGateway: "${fallbackGw}",
+      enableAutoFailover: ${autoFailover},
+      onSuccess: function(res) {
+        alert("Thank you for supporting ${ngoName}!\\n80G Receipt: " + res.receiptNumber);
+      },
+      onError: function(err) {
+        alert("Donation Error: " + (err.error || err.message));
+      }
+    });
+  });
+</script>`;
+
+        const restApiSnippet = `POST ${serverUrl}/api/v1/external/donations/initiate
+Headers:
+  x-ekhum-api-key: "${apiKeyVal}"
+  Content-Type: application/json
+
+Body:
+{
+  "api_key": "${apiKeyVal}",
+  "campaignSlug": "${selectedCamp.slug}",
+  "amount": 2500,
+  "currency": "INR",
+  "gateway": "${primaryGw}",
+  "fallback_gateway": "${fallbackGw}",
+  "enable_auto_failover": ${autoFailover},
+  
+  // Frequency & Mandates
+  "payment_type": "one_time", // 'one_time' | 'monthly_donation'
+  "is_monthly": false,
+
+  // Full   Contact KYC (Stored in ${ngoName}'s Database)
+  "title": "Mr.",
+  "first_name": "Aarav",
+  "last_name": "Sharma",
+  "name": "Aarav Sharma",
+  "email": "aarav.sharma@example.com",
+  "phone": "+919876543210",
+  "alt_phone": "+919876543211",
+  "taxId": "ABCDE1234F",
+  "birthdate": "1988-04-15",
+  "gender": "Male",
+  "donor_type": "Individual",
+  "citizenship": "Indian",
+
+  // Full Postal Address
+  "street_address_1": "Flat 402, Lotus Heights, MG Road",
+  "street_address_2": "Near Metro Station",
+  "city": "Mumbai",
+  "state": "Maharashtra",
+  "zip_code": "400001",
+  "country": "India",
+
+  // Statutory 80G & Form 10BD Compliance (Issued by ${ngoLegalName})
+  "is_80g_requested": true,
+  "pan_holder_name": "Aarav Sharma",
+  "certificate_language": "en",
+  "isAnonymous": false,
+
+  // DPDP Act Opt-In Consents
+  "consent_email": true,
+  "consent_whatsapp": true,
+  "consent_sms": true,
+  "preferred_channel": "both",
+  "preferred_language": "en",
+
+  // Attribution & Marketing
+  "utm_source": "google_ads",
+  "utm_medium": "cpc",
+  "utm_campaign": "${selectedCamp.slug}",
+  "fundraiser_id": "fund_4920",
+  "volunteer_code": "VOL_MUM_01",
+  "referrer": "https://google.com",
+  "landing_page_url": "${selectedCamp.landing_page_url || 'https://ngo-initiative.org'}",
+
+  // Comments & Beneficiary Context
+  "comments": "Donating towards ${selectedCamp.title} for ${ngoName}",
+  "customFormData": {
+    "beneficiary_ngo": "${ngoName}",
+    "campaign_title": "${selectedCamp.title}",
+    "referred_by": "Alumni Network",
+    "student_class": "Grade 6"
+  }
+}`;
+
+        return (
+          <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #E2E8F0', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+            {/* Header & Campaign Selector */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid #E2E8F0' }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 700, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>🔌</span> {selectedCamp.title} — Specialized Embed & API Hub
+                </h2>
+                <p style={{ margin: '4px 0 0 0', color: '#64748B', fontSize: '0.88rem' }}>
+                  Beneficiary NGO: <strong>{ngoName}</strong> ({ngoLegalName}) | Campaign Slug: <code>/{selectedCamp.slug}</code>
+                </p>
+              </div>
+
+              {/* Selector */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>Select Campaign:</span>
+                <select 
+                  value={selectedEmbedCampaignId} 
+                  onChange={(e) => setSelectedEmbedCampaignId(e.target.value)}
+                  style={{ padding: '8px 14px', borderRadius: '8px', border: '1.5px solid #CBD5E1', fontSize: '0.88rem', fontWeight: 600, background: '#F8FAFC', color: '#0F172A', minWidth: '260px' }}
+                >
+                  {allCampaigns.map(camp => (
+                    <option key={camp.id} value={camp.id}>
+                      {camp.title} (/{camp.slug})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Campaign Key & Rails Strip */}
+            <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '10px', padding: '14px 18px', marginBottom: '20px', display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                <div>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase', display: 'block' }}>Campaign API Key</span>
+                  <code style={{ fontSize: '0.85rem', fontWeight: 700, color: '#059669', background: '#ECFDF5', padding: '3px 8px', borderRadius: '6px', border: '1px solid #A7F3D0' }}>
+                    {apiKeyVal}
+                  </code>
+                </div>
+                <button 
+                  onClick={() => handleCopy(apiKeyVal, 'api_key_badge')}
+                  style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', padding: '4px 10px', borderRadius: '6px', fontSize: '0.78rem', cursor: 'pointer', fontWeight: 600, color: '#334155' }}
+                >
+                  {copiedEmbedKey === 'api_key_badge' ? '✅ Copied!' : '📋 Copy Key'}
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <div>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase', display: 'block' }}>Allowed Domain</span>
+                  <span style={{ fontSize: '0.82rem', color: '#475569', fontWeight: 500 }}>
+                    {selectedCamp.landing_page_url || 'Universal (Any domain)'}
+                  </span>
+                </div>
+                <div>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase', display: 'block' }}>Primary Gateway</span>
+                  <span style={{ fontSize: '0.82rem', color: '#0284C7', fontWeight: 600 }}>
+                    💳 {primaryGw.toUpperCase()}
+                  </span>
+                </div>
+                <div>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase', display: 'block' }}>Failover Rail</span>
+                  <span style={{ fontSize: '0.82rem', color: '#D97706', fontWeight: 600 }}>
+                    ⚡ {fallbackGw.toUpperCase()}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Navigation Tabs */}
+            <div style={{ display: 'flex', gap: '6px', borderBottom: '2px solid #E2E8F0', paddingBottom: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+              {[
+                { key: 'js_embed', label: '⚡ 1. Campaign Specialized JS Embed' },
+                { key: 'auto_bind', label: '🤖 2. Auto-Bind 1-Liner' },
+                { key: 'rest_api', label: '📡 3. REST API Spec' },
+                { key: 'tokens', label: '🔑 4. Tokens & Gateway Credentials' },
+                { key: 'data_layer', label: '📊 5. CRM Data Layer' },
+                { key: 'checkout', label: '🔗 6. Direct Hosted Link' }
+              ].map(t => (
+                <button
+                  key={t.key}
+                  onClick={() => setEmbedSubTab(t.key as any)}
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: embedSubTab === t.key ? '#059669' : '#F1F5F9',
+                    color: embedSubTab === t.key ? '#FFFFFF' : '#475569',
+                    fontWeight: 600,
+                    fontSize: '0.82rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Content per Tab */}
+            {embedSubTab === 'js_embed' && (
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '0.85rem', color: '#64748B' }}>
+                    Specialized client-side script for <strong>{selectedCamp.title}</strong> ({ngoName}) with primary rail <strong>{primaryGw.toUpperCase()}</strong>, failover <strong>{fallbackGw.toUpperCase()}</strong>, and complete CRM KYC.
+                  </span>
+                  <button 
+                    onClick={() => handleCopy(jsEmbedSnippet, 'js_embed_code')}
+                    style={{ background: '#059669', color: 'white', border: 'none', padding: '6px 14px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    {copiedEmbedKey === 'js_embed_code' ? '✅ Copied!' : '📋 Copy JS Snippet'}
+                  </button>
+                </div>
+                <pre style={{ background: '#090D16', color: '#A7F3D0', padding: '16px', borderRadius: '8px', fontSize: '0.8rem', overflowX: 'auto', maxHeight: '420px', lineHeight: '1.45', margin: 0 }}>
+                  <code>{jsEmbedSnippet}</code>
+                </pre>
+              </div>
+            )}
+
+            {embedSubTab === 'auto_bind' && (
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '0.85rem', color: '#64748B' }}>
+                    Zero-code form binding for <strong>{selectedCamp.title}</strong>: hooks into any HTML form, detects inputs, and routes via {primaryGw.toUpperCase()}.
+                  </span>
+                  <button 
+                    onClick={() => handleCopy(autoBindSnippet, 'auto_bind_code')}
+                    style={{ background: '#059669', color: 'white', border: 'none', padding: '6px 14px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    {copiedEmbedKey === 'auto_bind_code' ? '✅ Copied!' : '📋 Copy Auto-Bind Code'}
+                  </button>
+                </div>
+                <pre style={{ background: '#090D16', color: '#93C5FD', padding: '16px', borderRadius: '8px', fontSize: '0.8rem', overflowX: 'auto', maxHeight: '420px', lineHeight: '1.45', margin: 0 }}>
+                  <code>{autoBindSnippet}</code>
+                </pre>
+              </div>
+            )}
+
+            {embedSubTab === 'rest_api' && (
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '0.85rem', color: '#64748B' }}>
+                    Server-to-server payload for <code>POST /api/v1/external/donations/initiate</code> pre-bound to <strong>{selectedCamp.title}</strong> ({ngoName}).
+                  </span>
+                  <button 
+                    onClick={() => handleCopy(restApiSnippet, 'rest_api_code')}
+                    style={{ background: '#059669', color: 'white', border: 'none', padding: '6px 14px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    {copiedEmbedKey === 'rest_api_code' ? '✅ Copied!' : '📋 Copy REST Spec'}
+                  </button>
+                </div>
+                <pre style={{ background: '#090D16', color: '#FDE68A', padding: '16px', borderRadius: '8px', fontSize: '0.8rem', overflowX: 'auto', maxHeight: '420px', lineHeight: '1.45', margin: 0 }}>
+                  <code>{restApiSnippet}</code>
+                </pre>
+              </div>
+            )}
+
+            {embedSubTab === 'tokens' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '10px' }}>
+                  <div style={{ background: '#F8FAFC', padding: '12px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                    <span style={{ fontSize: '0.72rem', color: '#64748B', textTransform: 'uppercase', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Campaign API Key</span>
+                    <code style={{ fontSize: '0.80rem', color: '#059669', background: '#ECFDF5', padding: '2px 6px', borderRadius: '4px', border: '1px solid #A7F3D0', wordBreak: 'break-all', display: 'block', marginBottom: '6px' }}>
+                      {apiKeyVal}
+                    </code>
+                    <button 
+                      onClick={() => handleCopy(apiKeyVal, 'tok_camp_key')}
+                      style={{ background: 'white', border: '1px solid #CBD5E1', padding: '3px 8px', borderRadius: '4px', fontSize: '0.72rem', cursor: 'pointer', fontWeight: 600 }}
+                    >
+                      {copiedEmbedKey === 'tok_camp_key' ? '✅ Copied' : '📋 Copy'}
+                    </button>
+                  </div>
+
+                  <div style={{ background: '#F8FAFC', padding: '12px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                    <span style={{ fontSize: '0.72rem', color: '#64748B', textTransform: 'uppercase', fontWeight: 700, display: 'block', marginBottom: '4px' }}>NGO Master API Token</span>
+                    <code style={{ fontSize: '0.80rem', color: '#2563EB', background: '#EFF6FF', padding: '2px 6px', borderRadius: '4px', border: '1px solid #BFDBFE', wordBreak: 'break-all', display: 'block', marginBottom: '6px' }}>
+                      {ngoApiKey}
+                    </code>
+                    <button 
+                      onClick={() => handleCopy(ngoApiKey, 'tok_ngo_key')}
+                      style={{ background: 'white', border: '1px solid #CBD5E1', padding: '3px 8px', borderRadius: '4px', fontSize: '0.72rem', cursor: 'pointer', fontWeight: 600 }}
+                    >
+                      {copiedEmbedKey === 'tok_ngo_key' ? '✅ Copied' : '📋 Copy'}
+                    </button>
+                  </div>
+
+                  <div style={{ background: '#F8FAFC', padding: '12px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                    <span style={{ fontSize: '0.72rem', color: '#64748B', textTransform: 'uppercase', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Webhook Secret Signature</span>
+                    <code style={{ fontSize: '0.80rem', color: '#7C3AED', background: '#F5F3FF', padding: '2px 6px', borderRadius: '4px', border: '1px solid #DDD6FE', wordBreak: 'break-all', display: 'block', marginBottom: '6px' }}>
+                      {webhookSecret}
+                    </code>
+                    <button 
+                      onClick={() => handleCopy(webhookSecret, 'tok_wh_sec')}
+                      style={{ background: 'white', border: '1px solid #CBD5E1', padding: '3px 8px', borderRadius: '4px', fontSize: '0.72rem', cursor: 'pointer', fontWeight: 600 }}
+                    >
+                      {copiedEmbedKey === 'tok_wh_sec' ? '✅ Copied' : '📋 Copy'}
+                    </button>
+                  </div>
+
+                  <div style={{ background: '#F8FAFC', padding: '12px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                    <span style={{ fontSize: '0.72rem', color: '#64748B', textTransform: 'uppercase', fontWeight: 700, display: 'block', marginBottom: '4px' }}>80G Registration URN</span>
+                    <code style={{ fontSize: '0.80rem', color: '#D97706', background: '#FFFBEB', padding: '2px 6px', borderRadius: '4px', border: '1px solid #FDE68A', wordBreak: 'break-all', display: 'block', marginBottom: '6px' }}>
+                      {ngoUrn}
+                    </code>
+                    <span style={{ fontSize: '0.72rem', color: '#475569' }}>Signatory: {ngoSignatory}</span>
+                  </div>
+
+                  <div style={{ background: '#F8FAFC', padding: '12px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                    <span style={{ fontSize: '0.72rem', color: '#64748B', textTransform: 'uppercase', fontWeight: 700, display: 'block', marginBottom: '4px' }}>⭐ Primary Gateway ({primaryGw.toUpperCase()})</span>
+                    <div style={{ fontSize: '0.78rem', color: '#0F172A', fontWeight: 600, marginBottom: '2px' }}>
+                      {primaryGw === 'razorpay' ? 'Razorpay Key ID:' : 'Cashfree App ID:'}
+                    </div>
+                    <code style={{ fontSize: '0.78rem', color: '#0284C7', background: '#E0F2FE', padding: '2px 6px', borderRadius: '4px', display: 'block', marginBottom: '4px' }}>
+                      {primaryGw === 'razorpay' ? rzpKeyId : cfAppId}
+                    </code>
+                    <span style={{ fontSize: '0.70rem', color: '#059669', fontWeight: 600 }}>🟢 Active & Bound to Campaign</span>
+                  </div>
+
+                  <div style={{ background: '#F8FAFC', padding: '12px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                    <span style={{ fontSize: '0.72rem', color: '#64748B', textTransform: 'uppercase', fontWeight: 700, display: 'block', marginBottom: '4px' }}>🔄 Auto-Failover Rail ({fallbackGw.toUpperCase()})</span>
+                    <div style={{ fontSize: '0.78rem', color: '#0F172A', fontWeight: 600, marginBottom: '2px' }}>
+                      {fallbackGw === 'cashfree' ? 'Cashfree Fallback App ID:' : 'Razorpay Fallback Key ID:'}
+                    </div>
+                    <code style={{ fontSize: '0.78rem', color: '#D97706', background: '#FEF3C7', padding: '2px 6px', borderRadius: '4px', display: 'block', marginBottom: '4px' }}>
+                      {fallbackGw === 'cashfree' ? cfAppId : rzpKeyId}
+                    </code>
+                    <span style={{ fontSize: '0.70rem', color: '#D97706', fontWeight: 600 }}>⚡ Hot-Standby Failover Ready</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {embedSubTab === 'data_layer' && (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                  <thead>
+                    <tr style={{ background: '#F8FAFC', borderBottom: '2px solid #CBD5E1', textAlign: 'left' }}>
+                      <th style={{ padding: '8px 12px' }}>Parameter Key</th>
+                      <th style={{ padding: '8px 12px' }}>Type</th>
+                      <th style={{ padding: '8px 12px' }}>CRM Target & Entity</th>
+                      <th style={{ padding: '8px 12px' }}>Description & Indian Rules</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      { key: 'apiKey', type: 'string', crm: 'Campaign & NGO Lookup', desc: 'Active EKhum API key (ek_live_...)' },
+                      { key: 'amount', type: 'number', crm: 'donations.amount', desc: 'Gift amount in primary currency (INR)' },
+                      { key: 'isMonthly', type: 'boolean', crm: 'subscriptions (Mandate)', desc: 'Set true to activate monthly recurring mandate' },
+                      { key: 'title / firstName / lastName', type: 'string', crm: 'donors (  Name)', desc: 'Full contact demographics & honorific' },
+                      { key: 'email / phone / altPhone', type: 'string', crm: 'donors (Unique Contact ID)', desc: 'Primary & secondary communication channels' },
+                      { key: 'taxId / pan', type: 'string', crm: 'donors.tax_id & eighty_g_receipts', desc: '10-digit Indian PAN (auto-uppercased for 80G/10BD)' },
+                      { key: 'address / pincode / city / state', type: 'string', crm: 'donors (Postal Snapshot)', desc: 'Full address; 6-digit PIN auto-populates City/State' },
+                      { key: 'is80GRequested', type: 'boolean', crm: 'eighty_g_receipts', desc: 'Issues statutory 80G tax certificate upon payment' },
+                      { key: 'consentEmail / consentWhatsapp / consentSms', type: 'boolean', crm: 'consents Table', desc: 'DPDP Act multi-channel compliance opt-ins' },
+                      { key: 'utm_source / utm_campaign / utm_medium', type: 'string', crm: 'donations.custom_form_data', desc: 'Attribution telemetry for ROI reporting' },
+                      { key: 'comments / customFormData', type: 'string / object', crm: 'contact_notes & Activity Timeline', desc: 'Staff notes & custom questions rendered on Contact Timeline' }
+                    ].map((row, i) => (
+                      <tr key={i} style={{ borderBottom: '1px solid #E2E8F0', background: i % 2 === 0 ? 'white' : '#F8FAFC' }}>
+                        <td style={{ padding: '8px 12px', fontWeight: 600, color: '#0F172A', fontFamily: 'monospace' }}>{row.key}</td>
+                        <td style={{ padding: '8px 12px', color: '#64748B' }}><code>{row.type}</code></td>
+                        <td style={{ padding: '8px 12px', color: '#059669', fontWeight: 600 }}>{row.crm}</td>
+                        <td style={{ padding: '8px 12px', color: '#334155' }}>{row.desc}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {embedSubTab === 'checkout' && (
+              <div style={{ padding: '20px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                <h4 style={{ margin: '0 0 8px 0', color: '#0F172A', fontSize: '0.95rem' }}>Direct Hosted Checkout Page</h4>
+                <p style={{ margin: '0 0 16px 0', color: '#64748B', fontSize: '0.85rem' }}>
+                  Share this direct link with donors or embed it inside email campaigns & WhatsApp broadcasts.
+                </p>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <input 
+                    type="text" 
+                    readOnly 
+                    value={checkoutUrl}
+                    style={{ flex: 1, padding: '10px 14px', borderRadius: '6px', border: '1px solid #CBD5E1', background: 'white', fontWeight: 600, color: '#0F172A', fontSize: '0.88rem' }}
+                  />
+                  <button 
+                    onClick={() => handleCopy(checkoutUrl, 'hosted_checkout_url')}
+                    style={{ background: 'white', border: '1px solid #CBD5E1', padding: '10px 16px', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    {copiedEmbedKey === 'hosted_checkout_url' ? '✅ Copied!' : '📋 Copy Link'}
+                  </button>
+                  <a 
+                    href={checkoutUrl} 
+                    target="_blank" 
+                    rel="noreferrer"
+                    style={{ background: '#059669', color: 'white', padding: '10px 18px', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 600, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    Open Checkout ↗
+                  </a>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* TAB 5: DOCS */}
       {activeTab === 'docs' && (

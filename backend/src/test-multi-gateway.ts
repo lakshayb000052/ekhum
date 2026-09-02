@@ -127,7 +127,7 @@ async function runTests() {
   console.log('PayU Hash Verification Function validated:', typeof payuVerify === 'boolean');
 
   // CCAvenue AES-128-CBC Encryption / Decryption
-  const rawCcavQuery = 'merchant_id=2849102&order_id=ord_991&amount=2500&currency=INR&redirect_url=https://ladli.org';
+  const rawCcavQuery = 'merchant_id=2849102&order_id=ord_991&amount=2500&currency=INR&redirect_url=https://ekhum.org';
   const ccavWorkingKey = '8B9F04D92841CA902E41829B0482910F';
   const encryptedCcav = encryptCCAvenue(rawCcavQuery, ccavWorkingKey);
   const decryptedCcav = decryptCCAvenue(encryptedCcav, ccavWorkingKey);

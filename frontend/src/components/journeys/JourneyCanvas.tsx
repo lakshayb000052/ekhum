@@ -155,6 +155,26 @@ export const JourneyCanvas: React.FC<{ journey: any; onBack: () => void }> = ({ 
     }
   };
 
+  const [testing, setTesting] = useState(false);
+
+  const handleTestFire = async () => {
+    setTesting(true);
+    try {
+      const data = await apiFetch(`/api/journeys/${journeyId}/test-fire`, { method: 'POST' });
+      if (data && data.success) {
+        alert(data.message || '✅ Test trigger executed! Contact enrolled and Step 1 dispatched.');
+        fetchStats();
+        fetchEnrolments();
+      } else {
+        alert(data?.error || data?.message || 'Failed to trigger test.');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error triggering test.');
+    } finally {
+      setTesting(false);
+    }
+  };
+
   const handleOpenAdd = (index: number) => {
     setModalMode('add');
     setEditingIndex(index);
@@ -270,7 +290,26 @@ export const JourneyCanvas: React.FC<{ journey: any; onBack: () => void }> = ({ 
             </span>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '12px' }}>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <button 
+            onClick={handleTestFire}
+            disabled={testing}
+            style={{ 
+              background: '#F0FDF4', 
+              color: '#059669', 
+              border: '1px solid #BBF7D0', 
+              padding: '10px 16px', 
+              borderRadius: '8px', 
+              fontWeight: 700, 
+              cursor: 'pointer', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '6px' 
+            }}
+            title="Execute test simulation on this journey"
+          >
+            <span>{testing ? '🔄 Testing...' : '🧪 Test-Fire Flow'}</span>
+          </button>
           <button 
             onClick={handleToggleActive}
             style={{ 

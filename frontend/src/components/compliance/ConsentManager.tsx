@@ -93,7 +93,26 @@ export const ConsentManager: React.FC = () => {
   });
 
   const columns: Column<any>[] = [
-    { header: 'Contact Name', accessor: (row) => row.contact_name || row.donor_name || 'Anonymous Donor' },
+    { 
+      header: 'Contact Name', 
+      accessor: (row) => {
+        const contactId = row.contact_id || row.donor_id;
+        const name = row.contact_name || row.donor_name || 'Valued Donor';
+        if (contactId) {
+          return (
+            <a 
+              href={`#contact=${contactId}`}
+              style={{ color: '#059669', fontWeight: 600, textDecoration: 'none' }}
+              onMouseEnter={(e) => (e.currentTarget.style.textDecoration = 'underline')}
+              onMouseLeave={(e) => (e.currentTarget.style.textDecoration = 'none')}
+            >
+              {name}
+            </a>
+          );
+        }
+        return name;
+      }
+    },
     { header: 'Email / Phone', accessor: (row) => row.contact_email || row.contact_phone || 'N/A' },
     { header: 'Channel', accessor: 'channel' },
     { header: 'Status', accessor: (row) => <StatusBadge status={row.status || 'Active'} /> },

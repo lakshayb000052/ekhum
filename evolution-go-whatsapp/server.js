@@ -350,6 +350,14 @@ const server = http.createServer(async (req, res) => {
   });
 });
 
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.log(`[WhatsApp Engine] Port ${PORT} already active and serving WhatsApp instances.`);
+  } else {
+    console.error('[WhatsApp Engine Server Error]:', err);
+  }
+});
+
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`\n================================================================`);
   console.log(`🚀 Live WhatsApp Multi-Device Engine is ONLINE on Port ${PORT} (Internal)`);

@@ -109,12 +109,27 @@ export const CommunicationLog: React.FC = () => {
     { 
       key: 'recipient_name', 
       label: 'Recipient Donor', 
-      render: (val: any, row: any) => (
-        <div>
-          <strong style={{ color: '#0F172A', display: 'block' }}>{val || 'Donor Partner'}</strong>
-          <span style={{ fontSize: '12px', color: '#64748B' }}>{row.recipient_email || row.recipient_phone || row.contact_id}</span>
-        </div>
-      ) 
+      render: (val: any, row: any) => {
+        const contactId = row.contact_id;
+        const name = val || 'Donor Partner';
+        return (
+          <div>
+            {contactId ? (
+              <a 
+                href={`#contact=${contactId}`}
+                style={{ color: '#059669', fontWeight: 700, textDecoration: 'none', display: 'block' }}
+                onMouseEnter={(e) => (e.currentTarget.style.textDecoration = 'underline')}
+                onMouseLeave={(e) => (e.currentTarget.style.textDecoration = 'none')}
+              >
+                {name}
+              </a>
+            ) : (
+              <strong style={{ color: '#0F172A', display: 'block' }}>{name}</strong>
+            )}
+            <span style={{ fontSize: '12px', color: '#64748B' }}>{row.recipient_email || row.recipient_phone || (contactId ? `ID: ${contactId.substring(0, 8)}` : '')}</span>
+          </div>
+        );
+      } 
     },
     { 
       key: 'subject_line', 
@@ -147,30 +162,58 @@ export const CommunicationLog: React.FC = () => {
   ];
 
   return (
-    <div style={{ fontFamily: 'Inter, system-ui, sans-serif', padding: '24px', background: '#F8FAFC', minHeight: '100vh', color: '#0F172A' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: '1.75rem', fontWeight: 700 }}>Communications Hub</h1>
-          <p style={{ color: '#64748B', margin: '4px 0 0 0', fontSize: '0.9rem' }}>
-            Omnichannel dispatch logs across AWS SES transactional email and Meta WhatsApp Business API.
-          </p>
+    <div style={{ fontFamily: 'var(--font-sans)', padding: '16px', background: '#F8FAFC', minHeight: '100vh', color: '#0F172A' }}>
+      {/*   Standard Lightning Header */}
+      <div className="slds-page-header" style={{ marginBottom: '16px' }}>
+        <div className="slds-page-header__top">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div className="slds-object-icon" style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)' }}>
+              💬
+            </div>
+            <div>
+              <span className="slds-object-eyebrow">Service & Outreach Cloud</span>
+              <h2 className="slds-object-title">
+                Communications Hub & Omnichannel Dispatch Logs
+              </h2>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button 
+              onClick={() => setIsSendModalOpen(true)}
+              className="btn btn-primary"
+            >
+              <span>🚀</span>
+              <span>Send Ad-Hoc Message</span>
+            </button>
+          </div>
         </div>
-        <button 
-          onClick={() => setIsSendModalOpen(true)}
-          style={{ background: '#059669', color: '#FFFFFF', border: 'none', padding: '9px 18px', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', boxShadow: '0 4px 6px -1px rgba(5, 150, 105, 0.2)' }}
-        >
-          <span>🚀</span>
-          <span>Send Ad-Hoc Message</span>
-        </button>
-      </div>
-      
-      {/* KPI Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
-        <KpiCard title="Total Dispatches" value={logs.length} />
-        <KpiCard title="Delivery Success" value={deliveryRate} />
-        <KpiCard title="Open / Read Rate" value={openRate} />
-        <KpiCard title="Bounce Rate" value={bounceRate} />
+
+        <div className="slds-highlights-ribbon">
+          <div className="slds-highlight-item">
+            <span className="slds-highlight-item__label">Total Dispatches</span>
+            <span className="slds-highlight-item__value">
+              {logs.length} Messages
+            </span>
+          </div>
+          <div className="slds-highlight-item">
+            <span className="slds-highlight-item__label">Delivery Rate</span>
+            <span className="slds-highlight-item__value" style={{ color: '#059669' }}>
+              {deliveryRate}
+            </span>
+          </div>
+          <div className="slds-highlight-item">
+            <span className="slds-highlight-item__label">Open / Read Rate</span>
+            <span className="slds-highlight-item__value" style={{ color: '#0284C7' }}>
+              {openRate}
+            </span>
+          </div>
+          <div className="slds-highlight-item">
+            <span className="slds-highlight-item__label">Bounce Rate</span>
+            <span className="slds-highlight-item__value" style={{ color: bounceRate === '0.0%' ? '#059669' : '#DC2626' }}>
+              {bounceRate}
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* Channel Tabs */}

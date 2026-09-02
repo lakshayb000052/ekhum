@@ -34,7 +34,7 @@ export const apiFetch = async (path: string, options: RequestInit = {}) => {
   }
   
   if (!response.ok) {
-    throw new Error(data?.message || 'API request failed');
+    throw new Error(data?.error || data?.message || 'API request failed');
   }
   
   return data;

@@ -114,30 +114,83 @@ export const ObjectManager: React.FC = () => {
   ];
 
   return (
-    <div style={{ fontFamily: 'var(--font-body)', padding: '24px', color: 'var(--secondary)', display: 'flex', gap: '24px', height: 'calc(100vh - 120px)' }}>
-      
-      {/* Left Panel - Object List */}
-      <div style={{ width: '320px', background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid #e2e8f0', background: '#F8FAFC' }}>
-          <h2 style={{ fontFamily: 'var(--font-heading)', margin: 0, fontSize: '1.1rem' }}>Database Entities</h2>
-          <span style={{ fontSize: '12px', color: '#64748B' }}>PostgreSQL Tables & Entities ({objects.length})</span>
+    <div style={{ fontFamily: 'var(--font-sans)', padding: '16px', background: '#F8FAFC', minHeight: '100vh', color: '#0F172A', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      {/*   Standard Lightning Header */}
+      <div className="slds-page-header" style={{ marginBottom: '0px' }}>
+        <div className="slds-page-header__top">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div className="slds-object-icon" style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)' }}>
+              ⚙️
+            </div>
+            <div>
+              <span className="slds-object-eyebrow">Setup & Configuration</span>
+              <h2 className="slds-object-title">
+                  Object Manager & Schema Designer
+              </h2>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button 
+              onClick={() => setIsModalOpen(true)}
+              className="btn btn-primary"
+            >
+              <span>➕</span>
+              <span>Add Custom Field</span>
+            </button>
+          </div>
         </div>
-        <div style={{ overflowY: 'auto', padding: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          {loadingObjects ? (
-            <div style={{ padding: '20px', textAlign: 'center', color: '#64748B' }}>Loading tables...</div>
-          ) : (
-            objects.map(obj => (
-              <div 
-                key={obj.name}
-                onClick={() => setSelectedObject(obj)}
-                style={{
-                  padding: '10px 14px', borderRadius: '8px', cursor: 'pointer',
-                  background: selectedObject?.name === obj.name ? '#F1F5F9' : 'transparent',
-                  border: selectedObject?.name === obj.name ? '1px solid #CBD5E1' : '1px solid transparent',
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  transition: 'all 0.15s'
-                }}
-              >
+
+        <div className="slds-highlights-ribbon">
+          <div className="slds-highlight-item">
+            <span className="slds-highlight-item__label">Registered Objects</span>
+            <span className="slds-highlight-item__value">
+              {objects.length} Entities
+            </span>
+          </div>
+          <div className="slds-highlight-item">
+            <span className="slds-highlight-item__label">Active Entity</span>
+            <span className="slds-highlight-item__value" style={{ color: '#059669' }}>
+              {selectedObject?.label || 'None'}
+            </span>
+          </div>
+          <div className="slds-highlight-item">
+            <span className="slds-highlight-item__label">Total Fields</span>
+            <span className="slds-highlight-item__value">
+              {fields.length} Columns
+            </span>
+          </div>
+          <div className="slds-highlight-item">
+            <span className="slds-highlight-item__label">Database Engine</span>
+            <span className="slds-highlight-item__value">
+              PostgreSQL 16
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: '20px', flex: 1, minHeight: 0 }}>
+        {/* Left Panel - Object List */}
+        <div style={{ width: '320px', background: '#FFFFFF', borderRadius: '10px', border: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{ padding: '14px 18px', borderBottom: '1px solid #E2E8F0', background: '#F8FAFC' }}>
+            <h2 style={{ fontFamily: 'var(--font-sans)', margin: 0, fontSize: '0.95rem', fontWeight: 700, color: '#0F172A' }}>Database Entities</h2>
+            <span style={{ fontSize: '12px', color: '#64748B' }}>PostgreSQL Tables & Schema ({objects.length})</span>
+          </div>
+          <div style={{ overflowY: 'auto', padding: '10px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            {loadingObjects ? (
+              <div style={{ padding: '20px', textAlign: 'center', color: '#64748B' }}>Loading tables...</div>
+            ) : (
+              objects.map(obj => (
+                <div 
+                  key={obj.name}
+                  onClick={() => setSelectedObject(obj)}
+                  style={{
+                    padding: '8px 12px', borderRadius: '6px', cursor: 'pointer',
+                    background: selectedObject?.name === obj.name ? '#ECFDF5' : 'transparent',
+                    border: selectedObject?.name === obj.name ? '1px solid #A7F3D0' : '1px solid transparent',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    transition: 'all 0.15s'
+                  }}
+                >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <span style={{ fontSize: '1.2rem' }}>{obj.icon}</span>
                   <div>
@@ -208,6 +261,7 @@ export const ObjectManager: React.FC = () => {
         ) : (
           <div style={{ padding: '48px', textAlign: 'center', color: '#64748B' }}>Select an object to inspect schema.</div>
         )}
+      </div>
       </div>
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={`Add Field to ${selectedObject?.label || 'Object'}`}>

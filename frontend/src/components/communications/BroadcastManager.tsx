@@ -186,26 +186,58 @@ export const BroadcastManager: React.FC = () => {
   const draft = broadcastList.filter(b => b.status === 'draft').length;
 
   return (
-    <div style={{ padding: '24px', background: '#f8fafc', minHeight: '100vh', color: '#0F172A', fontFamily: 'Inter, system-ui, sans-serif' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-        <div>
-          <h1 style={{ margin: 0, color: '#0F172A', fontSize: '1.75rem', fontWeight: 700 }}>Broadcast Studio</h1>
-          <p style={{ color: '#64748B', margin: '4px 0 0 0', fontSize: '0.9rem' }}>Compose and dispatch one-off announcements across Email and WhatsApp segments</p>
+    <div style={{ padding: '16px', background: '#F8FAFC', minHeight: '100vh', color: '#0F172A', fontFamily: 'var(--font-sans)' }}>
+      {/*   Standard Lightning Header */}
+      <div className="slds-page-header" style={{ marginBottom: '16px' }}>
+        <div className="slds-page-header__top">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div className="slds-object-icon" style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)' }}>
+              📢
+            </div>
+            <div>
+              <span className="slds-object-eyebrow">Outreach Studio</span>
+              <h2 className="slds-object-title">
+                Broadcast Studio & Segment Campaigns
+              </h2>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button 
+              onClick={() => setIsModalOpen(true)}
+              className="btn btn-primary"
+            >
+              <span>📢</span>
+              <span>New Broadcast</span>
+            </button>
+          </div>
         </div>
-        <button 
-          onClick={() => setIsModalOpen(true)}
-          style={{ background: '#059669', color: 'white', padding: '10px 20px', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
-        >
-          <span>📢</span>
-          <span>New Broadcast</span>
-        </button>
-      </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '32px' }}>
-        <KpiCard title="Total Broadcasts" value={total.toString()} />
-        <KpiCard title="Dispatched" value={sent.toString()} />
-        <KpiCard title="Scheduled" value={scheduled.toString()} />
-        <KpiCard title="Drafts" value={draft.toString()} />
+        <div className="slds-highlights-ribbon">
+          <div className="slds-highlight-item">
+            <span className="slds-highlight-item__label">Total Broadcasts</span>
+            <span className="slds-highlight-item__value">
+              {total} Campaigns
+            </span>
+          </div>
+          <div className="slds-highlight-item">
+            <span className="slds-highlight-item__label">Dispatched</span>
+            <span className="slds-highlight-item__value" style={{ color: '#059669' }}>
+              {sent} Sent
+            </span>
+          </div>
+          <div className="slds-highlight-item">
+            <span className="slds-highlight-item__label">Scheduled</span>
+            <span className="slds-highlight-item__value" style={{ color: '#0284C7' }}>
+              {scheduled} Scheduled
+            </span>
+          </div>
+          <div className="slds-highlight-item">
+            <span className="slds-highlight-item__label">Drafts</span>
+            <span className="slds-highlight-item__value">
+              {draft} Drafts
+            </span>
+          </div>
+        </div>
       </div>
 
       <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>

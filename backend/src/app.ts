@@ -77,6 +77,10 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/superadmin', superadminRoutes);
 app.use('/api/v1/external', externalRoutes);
 app.use('/api/webhooks', externalRoutes);
+app.use(['/embed.js', '/embed/v1/ekhum.js'], (req, res, next) => {
+  req.url = '/embed.js';
+  externalRoutes(req, res, next);
+});
 
 // EKhum Individual Giving Suite — new routes
 app.use('/api/contacts', contactRoutes);
