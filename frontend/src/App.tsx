@@ -2663,14 +2663,14 @@ export default function App() {
             <div className="ticker-track">
               <div className="ticker-item">⚡ <span className="highlight">Live Platform GMV Tracked:</span> ₹1,48,50,000+</div>
               <div className="ticker-item">📜 <span className="highlight">100% Automated 80G Tax Receipts:</span> 12,450 Issued</div>
-              <div className="ticker-item">💸 <span className="highlight">0.0% Platform Fee:</span> 100% Net Funds to NGO</div>
+              <div className="ticker-item">💸 <span className="highlight">8% Platform Fee:</span> Transparent & Predictable Pricing</div>
               <div className="ticker-item">📲 <span className="highlight">Meta WhatsApp Retention Engine:</span> Active</div>
               <div className="ticker-item">🛡️ <span className="highlight">Cryptographic Security:</span> SHA256 & 256-Bit SSL</div>
 
               {/* Duplicate track for seamless infinite scroll */}
               <div className="ticker-item">⚡ <span className="highlight">Live Platform GMV Tracked:</span> ₹1,48,50,000+</div>
               <div className="ticker-item">📜 <span className="highlight">100% Automated 80G Tax Receipts:</span> 12,450 Issued</div>
-              <div className="ticker-item">💸 <span className="highlight">0.0% Platform Fee:</span> 100% Net Funds to NGO</div>
+              <div className="ticker-item">💸 <span className="highlight">8% Platform Fee:</span> Transparent & Predictable Pricing</div>
               <div className="ticker-item">📲 <span className="highlight">Meta WhatsApp Retention Engine:</span> Active</div>
               <div className="ticker-item">🛡️ <span className="highlight">Cryptographic Security:</span> SHA256 & 256-Bit SSL</div>
             </div>
@@ -2716,8 +2716,8 @@ export default function App() {
           <div className="floating-bg-badge float-money-2">
             <span style={{ fontSize: '1.4rem' }}>💳</span>
             <div>
-              <div style={{ fontSize: '0.88rem', color: '#0F172A', fontWeight: 800 }}>0.0% Commission Payout</div>
-              <div style={{ fontSize: '0.76rem', color: '#0369A1', fontWeight: 700 }}>100% Funds Routed to NGO</div>
+              <div style={{ fontSize: '0.88rem', color: '#0F172A', fontWeight: 800 }}>8% Platform Fee</div>
+              <div style={{ fontSize: '0.76rem', color: '#0369A1', fontWeight: 700 }}>Complete Non-Profit Infra</div>
             </div>
           </div>
 
