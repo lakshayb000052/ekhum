@@ -376,7 +376,7 @@ export default function App() {
   const [redirectPath, setRedirectPath] = useState<string | null>(null);
   const [userSession, setUserSession] = useState<any>(null);
   const [activeSuperadminTab, setActiveSuperadminTab] = useState<'overview' | 'ngos' | 'campaigns' | 'contacts' | 'breakdown' | 'transactions' | 'communications' | 'journeys' | 'broadcasts' | 'compliance' | 'segments' | 'reports' | 'objectManager' | 'roles' | 'integrations' | 'templates' | 'settings'>('overview');
-  const [activeNgoTab, setActiveNgoTab] = useState<'overview' | 'campaigns' | 'contacts' | 'transactions' | 'breakdown' | 'communications' | 'journeys' | 'broadcasts' | 'compliance' | 'segments' | 'reports' | 'integrations'>('overview');
+  const [activeNgoTab, setActiveNgoTab] = useState<'overview' | 'campaigns' | 'contacts' | 'transactions' | 'breakdown' | 'communications' | 'journeys' | 'broadcasts' | 'compliance' | 'segments' | 'reports' | 'integrations' | 'roles'>('overview');
   const [selectedJourney, setSelectedJourney] = useState<any>(null);
   const [donorSearchQuery, setDonorSearchQuery] = useState<string>('');
   const [sysGeminiKey, setSysGeminiKey] = useState<string>('');
@@ -3090,6 +3090,12 @@ export default function App() {
                       </a>
                     </li>
                     <li>
+                      <a href="#ngo-roles" className={`nav-link ${currentPath === '/ngo' && activeNgoTab === 'roles' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); navigate('/ngo'); setActiveNgoTab('roles'); }}>
+                        <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                        Team & Roles
+                      </a>
+                    </li>
+                    <li>
                       <a href="#ngo-integrations" className={`nav-link ${currentPath === '/ngo' && activeNgoTab === 'integrations' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); navigate('/ngo'); setActiveNgoTab('integrations'); }}>
                         <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
                         WhatsApp & Integrations
@@ -3890,6 +3896,13 @@ export default function App() {
                 {activeNgoTab === 'reports' && (
                   <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflowY: 'auto', paddingRight: '6px' }}>
                     <ReportBuilder />
+                  </div>
+                )}
+
+                {/* NGO Tab: Roles & RBAC */}
+                {activeNgoTab === 'roles' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflowY: 'auto', paddingRight: '6px' }}>
+                    <RoleManager />
                   </div>
                 )}
 

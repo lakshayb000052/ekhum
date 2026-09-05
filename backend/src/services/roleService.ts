@@ -208,10 +208,18 @@ export function normalizeMatrix(input: any): PermissionMatrix {
   return matrix;
 }
 
+function sanitizeUuid(id?: string | null): string | undefined {
+  if (!id || typeof id !== 'string' || id.trim() === '' || id === 'undefined' || id === 'null') {
+    return undefined;
+  }
+  return id.trim();
+}
+
 /**
  * List all available roles for an organization (system + custom roles).
  */
 export async function listRoles(orgId?: string) {
+  const cleanOrgId = sanitizeUuid(orgId);
   let query = `
     SELECT 
       r.id,
@@ -225,12 +233,12 @@ export async function listRoles(orgId?: string) {
       r.updated_at,
       COUNT(om.id)::int AS member_count
     FROM roles r
-    LEFT JOIN organization_members om ON r.id = om.role_id ${orgId ? 'AND om.organization_id = $1' : ''}
-    WHERE r.organization_id IS NULL ${orgId ? 'OR r.organization_id = $1' : ''}
+    LEFT JOIN organization_members om ON r.id = om.role_id ${cleanOrgId ? 'AND om.organization_id = $1' : ''}
+    WHERE r.organization_id IS NULL ${cleanOrgId ? 'OR r.organization_id = $1' : ''}
     GROUP BY r.id
     ORDER BY r.is_system DESC, r.created_at ASC
   `;
-  const params = orgId ? [orgId] : [];
+  const params = cleanOrgId ? [cleanOrgId] : [];
   const res = await pool.query(query, params);
   
   return res.rows.map(row => ({
@@ -243,9 +251,13 @@ export async function listRoles(orgId?: string) {
  * Get single role by ID with member list.
  */
 export async function getRoleById(roleId: string, orgId?: string) {
+  const cleanOrgId = sanitizeUuid(orgId);
+  const cleanRoleId = sanitizeUuid(roleId);
+  if (!cleanRoleId) return null;
+
   const roleRes = await pool.query(
-    `SELECT * FROM roles WHERE id = $1 AND (organization_id IS NULL ${orgId ? 'OR organization_id = $2' : ''})`,
-    orgId ? [roleId, orgId] : [roleId]
+    `SELECT * FROM roles WHERE id = $1 AND (organization_id IS NULL ${cleanOrgId ? 'OR organization_id = $2' : ''})`,
+    cleanOrgId ? [cleanRoleId, cleanOrgId] : [cleanRoleId]
   );
   if (roleRes.rows.length === 0) return null;
 
@@ -256,9 +268,9 @@ export async function getRoleById(roleId: string, orgId?: string) {
   const membersRes = await pool.query(
     `SELECT id, email, first_name, last_name, phone, status, last_login_at, created_at
      FROM organization_members
-     WHERE role_id = $1 ${orgId ? 'AND organization_id = $2' : ''}
+     WHERE role_id = $1 ${cleanOrgId ? 'AND organization_id = $2' : ''}
      ORDER BY created_at DESC`,
-    orgId ? [roleId, orgId] : [roleId]
+    cleanOrgId ? [cleanRoleId, cleanOrgId] : [cleanRoleId]
   );
 
   return {
@@ -266,7 +278,6 @@ export async function getRoleById(roleId: string, orgId?: string) {
     members: membersRes.rows
   };
 }
-
 
 /**
  * Create a new custom role.
@@ -278,6 +289,7 @@ export async function createRole(orgId: string | null | undefined, data: {
   permissions?: any;
   clone_from_role_id?: string;
 }) {
+  const cleanOrgId = sanitizeUuid(orgId);
   const displayName = data.display_name?.trim();
   if (!displayName) {
     throw new Error('Display Name is required for custom roles.');
@@ -291,8 +303,9 @@ export async function createRole(orgId: string | null | undefined, data: {
 
   // Clone base permissions if requested
   let initialPerms = normalizeMatrix(data.permissions);
-  if (data.clone_from_role_id) {
-    const cloneRes = await pool.query('SELECT permissions FROM roles WHERE id = $1', [data.clone_from_role_id]);
+  const cleanCloneId = sanitizeUuid(data.clone_from_role_id);
+  if (cleanCloneId) {
+    const cloneRes = await pool.query('SELECT permissions FROM roles WHERE id = $1', [cleanCloneId]);
     if (cloneRes.rows.length > 0) {
       initialPerms = normalizeMatrix(cloneRes.rows[0].permissions);
       if (data.permissions) {
@@ -306,7 +319,7 @@ export async function createRole(orgId: string | null | undefined, data: {
     `INSERT INTO roles (organization_id, name, display_name, description, is_system, permissions, created_at, updated_at)
      VALUES ($1, $2, $3, $4, false, $5, NOW(), NOW())
      RETURNING *`,
-    [orgId || null, slug, displayName, data.description || '', JSON.stringify(initialPerms)]
+    [cleanOrgId || null, slug, displayName, data.description || '', JSON.stringify(initialPerms)]
   );
 
   return {
@@ -323,7 +336,11 @@ export async function updateRole(roleId: string, orgId?: string, data?: {
   description?: string;
   permissions?: any;
 }) {
-  const currentRes = await pool.query('SELECT * FROM roles WHERE id = $1', [roleId]);
+  const cleanRoleId = sanitizeUuid(roleId);
+  const cleanOrgId = sanitizeUuid(orgId);
+  if (!cleanRoleId) throw new Error('Valid Role ID is required.');
+
+  const currentRes = await pool.query('SELECT * FROM roles WHERE id = $1', [cleanRoleId]);
   if (currentRes.rows.length === 0) {
     throw new Error('Role not found.');
   }
@@ -332,7 +349,7 @@ export async function updateRole(roleId: string, orgId?: string, data?: {
   if (currentRole.is_system) {
     throw new Error('System core roles cannot be modified.');
   }
-  if (currentRole.organization_id && orgId && currentRole.organization_id !== orgId) {
+  if (currentRole.organization_id && cleanOrgId && currentRole.organization_id !== cleanOrgId) {
     throw new Error('Unauthorized to modify this role.');
   }
 
@@ -349,7 +366,7 @@ export async function updateRole(roleId: string, orgId?: string, data?: {
          updated_at = NOW()
      WHERE id = $4
      RETURNING *`,
-    [updatedDisplayName, updatedDesc, JSON.stringify(updatedPerms), roleId]
+    [updatedDisplayName, updatedDesc, JSON.stringify(updatedPerms), cleanRoleId]
   );
 
   return {
@@ -362,7 +379,11 @@ export async function updateRole(roleId: string, orgId?: string, data?: {
  * Delete a custom role.
  */
 export async function deleteRole(roleId: string, orgId?: string) {
-  const currentRes = await pool.query('SELECT * FROM roles WHERE id = $1', [roleId]);
+  const cleanRoleId = sanitizeUuid(roleId);
+  const cleanOrgId = sanitizeUuid(orgId);
+  if (!cleanRoleId) throw new Error('Valid Role ID is required.');
+
+  const currentRes = await pool.query('SELECT * FROM roles WHERE id = $1', [cleanRoleId]);
   if (currentRes.rows.length === 0) {
     throw new Error('Role not found.');
   }
@@ -370,18 +391,18 @@ export async function deleteRole(roleId: string, orgId?: string) {
   if (role.is_system) {
     throw new Error('System core roles cannot be deleted.');
   }
-  if (role.organization_id && orgId && role.organization_id !== orgId) {
+  if (role.organization_id && cleanOrgId && role.organization_id !== cleanOrgId) {
     throw new Error('Unauthorized to delete this role.');
   }
 
   // Check if active members are assigned to this role
-  const membersRes = await pool.query('SELECT COUNT(*) FROM organization_members WHERE role_id = $1', [roleId]);
+  const membersRes = await pool.query('SELECT COUNT(*) FROM organization_members WHERE role_id = $1', [cleanRoleId]);
   const count = Number(membersRes.rows[0].count);
   if (count > 0) {
     throw new Error(`Cannot delete role: ${count} active team members are currently assigned to this role. Reassign them first.`);
   }
 
-  await pool.query('DELETE FROM roles WHERE id = $1', [roleId]);
+  await pool.query('DELETE FROM roles WHERE id = $1', [cleanRoleId]);
   return { success: true, message: `Role "${role.display_name}" deleted successfully.` };
 }
 
@@ -389,6 +410,7 @@ export async function deleteRole(roleId: string, orgId?: string) {
  * List all organization members with their roles and computed permissions.
  */
 export async function listMembers(orgId?: string) {
+  const cleanOrgId = sanitizeUuid(orgId);
   const query = `
     SELECT 
        om.id,
@@ -411,10 +433,10 @@ export async function listMembers(orgId?: string) {
      FROM organization_members om
      LEFT JOIN organizations o ON om.organization_id = o.id
      LEFT JOIN roles r ON om.role_id = r.id
-     ${orgId ? 'WHERE om.organization_id = $1' : ''}
+     ${cleanOrgId ? 'WHERE om.organization_id = $1' : ''}
      ORDER BY om.created_at DESC
   `;
-  const params = orgId ? [orgId] : [];
+  const params = cleanOrgId ? [cleanOrgId] : [];
   const res = await pool.query(query, params);
 
   return res.rows.map(row => ({
@@ -459,8 +481,9 @@ export async function inviteOrAddMember(orgId: string | null | undefined, data: 
   const email = data.email?.trim().toLowerCase();
   if (!email) throw new Error('Email is required.');
 
+  const cleanOrgId = sanitizeUuid(orgId);
   // Find target organization if none provided
-  let targetOrgId = orgId;
+  let targetOrgId = cleanOrgId;
   if (!targetOrgId) {
     const orgRes = await pool.query('SELECT id FROM organizations LIMIT 1');
     targetOrgId = orgRes.rows[0]?.id;
@@ -468,13 +491,13 @@ export async function inviteOrAddMember(orgId: string | null | undefined, data: 
   }
 
   // Find target role
-  let targetRoleId = data.role_id;
+  let targetRoleId = sanitizeUuid(data.role_id);
   let targetRoleSlug = data.role_slug || 'ngo_viewer';
 
   if (!targetRoleId) {
     const roleFind = await pool.query(
-      `SELECT id, name FROM roles WHERE (name = $1 OR name = 'ngo_viewer') AND (organization_id IS NULL OR organization_id = $2) ORDER BY is_system DESC LIMIT 1`,
-      [targetRoleSlug, orgId]
+      `SELECT id, name FROM roles WHERE (name = $1 OR name = 'ngo_viewer') AND (organization_id IS NULL ${targetOrgId ? 'OR organization_id = $2' : ''}) ORDER BY is_system DESC LIMIT 1`,
+      targetOrgId ? [targetRoleSlug, targetOrgId] : [targetRoleSlug]
     );
     if (roleFind.rows.length > 0) {
       targetRoleId = roleFind.rows[0].id;
@@ -506,7 +529,7 @@ export async function inviteOrAddMember(orgId: string | null | undefined, data: 
          status = 'active'
      RETURNING *`,
     [
-      orgId, 
+      targetOrgId, 
       email, 
       passwordHash, 
       targetRoleSlug, 
@@ -524,7 +547,7 @@ export async function inviteOrAddMember(orgId: string | null | undefined, data: 
 /**
  * Update a member's role, status, or details.
  */
-export async function updateMember(memberId: string, orgId: string, data: {
+export async function updateMember(memberId: string, orgId?: string, data?: {
   role_id?: string;
   first_name?: string;
   last_name?: string;
@@ -532,17 +555,25 @@ export async function updateMember(memberId: string, orgId: string, data: {
   status?: string;
   custom_permissions?: any;
 }) {
-  const currentRes = await pool.query('SELECT * FROM organization_members WHERE id = $1 AND organization_id = $2', [memberId, orgId]);
+  const cleanMemberId = sanitizeUuid(memberId);
+  const cleanOrgId = sanitizeUuid(orgId);
+  if (!cleanMemberId) throw new Error('Valid Member ID is required.');
+
+  const currentRes = await pool.query(
+    `SELECT * FROM organization_members WHERE id = $1 ${cleanOrgId ? 'AND organization_id = $2' : ''}`,
+    cleanOrgId ? [cleanMemberId, cleanOrgId] : [cleanMemberId]
+  );
   if (currentRes.rows.length === 0) {
     throw new Error('Organization member not found.');
   }
 
   const member = currentRes.rows[0];
-  let newRoleId = data.role_id !== undefined ? data.role_id : member.role_id;
+  const payload = data || {};
+  let newRoleId = sanitizeUuid(payload.role_id) !== undefined ? sanitizeUuid(payload.role_id) : member.role_id;
   let newRoleSlug = member.role;
 
-  if (data.role_id && data.role_id !== member.role_id) {
-    const roleRes = await pool.query('SELECT name FROM roles WHERE id = $1', [data.role_id]);
+  if (payload.role_id && payload.role_id !== member.role_id) {
+    const roleRes = await pool.query('SELECT name FROM roles WHERE id = $1', [newRoleId]);
     if (roleRes.rows.length > 0) {
       newRoleSlug = roleRes.rows[0].name;
     }
@@ -557,18 +588,27 @@ export async function updateMember(memberId: string, orgId: string, data: {
          phone = COALESCE($5, phone),
          status = COALESCE($6, status),
          custom_permissions = COALESCE($7, custom_permissions)
-     WHERE id = $8 AND organization_id = $9
+     WHERE id = $8 ${cleanOrgId ? 'AND organization_id = $9' : ''}
      RETURNING *`,
-    [
+    cleanOrgId ? [
       newRoleId,
       newRoleSlug,
-      data.first_name,
-      data.last_name,
-      data.phone,
-      data.status,
-      data.custom_permissions ? JSON.stringify(data.custom_permissions) : null,
-      memberId,
-      orgId
+      payload.first_name,
+      payload.last_name,
+      payload.phone,
+      payload.status,
+      payload.custom_permissions ? JSON.stringify(payload.custom_permissions) : null,
+      cleanMemberId,
+      cleanOrgId
+    ] : [
+      newRoleId,
+      newRoleSlug,
+      payload.first_name,
+      payload.last_name,
+      payload.phone,
+      payload.status,
+      payload.custom_permissions ? JSON.stringify(payload.custom_permissions) : null,
+      cleanMemberId
     ]
   );
 
@@ -578,8 +618,15 @@ export async function updateMember(memberId: string, orgId: string, data: {
 /**
  * Remove a member from the organization.
  */
-export async function removeMember(memberId: string, orgId: string) {
-  const res = await pool.query('DELETE FROM organization_members WHERE id = $1 AND organization_id = $2 RETURNING id, email', [memberId, orgId]);
+export async function removeMember(memberId: string, orgId?: string) {
+  const cleanMemberId = sanitizeUuid(memberId);
+  const cleanOrgId = sanitizeUuid(orgId);
+  if (!cleanMemberId) throw new Error('Valid Member ID is required.');
+
+  const res = await pool.query(
+    `DELETE FROM organization_members WHERE id = $1 ${cleanOrgId ? 'AND organization_id = $2' : ''} RETURNING id, email`,
+    cleanOrgId ? [cleanMemberId, cleanOrgId] : [cleanMemberId]
+  );
   if (res.rows.length === 0) throw new Error('Member not found or unauthorized.');
   return { success: true, message: `Member ${res.rows[0].email} removed from organization.` };
 }
