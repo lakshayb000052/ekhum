@@ -12,6 +12,7 @@ This repository contains the complete engineering specification, data model, wor
 
 | Document | Primary Focus | Key Contents |
 |---|---|---|
+| **[`docs/MASTER_SOFTWARE_SECURITY_PLAN.md`](file:///e:/DanaPro/docs/MASTER_SOFTWARE_SECURITY_PLAN.md)** | **Master Security & Breach Defense Plan** | • 7-Layer Defense-in-Depth Architecture<br/>• Field-Level Envelope Encryption (AES-256-GCM)<br/>• Anti-IDOR & Zero Public Surface Topography<br/>• DPDP Act 2023 & CERT-In Compliance Plan<br/>• P0-P3 Incident Response & Disaster Recovery |
 | **[`docs/COMPLETE_SYSTEM_DIAGRAMS_AND_SECURITY_GUIDE.md`](file:///e:/DanaPro/docs/COMPLETE_SYSTEM_DIAGRAMS_AND_SECURITY_GUIDE.md)** | **Master Diagrams & Security Guide** | • Full Visual ERDs & System Topologies<br/>• Complete GitHub Documentation Index<br/>• Step-by-Step Data Encryption & Security Setup |
 | **[`docs/DATA_MODEL.md`](file:///e:/DanaPro/docs/DATA_MODEL.md)** | **Complete Data Architecture** | • 22+ PostgreSQL Tables & Schema Definitions<br/>• Entity Relationship Diagram (ERD)<br/>• JSONB Dynamic Schemas & GIN Indexing<br/>• DPDP Act 2023 Field Encryption & Blind Indexing |
 | **[`docs/WORKFLOW_ENGINEERING.md`](file:///e:/DanaPro/docs/WORKFLOW_ENGINEERING.md)** | **Business Logic & Lifecycles** | • End-to-End Donor Checkout Flow<br/>• 4-Way Payment Rail Failover Logic<br/>• 11-Trigger Reactive Event Bus<br/>• Visual Journey Graph Traversal Engine<br/>• Anti-Churn Sponsorship Recovery Workflow<br/>• Section 80G & Form 10BD Statutory Tax Flow |
