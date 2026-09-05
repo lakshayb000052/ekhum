@@ -11,10 +11,19 @@ import { EncryptionService } from '../services/encryptionService';
 
 const router = Router();
 
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID || '',
-  key_secret: process.env.RAZORPAY_KEY_SECRET || ''
-});
+// Lazy-initialized Razorpay instance — only created when credentials are available
+let _razorpay: InstanceType<typeof Razorpay> | null = null;
+function getRazorpay(): Razorpay {
+  if (!_razorpay) {
+    const key_id = process.env.RAZORPAY_KEY_ID;
+    const key_secret = process.env.RAZORPAY_KEY_SECRET;
+    if (!key_id || !key_secret) {
+      throw new Error('Razorpay credentials not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.');
+    }
+    _razorpay = new Razorpay({ key_id, key_secret });
+  }
+  return _razorpay;
+}
 
 import { authenticate, AuthenticatedRequest } from '../middleware/auth';
 
