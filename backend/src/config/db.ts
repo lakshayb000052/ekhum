@@ -1,10 +1,21 @@
 import { Pool } from 'pg';
 import dotenv from 'dotenv';
+import path from 'path';
 import runMigrations from './migrations';
 
+// Load .env from project root (relative to compiled dist/config/db.js → ../../../.env)
+dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
+// Also try loading from CWD as fallback
 dotenv.config();
 
-const connectionString = process.env.DATABASE_URL || 'postgresql://postgres:Lakshay%40123@localhost:5432/DanaPro?schema=public';
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) {
+  console.error('==========================================');
+  console.error(' FATAL: DATABASE_URL environment variable is not set.');
+  console.error(' Ensure .env file exists with DATABASE_URL or set it in the environment.');
+  console.error('==========================================');
+  process.exit(1);
+}
 const isLocalDb = connectionString.includes('localhost') || connectionString.includes('127.0.0.1');
 const useSsl = !isLocalDb && (
   process.env.DB_SSL === 'true' || 
