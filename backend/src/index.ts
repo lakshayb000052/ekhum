@@ -14,29 +14,32 @@ const server = http.createServer(app);
 // Bind WebSocket Server
 initWebSocketServer(server);
 
-// Auto-start WhatsApp Evolution Go Microservice on internal port 8080 if not already running
-try {
-  const whatsappScript = path.resolve(__dirname, '../../evolution-go-whatsapp/server.js');
-  if (fs.existsSync(whatsappScript)) {
-    const tester = net.createConnection({ port: 8080, host: '127.0.0.1' });
-    tester.once('connect', () => {
-      tester.destroy();
-      console.log('[System] WhatsApp Evolution Go Gateway is already active on port 8080.');
-    });
-    tester.once('error', () => {
-      console.log('[System] Initializing WhatsApp Evolution Go Gateway on internal port 8080...');
-      const childEnv: Record<string, any> = { ...process.env, WA_INTERNAL_PORT: '8080' };
-      delete childEnv.PORT;
-      delete childEnv.SERVER_PORT;
-      const waProcess = spawn(process.execPath, [whatsappScript], {
-        env: childEnv,
-        stdio: 'inherit'
+// Auto-start WhatsApp Evolution Go Microservice on internal port 8080 if not already running (Primary instance only)
+const isPrimaryClusterInstance = process.env.NODE_APP_INSTANCE === undefined || process.env.NODE_APP_INSTANCE === '0';
+if (isPrimaryClusterInstance) {
+  try {
+    const whatsappScript = path.resolve(__dirname, '../../evolution-go-whatsapp/server.js');
+    if (fs.existsSync(whatsappScript)) {
+      const tester = net.createConnection({ port: 8080, host: '127.0.0.1' });
+      tester.once('connect', () => {
+        tester.destroy();
+        console.log('[System] WhatsApp Evolution Go Gateway is already active on port 8080.');
       });
-      waProcess.on('error', (err) => console.error('[WhatsApp Engine Auto-Start Error]:', err));
-    });
+      tester.once('error', () => {
+        console.log('[System] Initializing WhatsApp Evolution Go Gateway on internal port 8080...');
+        const childEnv: Record<string, any> = { ...process.env, WA_INTERNAL_PORT: '8080' };
+        delete childEnv.PORT;
+        delete childEnv.SERVER_PORT;
+        const waProcess = spawn(process.execPath, [whatsappScript], {
+          env: childEnv,
+          stdio: 'inherit'
+        });
+        waProcess.on('error', (err) => console.error('[WhatsApp Engine Auto-Start Error]:', err));
+      });
+    }
+  } catch (e) {
+    console.error('[WhatsApp Engine Auto-Start Error]:', e);
   }
-} catch (e) {
-  console.error('[WhatsApp Engine Auto-Start Error]:', e);
 }
 
 // Handle server startup errors (such as port conflicts)
@@ -111,7 +114,6 @@ setInterval(async () => {
 
 process.on('uncaughtException', (err) => {
   console.error('[UNCAUGHT EXCEPTION]:', err);
-  process.exit(1);
 });
 process.on('unhandledRejection', (reason) => {
   console.error('[UNHANDLED REJECTION]:', reason);

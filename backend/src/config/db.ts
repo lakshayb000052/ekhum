@@ -5,11 +5,19 @@ import runMigrations from './migrations';
 dotenv.config();
 
 const connectionString = process.env.DATABASE_URL || 'postgresql://postgres:Lakshay%40123@localhost:5432/DanaPro?schema=public';
-const isProduction = process.env.NODE_ENV === 'production' || connectionString.includes('render.com') || connectionString.includes('sslmode=require');
+const isLocalDb = connectionString.includes('localhost') || connectionString.includes('127.0.0.1');
+const useSsl = !isLocalDb && (
+  process.env.DB_SSL === 'true' || 
+  connectionString.includes('sslmode=require') || 
+  connectionString.includes('render.com') || 
+  connectionString.includes('neon.tech') ||
+  connectionString.includes('supabase.co') ||
+  connectionString.includes('amazonaws.com')
+);
 
 const pool = new Pool({
   connectionString,
-  ssl: isProduction ? { rejectUnauthorized: false } : false
+  ssl: useSsl ? { rejectUnauthorized: false } : false
 });
 
 // Verify connection
