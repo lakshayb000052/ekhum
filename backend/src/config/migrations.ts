@@ -1015,6 +1015,153 @@ const migrations: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_segments_org_status ON segments(organization_id, status);
       CREATE INDEX IF NOT EXISTS idx_reports_org_folder ON reports(organization_id, folder);
     `
+  },
+  {
+    name: '009_roles_and_permissions_engine',
+    up: `
+      -- 1. Create / Harmonize roles table
+      CREATE TABLE IF NOT EXISTS roles (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
+        name VARCHAR(100) NOT NULL,
+        display_name VARCHAR(255) NOT NULL,
+        description TEXT,
+        is_system BOOLEAN DEFAULT false,
+        permissions JSONB DEFAULT '{}'::jsonb,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      ALTER TABLE roles
+      ADD COLUMN IF NOT EXISTS display_name VARCHAR(255),
+      ADD COLUMN IF NOT EXISTS is_system BOOLEAN DEFAULT false,
+      ADD COLUMN IF NOT EXISTS permissions JSONB DEFAULT '{}'::jsonb;
+
+      UPDATE roles SET display_name = name WHERE display_name IS NULL;
+      ALTER TABLE roles ALTER COLUMN display_name SET NOT NULL;
+
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_roles_org_name ON roles(COALESCE(organization_id, '00000000-0000-0000-0000-000000000000'::uuid), name);
+      CREATE INDEX IF NOT EXISTS idx_roles_org ON roles(organization_id);
+
+      -- 2. Extend organization_members table
+      ALTER TABLE organization_members
+      ADD COLUMN IF NOT EXISTS role_id UUID REFERENCES roles(id) ON DELETE SET NULL,
+      ADD COLUMN IF NOT EXISTS first_name VARCHAR(255),
+      ADD COLUMN IF NOT EXISTS last_name VARCHAR(255),
+      ADD COLUMN IF NOT EXISTS phone VARCHAR(50),
+      ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'active',
+      ADD COLUMN IF NOT EXISTS custom_permissions JSONB DEFAULT '{}'::jsonb,
+      ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMP WITH TIME ZONE;
+
+      CREATE INDEX IF NOT EXISTS idx_org_members_role ON organization_members(role_id);
+      CREATE INDEX IF NOT EXISTS idx_org_members_status ON organization_members(organization_id, status);
+
+      -- 3. Create permission_audit_logs table
+      CREATE TABLE IF NOT EXISTS permission_audit_logs (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
+        actor_id UUID,
+        actor_email VARCHAR(255),
+        action_type VARCHAR(100) NOT NULL,
+        target_role_id UUID,
+        target_member_id UUID,
+        changes_json JSONB DEFAULT '{}'::jsonb,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_perm_audit_org ON permission_audit_logs(organization_id, created_at DESC);
+
+      -- 4. Seed Canonical System Roles
+      DELETE FROM roles WHERE organization_id IS NULL;
+
+      INSERT INTO roles (id, organization_id, name, display_name, description, is_system, permissions, created_at, updated_at)
+      VALUES 
+      (
+        '10000000-0000-0000-0000-000000000001',
+        NULL,
+        'superadmin',
+        'Super Administrator',
+        'Master unrestricted administrative authority across all charities, payment rails, and global system configurations.',
+        true,
+        '{"contacts":{"create":true,"read":true,"update":true,"delete":true,"export":true,"approve":true,"manage":true},"donations":{"create":true,"read":true,"update":true,"delete":true,"export":true,"approve":true,"manage":true},"campaigns":{"create":true,"read":true,"update":true,"delete":true,"export":true,"approve":true,"manage":true},"subscriptions":{"create":true,"read":true,"update":true,"delete":true,"export":true,"approve":true,"manage":true},"mandates":{"create":true,"read":true,"update":true,"delete":true,"export":true,"approve":true,"manage":true},"eighty_g_receipts":{"create":true,"read":true,"update":true,"delete":true,"export":true,"approve":true,"manage":true},"ten_bd_exports":{"create":true,"read":true,"update":true,"delete":true,"export":true,"approve":true,"manage":true},"segments":{"create":true,"read":true,"update":true,"delete":true,"export":true,"approve":true,"manage":true},"broadcasts":{"create":true,"read":true,"update":true,"delete":true,"export":true,"approve":true,"manage":true},"journeys":{"create":true,"read":true,"update":true,"delete":true,"export":true,"approve":true,"manage":true},"reports":{"create":true,"read":true,"update":true,"delete":true,"export":true,"approve":true,"manage":true},"object_manager":{"create":true,"read":true,"update":true,"delete":true,"export":true,"approve":true,"manage":true},"settings":{"create":true,"read":true,"update":true,"delete":true,"export":true,"approve":true,"manage":true},"api_integrations":{"create":true,"read":true,"update":true,"delete":true,"export":true,"approve":true,"manage":true}}'::jsonb,
+        NOW(),
+        NOW()
+      ),
+      (
+        '10000000-0000-0000-0000-000000000002',
+        NULL,
+        'ngo_admin',
+        'NGO Administrator',
+        'Primary organization executive with full operational, financial, CRM, and team management permissions.',
+        true,
+        '{"contacts":{"create":true,"read":true,"update":true,"delete":true,"export":true,"approve":true,"manage":true},"donations":{"create":true,"read":true,"update":true,"delete":true,"export":true,"approve":true,"manage":true},"campaigns":{"create":true,"read":true,"update":true,"delete":true,"export":true,"approve":true,"manage":true},"subscriptions":{"create":true,"read":true,"update":true,"delete":true,"export":true,"approve":true,"manage":true},"mandates":{"create":true,"read":true,"update":true,"delete":true,"export":true,"approve":true,"manage":true},"eighty_g_receipts":{"create":true,"read":true,"update":true,"delete":true,"export":true,"approve":true,"manage":true},"ten_bd_exports":{"create":true,"read":true,"update":true,"delete":true,"export":true,"approve":true,"manage":true},"segments":{"create":true,"read":true,"update":true,"delete":true,"export":true,"approve":true,"manage":true},"broadcasts":{"create":true,"read":true,"update":true,"delete":true,"export":true,"approve":true,"manage":true},"journeys":{"create":true,"read":true,"update":true,"delete":true,"export":true,"approve":true,"manage":true},"reports":{"create":true,"read":true,"update":true,"delete":true,"export":true,"approve":true,"manage":true},"object_manager":{"create":true,"read":true,"update":true,"delete":false,"export":true,"approve":false,"manage":true},"settings":{"create":true,"read":true,"update":true,"delete":false,"export":true,"approve":true,"manage":true},"api_integrations":{"create":true,"read":true,"update":true,"delete":false,"export":true,"approve":true,"manage":true}}'::jsonb,
+        NOW(),
+        NOW()
+      ),
+      (
+        '10000000-0000-0000-0000-000000000003',
+        NULL,
+        'ngo_manager',
+        'Campaign & Journey Manager',
+        'Builds and oversees fundraising campaigns, dynamic segments, WhatsApp/Email broadcasts, and automated donor journeys.',
+        true,
+        '{"contacts":{"create":true,"read":true,"update":true,"delete":false,"export":true,"approve":false,"manage":false},"donations":{"create":true,"read":true,"update":false,"delete":false,"export":true,"approve":false,"manage":false},"campaigns":{"create":true,"read":true,"update":true,"delete":false,"export":true,"approve":false,"manage":true},"subscriptions":{"create":false,"read":true,"update":false,"delete":false,"export":true,"approve":false,"manage":false},"mandates":{"create":false,"read":true,"update":false,"delete":false,"export":false,"approve":false,"manage":false},"eighty_g_receipts":{"create":false,"read":true,"update":false,"delete":false,"export":false,"approve":false,"manage":false},"ten_bd_exports":{"create":false,"read":false,"update":false,"delete":false,"export":false,"approve":false,"manage":false},"segments":{"create":true,"read":true,"update":true,"delete":true,"export":true,"approve":true,"manage":true},"broadcasts":{"create":true,"read":true,"update":true,"delete":true,"export":true,"approve":true,"manage":true},"journeys":{"create":true,"read":true,"update":true,"delete":true,"export":true,"approve":true,"manage":true},"reports":{"create":true,"read":true,"update":true,"delete":false,"export":true,"approve":false,"manage":true},"object_manager":{"create":false,"read":true,"update":false,"delete":false,"export":false,"approve":false,"manage":false},"settings":{"create":false,"read":true,"update":false,"delete":false,"export":false,"approve":false,"manage":false},"api_integrations":{"create":false,"read":false,"update":false,"delete":false,"export":false,"approve":false,"manage":false}}'::jsonb,
+        NOW(),
+        NOW()
+      ),
+      (
+        '10000000-0000-0000-0000-000000000004',
+        NULL,
+        'ngo_finance',
+        'Finance & Compliance Auditor',
+        'Access to financial registers, payment reconciliations, Section 80G tax certificates, and statutory Form 10BD exports.',
+        true,
+        '{"contacts":{"create":false,"read":true,"update":false,"delete":false,"export":true,"approve":false,"manage":false},"donations":{"create":false,"read":true,"update":false,"delete":false,"export":true,"approve":true,"manage":false},"campaigns":{"create":false,"read":true,"update":false,"delete":false,"export":true,"approve":false,"manage":false},"subscriptions":{"create":false,"read":true,"update":false,"delete":false,"export":true,"approve":false,"manage":false},"mandates":{"create":false,"read":true,"update":false,"delete":false,"export":true,"approve":true,"manage":false},"eighty_g_receipts":{"create":true,"read":true,"update":true,"delete":false,"export":true,"approve":true,"manage":true},"ten_bd_exports":{"create":true,"read":true,"update":true,"delete":false,"export":true,"approve":true,"manage":true},"segments":{"create":false,"read":true,"update":false,"delete":false,"export":true,"approve":false,"manage":false},"broadcasts":{"create":false,"read":false,"update":false,"delete":false,"export":false,"approve":false,"manage":false},"journeys":{"create":false,"read":false,"update":false,"delete":false,"export":false,"approve":false,"manage":false},"reports":{"create":true,"read":true,"update":true,"delete":false,"export":true,"approve":false,"manage":true},"object_manager":{"create":false,"read":true,"update":false,"delete":false,"export":false,"approve":false,"manage":false},"settings":{"create":false,"read":true,"update":false,"delete":false,"export":false,"approve":false,"manage":false},"api_integrations":{"create":false,"read":false,"update":false,"delete":false,"export":false,"approve":false,"manage":false}}'::jsonb,
+        NOW(),
+        NOW()
+      ),
+      (
+        '10000000-0000-0000-0000-000000000005',
+        NULL,
+        'ngo_fundraiser',
+        'Field & Donor Relations Officer',
+        'Engages donors, enters offline contributions, and views donor giving histories and assigned campaigns.',
+        true,
+        '{"contacts":{"create":true,"read":true,"update":true,"delete":false,"export":false,"approve":false,"manage":false},"donations":{"create":true,"read":true,"update":false,"delete":false,"export":false,"approve":false,"manage":false},"campaigns":{"create":false,"read":true,"update":false,"delete":false,"export":false,"approve":false,"manage":false},"subscriptions":{"create":true,"read":true,"update":false,"delete":false,"export":false,"approve":false,"manage":false},"mandates":{"create":true,"read":true,"update":false,"delete":false,"export":false,"approve":false,"manage":false},"eighty_g_receipts":{"create":false,"read":true,"update":false,"delete":false,"export":false,"approve":false,"manage":false},"ten_bd_exports":{"create":false,"read":false,"update":false,"delete":false,"export":false,"approve":false,"manage":false},"segments":{"create":false,"read":true,"update":false,"delete":false,"export":false,"approve":false,"manage":false},"broadcasts":{"create":false,"read":true,"update":false,"delete":false,"export":false,"approve":false,"manage":false},"journeys":{"create":false,"read":false,"update":false,"delete":false,"export":false,"approve":false,"manage":false},"reports":{"create":false,"read":true,"update":false,"delete":false,"export":false,"approve":false,"manage":false},"object_manager":{"create":false,"read":false,"update":false,"delete":false,"export":false,"approve":false,"manage":false},"settings":{"create":false,"read":false,"update":false,"delete":false,"export":false,"approve":false,"manage":false},"api_integrations":{"create":false,"read":false,"update":false,"delete":false,"export":false,"approve":false,"manage":false}}'::jsonb,
+        NOW(),
+        NOW()
+      ),
+      (
+        '10000000-0000-0000-0000-000000000006',
+        NULL,
+        'ngo_viewer',
+        'Read-Only Stakeholder & Board Member',
+        'View-only access across platform analytics dashboards, campaign progress, and aggregate report insights.',
+        true,
+        '{"contacts":{"create":false,"read":true,"update":false,"delete":false,"export":false,"approve":false,"manage":false},"donations":{"create":false,"read":true,"update":false,"delete":false,"export":false,"approve":false,"manage":false},"campaigns":{"create":false,"read":true,"update":false,"delete":false,"export":false,"approve":false,"manage":false},"subscriptions":{"create":false,"read":true,"update":false,"delete":false,"export":false,"approve":false,"manage":false},"mandates":{"create":false,"read":true,"update":false,"delete":false,"export":false,"approve":false,"manage":false},"eighty_g_receipts":{"create":false,"read":true,"update":false,"delete":false,"export":false,"approve":false,"manage":false},"ten_bd_exports":{"create":false,"read":false,"update":false,"delete":false,"export":false,"approve":false,"manage":false},"segments":{"create":false,"read":true,"update":false,"delete":false,"export":false,"approve":false,"manage":false},"broadcasts":{"create":false,"read":false,"update":false,"delete":false,"export":false,"approve":false,"manage":false},"journeys":{"create":false,"read":false,"update":false,"delete":false,"export":false,"approve":false,"manage":false},"reports":{"create":false,"read":true,"update":false,"delete":false,"export":false,"approve":false,"manage":false},"object_manager":{"create":false,"read":false,"update":false,"delete":false,"export":false,"approve":false,"manage":false},"settings":{"create":false,"read":false,"update":false,"delete":false,"export":false,"approve":false,"manage":false},"api_integrations":{"create":false,"read":false,"update":false,"delete":false,"export":false,"approve":false,"manage":false}}'::jsonb,
+        NOW(),
+        NOW()
+      )
+      ON CONFLICT (id) DO UPDATE 
+      SET display_name = EXCLUDED.display_name,
+          description = EXCLUDED.description,
+          permissions = EXCLUDED.permissions,
+          is_system = true,
+          updated_at = NOW();
+
+      -- Synchronize existing organization_members role_id if NULL
+      UPDATE organization_members om
+      SET role_id = r.id
+      FROM roles r
+      WHERE om.role_id IS NULL
+        AND (
+          (om.role = 'admin' AND r.name = 'ngo_admin') OR
+          (om.role = 'owner' AND r.name = 'ngo_admin') OR
+          (om.role = 'manager' AND r.name = 'ngo_manager') OR
+          (om.role = 'viewer' AND r.name = 'ngo_viewer') OR
+          (om.role = r.name)
+        );
+    `
   }
 ];
 

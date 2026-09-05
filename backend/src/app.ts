@@ -31,6 +31,7 @@ import reportRoutes from './routes/reports';
 import dashboardRoutes from './routes/dashboards';
 import objectManagerRoutes from './routes/object-manager';
 import apiIntegrationRoutes from './routes/api-integrations';
+import roleRoutes from './routes/roles';
 
 const app = express();
 
@@ -104,6 +105,7 @@ app.use('/api/dashboards', dashboardRoutes);
 app.use('/api/object-manager', objectManagerRoutes);
 app.use('/api/integrations', apiIntegrationRoutes);
 app.use('/api/api-keys', apiIntegrationRoutes);
+app.use('/api/roles', roleRoutes);
 
 // 404 Handler for undefined API routes
 app.use('/api/*', (req: Request, res: Response) => {
