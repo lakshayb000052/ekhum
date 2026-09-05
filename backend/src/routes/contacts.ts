@@ -1080,6 +1080,30 @@ router.post('/bulk-action', authenticate, async (req: Request, res: Response) =>
   }
 });
 
+// GET /api/contacts/:id/segments — Return all active segments and cohort memberships for a contact
+router.get('/:id/segments', authenticate, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const contactRes = await pool.query('SELECT id, organization_id FROM donors WHERE id = $1', [id]);
+    if (contactRes.rows.length === 0) return res.status(404).json({ success: false, message: 'Contact not found' });
+    const orgId = contactRes.rows[0].organization_id;
+
+    // Fetch matching segments & snapshot memberships
+    const segmentsRes = await pool.query(
+      `SELECT s.id, s.name, s.segment_name, s.type, s.description, s.created_at,
+              EXISTS (SELECT 1 FROM segment_snapshots ss WHERE ss.segment_id = s.id AND ss.contact_id = $1) as is_snapshot_member
+       FROM segments s
+       WHERE (s.organization_id = $2 OR s.organization_id IS NULL) AND s.status = 'active'
+       ORDER BY s.name ASC`,
+      [id, orgId]
+    );
+
+    res.json({ success: true, data: segmentsRes.rows });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // DELETE /api/contacts/:id — delete contact (Strictly Superadmin Only)
 router.delete('/:id', authenticate, authorizeRole(['superadmin']), async (req: Request, res: Response) => {
   const { id } = req.params;

@@ -877,6 +877,144 @@ const migrations: Migration[] = [
       DELETE FROM donations WHERE status = 'initiated' AND created_at < NOW() - INTERVAL '30 minutes';
       DELETE FROM donors WHERE email LIKE 'donor_%@external.org' OR email LIKE 'test_%@%';
     `
+  },
+  {
+    name: '008_crm_core_suite_engine',
+    up: `
+      -- 1. Extend segments table
+      CREATE TABLE IF NOT EXISTS segments (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        segment_name VARCHAR(255),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      ALTER TABLE segments
+      ADD COLUMN IF NOT EXISTS name VARCHAR(255),
+      ADD COLUMN IF NOT EXISTS segment_name VARCHAR(255),
+      ADD COLUMN IF NOT EXISTS description TEXT,
+      ADD COLUMN IF NOT EXISTS type VARCHAR(50) DEFAULT 'dynamic',
+      ADD COLUMN IF NOT EXISTS rules_json JSONB DEFAULT '{"combinator": "AND", "rules": []}'::jsonb,
+      ADD COLUMN IF NOT EXISTS query_sql TEXT,
+      ADD COLUMN IF NOT EXISTS query_rules TEXT,
+      ADD COLUMN IF NOT EXISTS query_parameters JSONB DEFAULT '[]'::jsonb,
+      ADD COLUMN IF NOT EXISTS cohort_criteria JSONB DEFAULT '{}'::jsonb,
+      ADD COLUMN IF NOT EXISTS member_count INTEGER DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS total_ltv NUMERIC(14,2) DEFAULT 0.00,
+      ADD COLUMN IF NOT EXISTS avg_gift_size NUMERIC(12,2) DEFAULT 0.00,
+      ADD COLUMN IF NOT EXISTS last_refreshed_at TIMESTAMP WITH TIME ZONE,
+      ADD COLUMN IF NOT EXISTS refresh_frequency VARCHAR(50) DEFAULT 'on_demand',
+      ADD COLUMN IF NOT EXISTS suppression_applied BOOLEAN DEFAULT true,
+      ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'active';
+
+      -- Drop NOT NULL constraints if they exist on legacy columns
+      ALTER TABLE segments ALTER COLUMN segment_name DROP NOT NULL;
+      ALTER TABLE segments ALTER COLUMN query_sql DROP NOT NULL;
+
+      UPDATE segments 
+      SET name = COALESCE(name, segment_name, 'Audience Segment'),
+          segment_name = COALESCE(segment_name, name, 'Audience Segment')
+      WHERE name IS NULL OR segment_name IS NULL;
+
+      -- 2. Create segment_snapshots table
+      CREATE TABLE IF NOT EXISTS segment_snapshots (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        segment_id UUID NOT NULL REFERENCES segments(id) ON DELETE CASCADE,
+        contact_id UUID NOT NULL REFERENCES donors(id) ON DELETE CASCADE,
+        snapshot_tag VARCHAR(100) NOT NULL,
+        snapshot_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        donor_metrics_snapshot JSONB DEFAULT '{}'::jsonb,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(segment_id, contact_id, snapshot_tag)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_segment_snapshots_segment ON segment_snapshots(segment_id, snapshot_tag);
+      CREATE INDEX IF NOT EXISTS idx_segment_snapshots_contact ON segment_snapshots(contact_id);
+
+      -- 3. Extend and harmonize field_definitions
+      CREATE TABLE IF NOT EXISTS field_definitions (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
+        object_name VARCHAR(100) NOT NULL,
+        field_name VARCHAR(100) NOT NULL,
+        field_label VARCHAR(255) NOT NULL,
+        field_type VARCHAR(50) NOT NULL,
+        is_required BOOLEAN DEFAULT false,
+        default_value TEXT,
+        picklist_values JSONB DEFAULT '[]'::jsonb,
+        validation_regex VARCHAR(500),
+        help_text TEXT,
+        is_system BOOLEAN DEFAULT true,
+        is_active BOOLEAN DEFAULT true,
+        sort_order INTEGER DEFAULT 0,
+        group_name VARCHAR(100) DEFAULT 'General',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      ALTER TABLE field_definitions
+      ADD COLUMN IF NOT EXISTS lookup_target_object VARCHAR(100),
+      ADD COLUMN IF NOT EXISTS permissions JSONB DEFAULT '{"super_admin": "read_write", "ngo_admin": "read_write", "ngo_manager": "read_write", "ngo_viewer": "read_only"}'::jsonb;
+
+      -- 4. Create custom_objects table
+      CREATE TABLE IF NOT EXISTS custom_objects (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
+        object_name VARCHAR(100) NOT NULL,
+        label_singular VARCHAR(255) NOT NULL,
+        label_plural VARCHAR(255) NOT NULL,
+        description TEXT,
+        icon VARCHAR(20) DEFAULT '📦',
+        is_system BOOLEAN DEFAULT false,
+        table_name VARCHAR(100) NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(organization_id, object_name)
+      );
+
+      -- 5. Create object_relationships table
+      CREATE TABLE IF NOT EXISTS object_relationships (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
+        source_object VARCHAR(100) NOT NULL,
+        target_object VARCHAR(100) NOT NULL,
+        relationship_type VARCHAR(50) DEFAULT 'lookup',
+        foreign_key_column VARCHAR(100) NOT NULL,
+        relationship_label VARCHAR(255),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      -- 6. Extend reports table
+      CREATE TABLE IF NOT EXISTS reports (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
+        name VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      ALTER TABLE reports
+      ADD COLUMN IF NOT EXISTS description TEXT,
+      ADD COLUMN IF NOT EXISTS report_type VARCHAR(50) DEFAULT 'tabular',
+      ADD COLUMN IF NOT EXISTS primary_object VARCHAR(100) DEFAULT 'donations',
+      ADD COLUMN IF NOT EXISTS columns JSONB DEFAULT '[]'::jsonb,
+      ADD COLUMN IF NOT EXISTS filters JSONB DEFAULT '[]'::jsonb,
+      ADD COLUMN IF NOT EXISTS group_by JSONB DEFAULT '[]'::jsonb,
+      ADD COLUMN IF NOT EXISTS aggregations JSONB DEFAULT '[]'::jsonb,
+      ADD COLUMN IF NOT EXISTS sort_by JSONB DEFAULT '[]'::jsonb,
+      ADD COLUMN IF NOT EXISTS chart_type VARCHAR(50) DEFAULT 'none',
+      ADD COLUMN IF NOT EXISTS chart_config JSONB DEFAULT '{}'::jsonb,
+      ADD COLUMN IF NOT EXISTS folder VARCHAR(100) DEFAULT 'Standard Reports',
+      ADD COLUMN IF NOT EXISTS is_preset BOOLEAN DEFAULT false,
+      ADD COLUMN IF NOT EXISTS last_run_at TIMESTAMP WITH TIME ZONE,
+      ADD COLUMN IF NOT EXISTS row_count INTEGER DEFAULT 0;
+
+      -- 7. Performance indexes
+      CREATE INDEX IF NOT EXISTS idx_segments_org_status ON segments(organization_id, status);
+      CREATE INDEX IF NOT EXISTS idx_reports_org_folder ON reports(organization_id, folder);
+    `
   }
 ];
 
