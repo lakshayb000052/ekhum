@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import pool from '../config/db';
 import { authenticate, authorizeRole } from '../middleware/auth';
 import { recalculateContactRollups, lookupIndianPincode, updateSubscriptionStats } from '../services/contactRollupService';
+import { EncryptionService } from '../services/encryptionService';
 
 const router = Router();
 
@@ -150,8 +151,15 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
         stage = 'first_time';
       }
 
+      const rawPan = row.pan_number || row.tax_id || '';
+      const decryptedPan = rawPan ? EncryptionService.decrypt(rawPan) : '';
+      const maskedPan = EncryptionService.maskPAN(decryptedPan);
+
       return {
         ...row,
+        tax_id: decryptedPan,
+        pan_number: decryptedPan,
+        masked_pan: maskedPan,
         donor_tier: tier,
         donor_lifecycle_stage: stage,
         days_since_last_gift: daysSinceLast
@@ -405,10 +413,17 @@ router.get('/:id', authenticate, async (req: Request, res: Response) => {
       notes_count: notesRes.rows.length
     };
 
+    const rawContactPan = contact.pan_number || contact.tax_id || '';
+    const decryptedContactPan = rawContactPan ? EncryptionService.decrypt(rawContactPan) : '';
+    const maskedContactPan = EncryptionService.maskPAN(decryptedContactPan);
+
     res.json({
       success: true,
       data: {
         ...contact,
+        tax_id: decryptedContactPan,
+        pan_number: decryptedContactPan,
+        masked_pan: maskedContactPan,
         donor_tier: donorTier,
         donor_lifecycle_stage: donorLifecycleStage,
         days_since_last_gift: daysSinceLast,

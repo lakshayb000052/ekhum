@@ -7,6 +7,7 @@ import { sendWhatsAppNotification, sendAWSEmailNotification } from '../services/
 import { triggerDonationSuccessEventsAndNotifications } from '../services/journeyExecutor';
 import { initiateMultiGatewayPayment } from '../services/paymentRouter';
 import { recalculateContactRollups, updateSubscriptionStats } from '../services/contactRollupService';
+import { EncryptionService } from '../services/encryptionService';
 
 const router = Router();
 
@@ -83,7 +84,20 @@ router.get('/', authenticate, async (req: AuthenticatedRequest, res: Response) =
     
     query += ` ORDER BY d.created_at DESC `;
     const { rows } = await pool.query(query, params);
-    return res.status(200).json({ success: true, donations: rows });
+    
+    const enrichedDonations = rows.map((row: any) => {
+      const rawTaxId = row.donorTaxId || '';
+      const decryptedTaxId = rawTaxId ? EncryptionService.decrypt(rawTaxId) : '';
+      const maskedTaxId = EncryptionService.maskPAN(decryptedTaxId);
+
+      return {
+        ...row,
+        donorTaxId: decryptedTaxId,
+        donorTaxIdMasked: maskedTaxId
+      };
+    });
+
+    return res.status(200).json({ success: true, donations: enrichedDonations });
   } catch (error: any) {
     console.error('Error fetching transactions:', error);
     return res.status(500).json({ success: false, message: error.message });
