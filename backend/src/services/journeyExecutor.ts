@@ -539,7 +539,7 @@ export async function triggerDonationSuccessEventsAndNotifications(params: {
              email_delivery_date = NOW(),
              whatsapp_delivery_status = 'delivered',
              whatsapp_delivery_date = NOW()
-         WHERE payment_id = $1 OR donation_id = $1`,
+         WHERE payment_id = $1`,
         [donationId]
       );
     }

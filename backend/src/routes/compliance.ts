@@ -338,8 +338,8 @@ router.get('/receipts/:donationId', async (req: Request, res: Response) => {
     // Organisation & Receipt Info columns
     const initialY = doc.y;
     doc.font('Helvetica-Bold').fontSize(11).text('RECIPIENT ORGANISATION', 50, initialY);
-    doc.font('Helvetica').fontSize(10).text(item.org_name, 50, initialY + 18);
-    doc.text(`Country: ${item.org_country}`, 50, initialY + 32);
+    doc.font('Helvetica').fontSize(10).text(item.org_name || 'Charitable Trust', 50, initialY + 18);
+    doc.text(`Country: ${item.org_country || 'India'}`, 50, initialY + 32);
     doc.text(`Status: Registered Charitable Non-Profit`, 50, initialY + 46);
     if (isIndia) {
       doc.text(`PAN: AAATD0192K | 80G Reg: URN-${urn}`, 50, initialY + 60);
@@ -351,8 +351,8 @@ router.get('/receipts/:donationId', async (req: Request, res: Response) => {
     doc.font('Helvetica-Bold').fontSize(11).text('RECEIPT DETAILS', 340, initialY);
     doc.font('Helvetica').fontSize(10).text(`Receipt No: ${receiptNumber}`, 340, initialY + 18);
     doc.text(`Date of Issue: ${new Date().toLocaleDateString()}`, 340, initialY + 32);
-    doc.text(`Gateway ID: ${item.gateway_transaction_id}`, 340, initialY + 46);
-    doc.text(`Payment Rail: ${item.payment_method.toUpperCase()}`, 340, initialY + 60);
+    doc.text(`Gateway ID: ${item.gateway_transaction_id || 'N/A'}`, 340, initialY + 46);
+    doc.text(`Payment Rail: ${(item.payment_method || 'Online').toUpperCase()}`, 340, initialY + 60);
 
     doc.moveDown(4.5);
 
@@ -361,14 +361,14 @@ router.get('/receipts/:donationId', async (req: Request, res: Response) => {
     const boxY = doc.y + 15;
     doc.fillColor('#1F2937');
     doc.font('Helvetica-Bold').fontSize(11).text('DONOR DETAILS', 65, boxY);
-    doc.font('Helvetica').fontSize(10).text(`Name: ${item.donor_name}`, 65, boxY + 20);
-    doc.text(`Email: ${item.donor_email}`, 65, boxY + 34);
+    doc.font('Helvetica').fontSize(10).text(`Name: ${item.donor_name || 'Donor'}`, 65, boxY + 20);
+    doc.text(`Email: ${item.donor_email || 'N/A'}`, 65, boxY + 34);
     if (item.donor_tax_id) {
       doc.text(`PAN/Tax Identification: ${item.donor_tax_id}`, 65, boxY + 48);
     } else {
       doc.text(`PAN/Tax Identification: Not Provided (Anonymous)`, 65, boxY + 48);
     }
-    doc.text(`Billing Country: ${item.donor_country}`, 65, boxY + 62);
+    doc.text(`Billing Country: ${item.donor_country || 'India'}`, 65, boxY + 62);
 
     doc.moveDown(7);
 
