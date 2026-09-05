@@ -17,9 +17,18 @@ export interface AuthenticatedRequest extends Request {
 export function authenticate(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   let token = req.cookies?.token;
 
-  // Fallback to headers (for API testing/third-party widgets)
+  // Fallback to headers (for API testing/third-party widgets/SPAs)
   if (!token && req.headers.authorization?.startsWith('Bearer ')) {
     token = req.headers.authorization.split(' ')[1];
+  }
+  if (!token && req.headers['x-session-token']) {
+    token = req.headers['x-session-token'] as string;
+  }
+  if (!token && req.headers['x-access-token']) {
+    token = req.headers['x-access-token'] as string;
+  }
+  if (!token && req.headers['x-auth-token']) {
+    token = req.headers['x-auth-token'] as string;
   }
 
   if (!token) {

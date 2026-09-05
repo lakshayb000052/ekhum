@@ -62,8 +62,11 @@ router.get('/me/permissions', authenticate, async (req: Request, res: Response) 
 // 3. GET /api/roles/members/list — List team members and role assignments
 router.get('/members/list', authenticate, async (req: Request, res: Response) => {
   try {
+    const user = (req as any).user;
     const orgId = getOrgId(req);
-    if (!orgId) {
+    const isSuperadmin = user?.role === 'superadmin' || user?.role === 'super_admin';
+
+    if (!orgId && !isSuperadmin) {
       return res.status(400).json({ success: false, message: 'Organization ID is required to list members.' });
     }
 
@@ -77,8 +80,11 @@ router.get('/members/list', authenticate, async (req: Request, res: Response) =>
 // 4. POST /api/roles/members/invite — Invite / add new team member
 router.post('/members/invite', authenticate, async (req: Request, res: Response) => {
   try {
-    const orgId = getOrgId(req);
-    if (!orgId) {
+    const user = (req as any).user;
+    const orgId = getOrgId(req) || req.body.organization_id;
+    const isSuperadmin = user?.role === 'superadmin' || user?.role === 'super_admin';
+
+    if (!orgId && !isSuperadmin) {
       return res.status(400).json({ success: false, message: 'Organization ID is required.' });
     }
 
@@ -111,15 +117,18 @@ router.post('/members/invite', authenticate, async (req: Request, res: Response)
 // 5. PUT /api/roles/members/:id — Update member role or profile
 router.put('/members/:id', authenticate, async (req: Request, res: Response) => {
   try {
-    const orgId = getOrgId(req);
-    if (!orgId) {
+    const user = (req as any).user;
+    const orgId = getOrgId(req) || req.body.organization_id;
+    const isSuperadmin = user?.role === 'superadmin' || user?.role === 'super_admin';
+
+    if (!orgId && !isSuperadmin) {
       return res.status(400).json({ success: false, message: 'Organization ID is required.' });
     }
 
     const { id } = req.params;
     const { role_id, first_name, last_name, phone, status, custom_permissions } = req.body;
 
-    const updated = await updateMember(id, orgId, {
+    const updated = await updateMember(id, orgId || '', {
       role_id,
       first_name,
       last_name,
@@ -141,13 +150,16 @@ router.put('/members/:id', authenticate, async (req: Request, res: Response) => 
 // 6. DELETE /api/roles/members/:id — Remove member
 router.delete('/members/:id', authenticate, async (req: Request, res: Response) => {
   try {
-    const orgId = getOrgId(req);
-    if (!orgId) {
+    const user = (req as any).user;
+    const orgId = getOrgId(req) || (req.query.organization_id as string);
+    const isSuperadmin = user?.role === 'superadmin' || user?.role === 'super_admin';
+
+    if (!orgId && !isSuperadmin) {
       return res.status(400).json({ success: false, message: 'Organization ID is required.' });
     }
 
     const { id } = req.params;
-    const result = await removeMember(id, orgId);
+    const result = await removeMember(id, orgId || '');
     res.json(result);
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
@@ -185,8 +197,11 @@ router.get('/:id', authenticate, async (req: Request, res: Response) => {
 // 9. POST /api/roles — Create custom role
 router.post('/', authenticate, async (req: Request, res: Response) => {
   try {
-    const orgId = getOrgId(req);
-    if (!orgId) {
+    const user = (req as any).user;
+    const orgId = getOrgId(req) || req.body.organization_id || null;
+    const isSuperadmin = user?.role === 'superadmin' || user?.role === 'super_admin';
+
+    if (!orgId && !isSuperadmin) {
       return res.status(400).json({ success: false, message: 'Organization ID is required to create a custom role.' });
     }
 
@@ -216,8 +231,11 @@ router.post('/', authenticate, async (req: Request, res: Response) => {
 // 10. PUT /api/roles/:id — Update custom role
 router.put('/:id', authenticate, async (req: Request, res: Response) => {
   try {
-    const orgId = getOrgId(req);
-    if (!orgId) {
+    const user = (req as any).user;
+    const orgId = getOrgId(req) || req.body.organization_id;
+    const isSuperadmin = user?.role === 'superadmin' || user?.role === 'super_admin';
+
+    if (!orgId && !isSuperadmin) {
       return res.status(400).json({ success: false, message: 'Organization ID is required.' });
     }
 
@@ -243,8 +261,11 @@ router.put('/:id', authenticate, async (req: Request, res: Response) => {
 // 11. DELETE /api/roles/:id — Delete custom role
 router.delete('/:id', authenticate, async (req: Request, res: Response) => {
   try {
-    const orgId = getOrgId(req);
-    if (!orgId) {
+    const user = (req as any).user;
+    const orgId = getOrgId(req) || (req.query.organization_id as string);
+    const isSuperadmin = user?.role === 'superadmin' || user?.role === 'super_admin';
+
+    if (!orgId && !isSuperadmin) {
       return res.status(400).json({ success: false, message: 'Organization ID is required.' });
     }
 

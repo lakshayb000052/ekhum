@@ -267,10 +267,11 @@ export async function getRoleById(roleId: string, orgId?: string) {
   };
 }
 
+
 /**
  * Create a new custom role.
  */
-export async function createRole(orgId: string, data: {
+export async function createRole(orgId: string | null | undefined, data: {
   name?: string;
   display_name: string;
   description?: string;
@@ -305,7 +306,7 @@ export async function createRole(orgId: string, data: {
     `INSERT INTO roles (organization_id, name, display_name, description, is_system, permissions, created_at, updated_at)
      VALUES ($1, $2, $3, $4, false, $5, NOW(), NOW())
      RETURNING *`,
-    [orgId, slug, displayName, data.description || '', JSON.stringify(initialPerms)]
+    [orgId || null, slug, displayName, data.description || '', JSON.stringify(initialPerms)]
   );
 
   return {
@@ -317,7 +318,7 @@ export async function createRole(orgId: string, data: {
 /**
  * Update an existing custom role.
  */
-export async function updateRole(roleId: string, orgId: string, data: {
+export async function updateRole(roleId: string, orgId?: string, data?: {
   display_name?: string;
   description?: string;
   permissions?: any;
@@ -331,13 +332,14 @@ export async function updateRole(roleId: string, orgId: string, data: {
   if (currentRole.is_system) {
     throw new Error('System core roles cannot be modified.');
   }
-  if (currentRole.organization_id !== orgId) {
+  if (currentRole.organization_id && orgId && currentRole.organization_id !== orgId) {
     throw new Error('Unauthorized to modify this role.');
   }
 
-  const updatedDisplayName = data.display_name !== undefined ? data.display_name.trim() : currentRole.display_name;
-  const updatedDesc = data.description !== undefined ? data.description : currentRole.description;
-  const updatedPerms = data.permissions !== undefined ? normalizeMatrix(data.permissions) : currentRole.permissions;
+  const payload = data || {};
+  const updatedDisplayName = payload.display_name !== undefined ? payload.display_name.trim() : currentRole.display_name;
+  const updatedDesc = payload.description !== undefined ? payload.description : currentRole.description;
+  const updatedPerms = payload.permissions !== undefined ? normalizeMatrix(payload.permissions) : currentRole.permissions;
 
   const updateRes = await pool.query(
     `UPDATE roles
@@ -359,7 +361,7 @@ export async function updateRole(roleId: string, orgId: string, data: {
 /**
  * Delete a custom role.
  */
-export async function deleteRole(roleId: string, orgId: string) {
+export async function deleteRole(roleId: string, orgId?: string) {
   const currentRes = await pool.query('SELECT * FROM roles WHERE id = $1', [roleId]);
   if (currentRes.rows.length === 0) {
     throw new Error('Role not found.');
@@ -368,7 +370,7 @@ export async function deleteRole(roleId: string, orgId: string) {
   if (role.is_system) {
     throw new Error('System core roles cannot be deleted.');
   }
-  if (role.organization_id !== orgId) {
+  if (role.organization_id && orgId && role.organization_id !== orgId) {
     throw new Error('Unauthorized to delete this role.');
   }
 
@@ -386,11 +388,12 @@ export async function deleteRole(roleId: string, orgId: string) {
 /**
  * List all organization members with their roles and computed permissions.
  */
-export async function listMembers(orgId: string) {
-  const res = await pool.query(
-    `SELECT 
+export async function listMembers(orgId?: string) {
+  const query = `
+    SELECT 
        om.id,
        om.organization_id,
+       o.name AS org_name,
        om.email,
        om.role,
        om.role_id,
@@ -406,15 +409,18 @@ export async function listMembers(orgId: string) {
        r.is_system AS role_is_system,
        r.permissions AS role_permissions
      FROM organization_members om
+     LEFT JOIN organizations o ON om.organization_id = o.id
      LEFT JOIN roles r ON om.role_id = r.id
-     WHERE om.organization_id = $1
-     ORDER BY om.created_at DESC`,
-    [orgId]
-  );
+     ${orgId ? 'WHERE om.organization_id = $1' : ''}
+     ORDER BY om.created_at DESC
+  `;
+  const params = orgId ? [orgId] : [];
+  const res = await pool.query(query, params);
 
   return res.rows.map(row => ({
     id: row.id,
     organization_id: row.organization_id,
+    org_name: row.org_name || 'Global / Default',
     email: row.email,
     name: [row.first_name, row.last_name].filter(Boolean).join(' ') || row.email.split('@')[0],
     first_name: row.first_name,
@@ -440,7 +446,7 @@ export async function listMembers(orgId: string) {
 /**
  * Invite / add a team member to an organization.
  */
-export async function inviteOrAddMember(orgId: string, data: {
+export async function inviteOrAddMember(orgId: string | null | undefined, data: {
   email: string;
   password?: string;
   first_name?: string;
@@ -452,6 +458,14 @@ export async function inviteOrAddMember(orgId: string, data: {
 }) {
   const email = data.email?.trim().toLowerCase();
   if (!email) throw new Error('Email is required.');
+
+  // Find target organization if none provided
+  let targetOrgId = orgId;
+  if (!targetOrgId) {
+    const orgRes = await pool.query('SELECT id FROM organizations LIMIT 1');
+    targetOrgId = orgRes.rows[0]?.id;
+    if (!targetOrgId) throw new Error('No organization exists to assign member to.');
+  }
 
   // Find target role
   let targetRoleId = data.role_id;

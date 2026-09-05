@@ -97,14 +97,30 @@ export const RoleManager: React.FC = () => {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
+  const getAuthHeaders = (): Record<string, string> => {
+    const token = typeof window !== 'undefined' 
+      ? (localStorage.getItem('EKhum_token') || localStorage.getItem('token') || localStorage.getItem('auth_token'))
+      : null;
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+      headers['x-session-token'] = token;
+      headers['x-access-token'] = token;
+    }
+    return headers;
+  };
+
   // 1. Fetch Matrix Schema, Roles, and Members
   const loadData = async () => {
     try {
       setLoading(true);
+      const headers = getAuthHeaders();
       const [schemaRes, rolesRes, membersRes] = await Promise.all([
-        fetch('/api/roles/matrix/schema', { credentials: 'include' }).then(r => r.json()),
-        fetch('/api/roles', { credentials: 'include' }).then(r => r.json()),
-        fetch('/api/roles/members/list', { credentials: 'include' }).then(r => r.json())
+        fetch('/api/roles/matrix/schema', { headers, credentials: 'include' }).then(r => r.json()),
+        fetch('/api/roles', { headers, credentials: 'include' }).then(r => r.json()),
+        fetch('/api/roles/members/list', { headers, credentials: 'include' }).then(r => r.json())
       ]);
 
       if (schemaRes.success && schemaRes.data) {
@@ -205,7 +221,7 @@ export const RoleManager: React.FC = () => {
       setSaving(true);
       const res = await fetch(`/api/roles/${selectedRole.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         credentials: 'include',
         body: JSON.stringify({
           display_name: selectedRole.display_name,
@@ -239,7 +255,7 @@ export const RoleManager: React.FC = () => {
       setSaving(true);
       const res = await fetch('/api/roles', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         credentials: 'include',
         body: JSON.stringify(newRoleForm)
       });
@@ -273,6 +289,7 @@ export const RoleManager: React.FC = () => {
       setSaving(true);
       const res = await fetch(`/api/roles/${selectedRole.id}`, {
         method: 'DELETE',
+        headers: getAuthHeaders(),
         credentials: 'include'
       });
       const data = await res.json();
@@ -305,7 +322,7 @@ export const RoleManager: React.FC = () => {
       setSaving(true);
       const res = await fetch('/api/roles/members/invite', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         credentials: 'include',
         body: JSON.stringify(inviteForm)
       });
@@ -316,7 +333,7 @@ export const RoleManager: React.FC = () => {
         setIsInviteMemberModalOpen(false);
         setInviteForm({ email: '', first_name: '', last_name: '', phone: '', role_id: '', password: '' });
         // Refresh member list
-        const mRes = await fetch('/api/roles/members/list', { credentials: 'include' }).then(r => r.json());
+        const mRes = await fetch('/api/roles/members/list', { headers: getAuthHeaders(), credentials: 'include' }).then(r => r.json());
         if (mRes.success) setMembers(mRes.data);
       } else {
         showToast(data.message || 'Failed to invite member', 'error');
@@ -333,7 +350,7 @@ export const RoleManager: React.FC = () => {
     try {
       const res = await fetch(`/api/roles/members/${memberId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         credentials: 'include',
         body: JSON.stringify({ role_id: newRoleId })
       });
@@ -370,7 +387,7 @@ export const RoleManager: React.FC = () => {
     try {
       const res = await fetch(`/api/roles/members/${memberId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         credentials: 'include',
         body: JSON.stringify({ status: newStatus })
       });
@@ -394,6 +411,7 @@ export const RoleManager: React.FC = () => {
     try {
       const res = await fetch(`/api/roles/members/${memberId}`, {
         method: 'DELETE',
+        headers: getAuthHeaders(),
         credentials: 'include'
       });
       const data = await res.json();
