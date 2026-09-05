@@ -12,6 +12,7 @@ This repository contains the complete engineering specification, data model, wor
 
 | Document | Primary Focus | Key Contents |
 |---|---|---|
+| **[`docs/COMPLETE_SYSTEM_DIAGRAMS_AND_SECURITY_GUIDE.md`](file:///e:/DanaPro/docs/COMPLETE_SYSTEM_DIAGRAMS_AND_SECURITY_GUIDE.md)** | **Master Diagrams & Security Guide** | • Full Visual ERDs & System Topologies<br/>• Complete GitHub Documentation Index<br/>• Step-by-Step Data Encryption & Security Setup |
 | **[`docs/DATA_MODEL.md`](file:///e:/DanaPro/docs/DATA_MODEL.md)** | **Complete Data Architecture** | • 22+ PostgreSQL Tables & Schema Definitions<br/>• Entity Relationship Diagram (ERD)<br/>• JSONB Dynamic Schemas & GIN Indexing<br/>• DPDP Act 2023 Field Encryption & Blind Indexing |
 | **[`docs/WORKFLOW_ENGINEERING.md`](file:///e:/DanaPro/docs/WORKFLOW_ENGINEERING.md)** | **Business Logic & Lifecycles** | • End-to-End Donor Checkout Flow<br/>• 4-Way Payment Rail Failover Logic<br/>• 11-Trigger Reactive Event Bus<br/>• Visual Journey Graph Traversal Engine<br/>• Anti-Churn Sponsorship Recovery Workflow<br/>• Section 80G & Form 10BD Statutory Tax Flow |
 | **[`docs/ARCHITECTURE_OVERVIEW.md`](file:///e:/DanaPro/docs/ARCHITECTURE_OVERVIEW.md)** | **Software Architecture Design** | • C4 Model (Context, Container, Component, Code)<br/>• Frontend Architecture (React 18, Vite, TS, Tailwind)<br/>• Modular Backend Microservices & Sidecars<br/>• Parametric Multi-Tenancy Strategy<br/>• Full Technology Stack Matrix |
