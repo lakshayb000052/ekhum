@@ -211,37 +211,68 @@ router.delete('/:id', authenticate, authorizeRole(['superadmin']), async (req: A
 
 // POST /api/templates/preview - Live Whitelist Preview Rendering
 router.post('/preview', async (req: Request, res: Response) => {
-  const { content, subject, customVars } = req.body;
+  const { content, subject, customVars, organization_id, campaign_id } = req.body;
+  const orgId = organization_id || (req as any).user?.organization_id;
 
-  // Mock whitelist values for live preview testing
-  const mockVars: WhitelistVariables = {
-    donor_name: 'Lakshay Bansal',
-    donor_email: 'lakshay@gmail.com',
-    donor_phone: '+91 9876543210',
+  let ngoName = 'Organization';
+  let ngoUrn = '';
+  let ngoSignatory = '';
+  let ngoCountry = 'IN';
+
+  if (orgId) {
+    try {
+      const orgRes = await pool.query('SELECT name, tax_id, authorized_signatory, country FROM organizations WHERE id = $1', [orgId]);
+      if (orgRes.rows.length > 0) {
+        ngoName = orgRes.rows[0].name || ngoName;
+        ngoUrn = orgRes.rows[0].tax_id || ngoUrn;
+        ngoSignatory = orgRes.rows[0].authorized_signatory || ngoSignatory;
+        ngoCountry = orgRes.rows[0].country || ngoCountry;
+      }
+    } catch (err) {
+      console.error('Error fetching org for preview:', err);
+    }
+  }
+
+  let campaignTitle = 'General Campaign';
+  if (campaign_id) {
+    try {
+      const campRes = await pool.query('SELECT title FROM campaigns WHERE id = $1', [campaign_id]);
+      if (campRes.rows.length > 0) {
+        campaignTitle = campRes.rows[0].title || campaignTitle;
+      }
+    } catch (err) {
+      console.error('Error fetching campaign for preview:', err);
+    }
+  }
+
+  const previewVars: WhitelistVariables = {
+    donor_name: 'Donor Name',
+    donor_email: 'donor@example.com',
+    donor_phone: '+91 9000000000',
     donor_tax_id: 'ABCDE1234F',
     donor_country: 'IN',
-    donation_amount: '5,000',
+    donation_amount: '1,000',
     donation_currency: 'INR',
     donation_date: new Date().toISOString().split('T')[0],
-    transaction_id: 'pay_N9xL028aK1',
+    transaction_id: `pay_${Date.now().toString(36)}`,
     payment_method: 'UPI',
-    campaign_title: 'Clean Drinking Water Mission 2026',
-    ngo_name: 'WaterAid Foundation India',
-    ngo_urn: 'AAATD0192K20261',
-    ngo_signatory: 'Dr. A. Sharma (President)',
-    ngo_country: 'IN',
-    receipt_url: 'https://danapro.org/receipts/REC-2026-80G-0001.pdf',
+    campaign_title: campaignTitle,
+    ngo_name: ngoName,
+    ngo_urn: ngoUrn,
+    ngo_signatory: ngoSignatory,
+    ngo_country: ngoCountry,
+    receipt_url: '/receipts/download',
     ...customVars
   };
 
-  const renderedContent = renderTemplateContent(content || '', mockVars);
-  const renderedSubject = subject ? renderTemplateContent(subject, mockVars) : undefined;
+  const renderedContent = renderTemplateContent(content || '', previewVars);
+  const renderedSubject = subject ? renderTemplateContent(subject, previewVars) : undefined;
 
   return res.status(200).json({
     success: true,
     renderedContent,
     renderedSubject,
-    mockVars
+    previewVars
   });
 });
 

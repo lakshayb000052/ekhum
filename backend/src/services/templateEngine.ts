@@ -27,8 +27,8 @@ export interface WhitelistVariables {
 }
 
 export const WHITELIST_VAR_DESCRIPTIONS: Record<string, string> = {
-  donor_name: "Donor's Full Name (e.g. Lakshay Bansal)",
-  donor_email: "Donor's Email Address (e.g. lakshay@gmail.com)",
+  donor_name: "Donor's Full Name (e.g. John Doe)",
+  donor_email: "Donor's Email Address (e.g. donor@example.com)",
   donor_phone: "Donor's Phone / WhatsApp Number (e.g. +91 9876543210)",
   donor_tax_id: "Donor's PAN / Tax ID (e.g. ABCDE1234F)",
   donor_country: "Donor's Billing Country (e.g. IN)",

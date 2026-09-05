@@ -12,8 +12,8 @@ import { EncryptionService } from '../services/encryptionService';
 const router = Router();
 
 const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_mock',
-  key_secret: process.env.RAZORPAY_KEY_SECRET || 'mock_secret'
+  key_id: process.env.RAZORPAY_KEY_ID || '',
+  key_secret: process.env.RAZORPAY_KEY_SECRET || ''
 });
 
 import { authenticate, AuthenticatedRequest } from '../middleware/auth';
@@ -367,9 +367,9 @@ router.post('/verify', async (req: Request, res: Response) => {
     if (resolvedGateway === 'razorpay' && razorpaySignature && razorpayOrderId && razorpayPaymentId) {
       const campPayment = row.camp_payment_config || {};
       const orgPayment = row.org_payment_config || {};
-      let keySecret = campPayment.razorpay_key_secret || orgPayment.razorpay_key_secret || process.env.RAZORPAY_KEY_SECRET || 'mock_secret';
+      let keySecret = campPayment.razorpay_key_secret || orgPayment.razorpay_key_secret || process.env.RAZORPAY_KEY_SECRET || '';
 
-      if (keySecret !== 'mock_secret') {
+      if (keySecret) {
         const hash = crypto
           .createHmac('sha256', keySecret)
           .update(razorpayOrderId + '|' + razorpayPaymentId)
@@ -723,13 +723,21 @@ router.post('/verify-failed', async (req: Request, res: Response) => {
 // Manual Donation
 router.post('/manual', async (req: Request, res: Response) => {
   const { campaignId, donorName, donorEmail, amount, currency, paymentMethod, referenceNo } = req.body;
+  if (!campaignId || !donorName || !donorEmail || !amount) {
+    return res.status(400).json({ success: false, message: 'Campaign ID, donor name, donor email, and amount are required.' });
+  }
+
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     
-    // Retrieve default Org
-    const campaignResult = await client.query('SELECT organization_id FROM campaigns WHERE id = $1', [campaignId || '92da27d4-8395-46f8-9584-c81b2bd1eb1e']);
-    const orgId = campaignResult.rows[0]?.organization_id || 'f728c312-d961-460d-a3df-6a982f1b0cd9';
+    // Retrieve Org from Campaign
+    const campaignResult = await client.query('SELECT organization_id FROM campaigns WHERE id = $1', [campaignId]);
+    if (campaignResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, message: 'Campaign not found in database.' });
+    }
+    const orgId = campaignResult.rows[0].organization_id;
 
     // Insert donor
     const donorResult = await client.query(`
@@ -751,7 +759,7 @@ router.post('/manual', async (req: Request, res: Response) => {
     `;
     const { rows } = await client.query(query, [
       orgId,
-      campaignId || '92da27d4-8395-46f8-9584-c81b2bd1eb1e',
+      campaignId,
       donorId,
       amount,
       currency || 'INR',

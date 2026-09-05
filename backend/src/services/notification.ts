@@ -330,26 +330,28 @@ export async function sendAWSEmailNotification(
   // Fallback: Dispatch using system SES or default SMTP if not dispatched yet
   if (!emailDispatched) {
     try {
-      const smtpUser = process.env.SMTP_USER || 'lakshayb057@gmail.com';
-      const smtpPass = process.env.SMTP_PASS || 'angzefnwaziwmlzz';
+      const smtpUser = process.env.SMTP_USER || '';
+      const smtpPass = process.env.SMTP_PASS || '';
 
-      const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: { user: smtpUser, pass: smtpPass }
-      });
+      if (smtpUser && smtpPass) {
+        const transporter = nodemailer.createTransport({
+          service: 'gmail',
+          auth: { user: smtpUser, pass: smtpPass }
+        });
 
-      const info = await transporter.sendMail({
-        from: `"${orgName} via DanaPro" <${smtpUser}>`,
-        to: donorEmail,
-        subject: subject,
-        html: bodyHtml,
-        attachments: attachments.length > 0 ? [{ filename, path: localPdfPath, contentType: 'application/pdf' }] : undefined
-      });
+        const info = await transporter.sendMail({
+          from: `"${orgName} via DanaPro" <${smtpUser}>`,
+          to: donorEmail,
+          subject: subject,
+          html: bodyHtml,
+          attachments: attachments.length > 0 ? [{ filename, path: localPdfPath, contentType: 'application/pdf' }] : undefined
+        });
 
-      console.log(`[Email Notification Engine] Fallback sent to ${donorEmail}. MessageId: ${info.messageId}`);
-      emailDispatched = true;
-      dispatchMessageId = info.messageId || null;
-      dispatchError = null;
+        console.log(`[Email Notification Engine] Fallback sent to ${donorEmail}. MessageId: ${info.messageId}`);
+        emailDispatched = true;
+        dispatchMessageId = info.messageId || null;
+        dispatchError = null;
+      }
     } catch (fallbackErr: any) {
       console.error(`[Email Notification Engine] Fallback dispatch error:`, fallbackErr.message);
       dispatchError = fallbackErr.message;
@@ -384,7 +386,17 @@ export async function sendCampaignApprovalNotificationEmail(
   campaignSlug: string,
   campaignId: string
 ) {
-  const recipients = ['lakshayb057@gmail.com', 'spikemarketingsolutions@gmail.com'];
+  let recipients: string[] = [];
+  try {
+    const superadminRes = await pool.query('SELECT email FROM superadmins');
+    recipients = superadminRes.rows.map((r: any) => r.email).filter(Boolean);
+  } catch (err) {
+    console.error('Failed to fetch superadmin emails for notification:', err);
+  }
+  if (recipients.length === 0) {
+    recipients = [process.env.SUPERADMIN_EMAIL || 'admin@danapro.org'];
+  }
+
   const awsAccessKey = process.env.AWS_ACCESS_KEY_ID;
   const awsSecretKey = process.env.AWS_SECRET_ACCESS_KEY;
   const awsRegion = process.env.AWS_REGION || 'us-east-1';
@@ -402,7 +414,7 @@ export async function sendCampaignApprovalNotificationEmail(
         <div style="margin-bottom: 8px;"><strong>Campaign Slug:</strong> <code>${campaignSlug}</code></div>
         <div><strong>Status:</strong> <span style="background: #FEF3C7; color: #92400E; padding: 4px 8px; border-radius: 4px; font-weight: bold;">🟡 Pending Verification</span></div>
       </div>
-      <p>Please log in to the Superadmin Dashboard at <a href="http://localhost:3000/admin" style="color: #2563EB; font-weight: bold;">http://localhost:3000/admin</a> to verify this campaign, configure gateway keys, and set it to active.</p>
+      <p>Please log in to the Superadmin Dashboard to verify this campaign, configure gateway keys, and set it to active.</p>
     </div>
   `;
 

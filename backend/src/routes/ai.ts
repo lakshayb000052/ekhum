@@ -53,11 +53,19 @@ router.post('/chat', async (req: Request, res: Response) => {
     const result = await model.generateContent(prompt);
     const responseText = result.response.text();
 
-    // Log the interaction asynchronously in PostgreSQL
-    pool.query(
-      'INSERT INTO ai_interactions (organization_id, session_id, user_query, ai_response) VALUES ($1, $2, $3, $4) RETURNING *',
-      ['00000000-0000-0000-0000-000000000000', sessionId || 'anon-session', query, responseText]
-    ).catch(err => console.error('Failed to log AI query to Postgres:', err.message));
+    // Log the interaction asynchronously in PostgreSQL if organization is resolved
+    let targetOrgId = req.body.organizationId || (typeof campaignContext === 'object' ? campaignContext?.organization_id : null);
+    if (!targetOrgId && typeof campaignContext === 'object' && campaignContext?.id) {
+      const campOrgRes = await pool.query('SELECT organization_id FROM campaigns WHERE id = $1', [campaignContext.id]);
+      targetOrgId = campOrgRes.rows[0]?.organization_id || null;
+    }
+
+    if (targetOrgId) {
+      pool.query(
+        'INSERT INTO ai_interactions (organization_id, session_id, user_query, ai_response) VALUES ($1, $2, $3, $4) RETURNING *',
+        [targetOrgId, sessionId || 'anon-session', query, responseText]
+      ).catch(err => console.error('Failed to log AI query to Postgres:', err.message));
+    }
 
     return res.status(200).json({
       success: true,

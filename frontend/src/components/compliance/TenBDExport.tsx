@@ -3,7 +3,17 @@ import { apiFetch } from '../shared/api';
 import { DataTable, Column } from '../shared/DataTable';
 import { KpiCard } from '../shared/KpiCard';
 
+const getCurrentFinancialYear = (): string => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth(); // 0 is January, 3 is April
+  const startYear = month >= 3 ? year : year - 1;
+  const endYearShort = String((startYear + 1) % 100).padStart(2, '0');
+  return `${startYear}-${endYearShort}`;
+};
+
 export const TenBDExport: React.FC = () => {
+  const currentFy = getCurrentFinancialYear();
   const [activeTab, setActiveTab] = useState<'export' | 'history'>('export');
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -61,7 +71,7 @@ export const TenBDExport: React.FC = () => {
       const res = await apiFetch('/api/compliance/10bd/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fy: '2023-24' })
+        body: JSON.stringify({ fy: currentFy })
       });
       if (res && res.success) {
         window.open('/api/compliance/export/10bd', '_blank');
@@ -76,7 +86,7 @@ export const TenBDExport: React.FC = () => {
 
   const historyColumns: Column<any>[] = [
     { header: 'Export Date', accessor: (row) => row.date ? new Date(row.date).toLocaleDateString() : 'N/A' },
-    { header: 'FY', accessor: (row) => row.fy || '2023-24' },
+    { header: 'FY', accessor: (row) => row.fy || currentFy },
     { header: 'Record Count', accessor: (row) => row.record_count || 0 },
     { header: 'Total Amount', accessor: (row) => `₹${Number(row.total_amount || 0).toLocaleString('en-IN')}` },
     { 
@@ -144,7 +154,7 @@ export const TenBDExport: React.FC = () => {
       {activeTab === 'export' && (
         <div>
           <div style={{ background: '#fff', padding: '24px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '24px' }}>
-            <h3 style={{ marginTop: 0, color: 'var(--secondary)' }}>Current FY Status (2023-24)</h3>
+            <h3 style={{ marginTop: 0, color: 'var(--secondary)' }}>Current FY Status ({currentFy})</h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
               <KpiCard title="Record Count" value={stats.record_count} />
               <KpiCard title="Total Amount" value={`₹${Number(stats.total_amount || 0).toLocaleString('en-IN')}`} />

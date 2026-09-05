@@ -4,6 +4,27 @@ import { DataTable, Column } from '../shared/DataTable';
 import { Modal } from '../shared/Modal';
 import { KpiCard } from '../shared/KpiCard';
 
+const getCurrentFinancialYear = (): string => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth(); // 0 is January, 3 is April
+  const startYear = month >= 3 ? year : year - 1;
+  const endYearShort = String((startYear + 1) % 100).padStart(2, '0');
+  return `${startYear}-${endYearShort}`;
+};
+
+const getFinancialYearList = (count: number = 5): string[] => {
+  const current = getCurrentFinancialYear();
+  const startYear = parseInt(current.split('-')[0], 10);
+  const list: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const y = startYear - i;
+    const nextY = String((y + 1) % 100).padStart(2, '0');
+    list.push(`${y}-${nextY}`);
+  }
+  return list;
+};
+
 export const ReceiptManager: React.FC = () => {
   const [receipts, setReceipts] = useState<any[]>([]);
   const [stats, setStats] = useState<{ total_receipts: number; missing_pan_count: number; voided_count: number }>({
@@ -12,7 +33,7 @@ export const ReceiptManager: React.FC = () => {
     voided_count: 0
   });
   const [loading, setLoading] = useState(true);
-  const [fyFilter, setFyFilter] = useState('2023-24');
+  const [fyFilter, setFyFilter] = useState(getCurrentFinancialYear());
   const [isVoidModalOpen, setIsVoidModalOpen] = useState(false);
   const [selectedReceipt, setSelectedReceipt] = useState<any>(null);
   const [voidReason, setVoidReason] = useState('');
@@ -138,10 +159,9 @@ export const ReceiptManager: React.FC = () => {
               onChange={(e) => setFyFilter(e.target.value)}
               style={{ padding: '6px 12px', border: '1px solid #CBD5E1', borderRadius: '6px', background: '#FFFFFF', fontSize: '13px', fontWeight: 600, color: '#0F172A' }}
             >
-              <option value="2025-26">FY 2025-26</option>
-              <option value="2024-25">FY 2024-25</option>
-              <option value="2023-24">FY 2023-24</option>
-              <option value="2022-23">FY 2022-23</option>
+              {getFinancialYearList(5).map(fy => (
+                <option key={fy} value={fy}>FY {fy}</option>
+              ))}
             </select>
             <a href="/api/compliance/export/10bd" className="btn btn-primary" download>
               📄 Export Form 10BD CSV

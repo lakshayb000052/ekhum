@@ -386,7 +386,7 @@ export default function App() {
   const [sysAwsAccessKey, setSysAwsAccessKey] = useState<string>('');
   const [sysAwsSecretKey, setSysAwsSecretKey] = useState<string>('');
   const [sysAwsRegion, setSysAwsRegion] = useState<string>('us-east-1');
-  const [sysAwsSenderEmail, setSysAwsSenderEmail] = useState<string>('donations@danapro.org');
+  const [sysAwsSenderEmail, setSysAwsSenderEmail] = useState<string>('');
   const [showAwsSecretKey, setShowAwsSecretKey] = useState<boolean>(false);
   const [showLoginPassword, setShowLoginPassword] = useState<boolean>(false);
   const [showRazorpaySecret, setShowRazorpaySecret] = useState<boolean>(false);
@@ -673,10 +673,10 @@ export default function App() {
     };
   }, [currentPath]);
 
-  // Login Form States (Default to requested Superadmin credentials)
+  // Login Form States
   const [activeLoginRole, setActiveLoginRole] = useState<'superadmin' | 'ngo' | 'checkout'>('superadmin');
-  const [loginEmail, setLoginEmail] = useState<string>('Superlucky@gmail.com');
-  const [loginPassword, setLoginPassword] = useState<string>('Lakshay@123');
+  const [loginEmail, setLoginEmail] = useState<string>('');
+  const [loginPassword, setLoginPassword] = useState<string>('');
   const [loginError, setLoginError] = useState<string>('');
 
   // Lists & Backend States
@@ -1258,14 +1258,14 @@ export default function App() {
   const [showCcavenueWorkingKey, setShowCcavenueWorkingKey] = useState<boolean>(false);
 
   // AU Small Finance Bank / Worldline Gateway States
-  const [sysWorldlineMerchantId, setSysWorldlineMerchantId] = useState<string>('WL_AUBANK_89210');
-  const [sysWorldlineSecretKey, setSysWorldlineSecretKey] = useState<string>('sec_aubank_worldline_891023');
-  const [sysWorldlineTerminalId, setSysWorldlineTerminalId] = useState<string>('AUB_TID_00192');
+  const [sysWorldlineMerchantId, setSysWorldlineMerchantId] = useState<string>('');
+  const [sysWorldlineSecretKey, setSysWorldlineSecretKey] = useState<string>('');
+  const [sysWorldlineTerminalId, setSysWorldlineTerminalId] = useState<string>('');
   const [showWorldlineSecret, setShowWorldlineSecret] = useState<boolean>(false);
 
   // Cashfree Payments States
-  const [sysCashfreeAppId, setSysCashfreeAppId] = useState<string>('CF_APP_91029384');
-  const [sysCashfreeSecretKey, setSysCashfreeSecretKey] = useState<string>('cf_sec_91823901823901283');
+  const [sysCashfreeAppId, setSysCashfreeAppId] = useState<string>('');
+  const [sysCashfreeSecretKey, setSysCashfreeSecretKey] = useState<string>('');
   const [showCashfreeSecret, setShowCashfreeSecret] = useState<boolean>(false);
 
   // Smart Routing & Failover
@@ -1274,14 +1274,14 @@ export default function App() {
   const [enableAutoFailover, setEnableAutoFailover] = useState<boolean>(true);
   const [activeGatewayTab, setActiveGatewayTab] = useState<'razorpay' | 'payu' | 'ccavenue' | 'worldline' | 'cashfree' | 'routing'>('razorpay');
 
-  const [sysSmtpHost, setSysSmtpHost] = useState<string>('smtp.gmail.com');
-  const [sysSmtpPort, setSysSmtpPort] = useState<string>('465');
-  const [sysSmtpUser, setSysSmtpUser] = useState<string>('lakshayb057@gmail.com');
-  const [sysSmtpPass, setSysSmtpPass] = useState<string>('angzefnwaziwmlzz');
+  const [sysSmtpHost, setSysSmtpHost] = useState<string>('');
+  const [sysSmtpPort, setSysSmtpPort] = useState<string>('587');
+  const [sysSmtpUser, setSysSmtpUser] = useState<string>('');
+  const [sysSmtpPass, setSysSmtpPass] = useState<string>('');
   const [showSmtpPass, setShowSmtpPass] = useState<boolean>(false);
   const [sysEmailProvider, setSysEmailProvider] = useState<'smtp' | 'aws_ses'>('smtp');
   const [isSendingTestEmail, setIsSendingTestEmail] = useState<boolean>(false);
-  const [testEmailRecipient, setTestEmailRecipient] = useState<string>('lakshayb057@gmail.com');
+  const [testEmailRecipient, setTestEmailRecipient] = useState<string>('');
 
   // Template Management States
   const [templatesList, setTemplatesList] = useState<any[]>([]);
@@ -1367,29 +1367,29 @@ export default function App() {
           setSysRazorpayId(settingsData.settings.RAZORPAY_KEY_ID || '');
           setSysRazorpaySecret(settingsData.settings.RAZORPAY_KEY_SECRET || '');
           setSysRazorpayWebhookSecret(settingsData.settings.RAZORPAY_WEBHOOK_SECRET || '');
-          setSysPayuKey(settingsData.settings.PAYU_MERCHANT_KEY || 'gtKFFx');
-          setSysPayuSalt(settingsData.settings.PAYU_MERCHANT_SALT || 'eCwWELxi');
-          setSysPayuWebhookSecret(settingsData.settings.PAYU_WEBHOOK_SECRET || 'payu_whsec_908123');
+          setSysPayuKey(settingsData.settings.PAYU_MERCHANT_KEY || '');
+          setSysPayuSalt(settingsData.settings.PAYU_MERCHANT_SALT || '');
+          setSysPayuWebhookSecret(settingsData.settings.PAYU_WEBHOOK_SECRET || '');
           setSysPayuMode((settingsData.settings.PAYU_MODE as any) || 'test');
-          setSysCcavenueMerchantId(settingsData.settings.CCAVENUE_MERCHANT_ID || '2849102');
-          setSysCcavenueAccessCode(settingsData.settings.CCAVENUE_ACCESS_CODE || 'AVIN02KJ91BC02');
-          setSysCcavenueWorkingKey(settingsData.settings.CCAVENUE_WORKING_KEY || '8B9F04D92841CA902E41829B0482910F');
-          setSysWorldlineMerchantId(settingsData.settings.WORLDLINE_MERCHANT_ID || 'WL_AUBANK_89210');
-          setSysWorldlineSecretKey(settingsData.settings.WORLDLINE_SECRET_KEY || 'sec_aubank_worldline_891023');
-          setSysWorldlineTerminalId(settingsData.settings.WORLDLINE_TERMINAL_ID || 'AUB_TID_00192');
-          setSysCashfreeAppId(settingsData.settings.CASHFREE_APP_ID || 'CF_APP_91029384');
-          setSysCashfreeSecretKey(settingsData.settings.CASHFREE_SECRET_KEY || 'cf_sec_91823901823901283');
+          setSysCcavenueMerchantId(settingsData.settings.CCAVENUE_MERCHANT_ID || '');
+          setSysCcavenueAccessCode(settingsData.settings.CCAVENUE_ACCESS_CODE || '');
+          setSysCcavenueWorkingKey(settingsData.settings.CCAVENUE_WORKING_KEY || '');
+          setSysWorldlineMerchantId(settingsData.settings.WORLDLINE_MERCHANT_ID || '');
+          setSysWorldlineSecretKey(settingsData.settings.WORLDLINE_SECRET_KEY || '');
+          setSysWorldlineTerminalId(settingsData.settings.WORLDLINE_TERMINAL_ID || '');
+          setSysCashfreeAppId(settingsData.settings.CASHFREE_APP_ID || '');
+          setSysCashfreeSecretKey(settingsData.settings.CASHFREE_SECRET_KEY || '');
           setPrimaryGateway(settingsData.settings.PRIMARY_PAYMENT_GATEWAY || 'razorpay');
           setFallbackGateway(settingsData.settings.FALLBACK_PAYMENT_GATEWAY || 'payu');
           setEnableAutoFailover(settingsData.settings.ENABLE_AUTO_FAILOVER !== 'false');
           setSysAwsAccessKey(settingsData.settings.AWS_ACCESS_KEY_ID || '');
           setSysAwsSecretKey(settingsData.settings.AWS_SECRET_ACCESS_KEY || '');
           setSysAwsRegion(settingsData.settings.AWS_REGION || 'ap-south-1');
-          setSysAwsSenderEmail(settingsData.settings.AWS_SES_FROM_EMAIL || 'lakshayb057@gmail.com');
-          setSysSmtpHost(settingsData.settings.SMTP_HOST || 'smtp.gmail.com');
-          setSysSmtpPort(settingsData.settings.SMTP_PORT || '465');
-          setSysSmtpUser(settingsData.settings.SMTP_USER || 'lakshayb057@gmail.com');
-          setSysSmtpPass(settingsData.settings.SMTP_PASS || 'angzefnwaziwmlzz');
+          setSysAwsSenderEmail(settingsData.settings.AWS_SES_FROM_EMAIL || '');
+          setSysSmtpHost(settingsData.settings.SMTP_HOST || '');
+          setSysSmtpPort(settingsData.settings.SMTP_PORT || '587');
+          setSysSmtpUser(settingsData.settings.SMTP_USER || '');
+          setSysSmtpPass(settingsData.settings.SMTP_PASS || '');
           setSysEmailProvider((settingsData.settings.EMAIL_PROVIDER as any) || 'smtp');
           setSysWaProvider((settingsData.settings.WHATSAPP_PROVIDER as any) || 'meta');
           setSysMetaWabaId(settingsData.settings.WHATSAPP_META_WABA_ID || '');
@@ -1397,7 +1397,7 @@ export default function App() {
           setSysMetaToken(settingsData.settings.WHATSAPP_META_TOKEN || '');
           setSysEvoUrl(settingsData.settings.WHATSAPP_EVOLUTION_URL || 'http://localhost:8080');
           setSysEvoApiKey(settingsData.settings.WHATSAPP_EVOLUTION_API_KEY || '');
-          setSysEvoInstance(settingsData.settings.WHATSAPP_EVOLUTION_INSTANCE || 'danapro_main');
+          setSysEvoInstance(settingsData.settings.WHATSAPP_EVOLUTION_INSTANCE || '');
         }
       }
 
@@ -1767,8 +1767,8 @@ export default function App() {
           orderId: `sim_${gw}_${Date.now()}`,
           txnid: `sim_${gw}_${Date.now()}`,
           orderNo: `sim_${gw}_${Date.now()}`,
-          firstname: 'Live Webhook Tester',
-          email: 'lakshayb057@gmail.com'
+          firstname: 'Webhook Tester',
+          email: 'webhook.tester@example.org'
         })
       });
       const data = await res.json();
@@ -2277,7 +2277,7 @@ export default function App() {
         setNewCampSlug('');
         setNewCampDescription('');
         if (data.isPendingApproval) {
-          alert('🚀 Campaign Submitted for Superadmin Verification!\n\nNotification emails have been dispatched to:\n• lakshayb057@gmail.com\n• spikemarketingsolutions@gmail.com\n\nOnce approved by Superadmin, your campaign will be activated with configured gateway keys and full settings.');
+          alert('🚀 Campaign Submitted for Superadmin Verification!\n\nYour campaign has been recorded and is pending Superadmin verification. Once approved, your campaign will be activated.');
         } else {
           alert(data.message || 'Campaign created successfully!');
         }
@@ -2342,10 +2342,10 @@ export default function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          donorName: 'Lakshay Bansal',
-          donationAmount: 2000,
-          currency: 'INR',
-          campaignName: activeCampaign?.title || 'Clean Drinking Water Project'
+          donorName: donations[0]?.donor_name || 'Valued Donor',
+          donationAmount: donations[0]?.amount || 1000,
+          currency: donations[0]?.currency || 'INR',
+          campaignName: activeCampaign?.title || campaigns[0]?.title || 'General Fund'
         })
       });
       const data = await response.json();
@@ -2374,17 +2374,9 @@ export default function App() {
   useEffect(() => {
     if (isAdminRoute) {
       setActiveLoginRole('superadmin');
-      if (loginEmail !== 'Superlucky@gmail.com') {
-        setLoginEmail('Superlucky@gmail.com');
-        setLoginPassword('Lakshay@123');
-      }
       if (!isSuperadminLoggedIn) setRedirectPath('/superadmin');
     } else {
       setActiveLoginRole('ngo');
-      if (loginEmail === 'Superlucky@gmail.com') {
-        setLoginEmail('');
-        setLoginPassword('');
-      }
       if (currentPath === '/superadmin' && !isSuperadminLoggedIn) {
         setRedirectPath('/superadmin');
       } else if (currentPath === '/ngo' && !isNgoAdminLoggedIn) {
@@ -2649,7 +2641,13 @@ export default function App() {
         <EKhumLandingPage
           onOpenNgoLogin={() => navigate('/login')}
           onOpenAdminLogin={() => navigate('/admin')}
-          onOpenCheckoutDemo={() => navigate('/checkout?campaign=test_campaigns')}
+          onOpenCheckoutDemo={() => {
+            if (campaigns.length > 0) {
+              navigate(`/checkout?campaign=${campaigns[0].slug}`);
+            } else {
+              navigate('/ngo');
+            }
+          }}
         />
       )}
 
@@ -2661,17 +2659,17 @@ export default function App() {
           {/* Live Financial Metric Ticker Bar */}
           <div className="ticker-bar-container">
             <div className="ticker-track">
-              <div className="ticker-item">⚡ <span className="highlight">Live Platform GMV Tracked:</span> ₹1,48,50,000+</div>
-              <div className="ticker-item">📜 <span className="highlight">100% Automated 80G Tax Receipts:</span> 12,450 Issued</div>
-              <div className="ticker-item">💸 <span className="highlight">8% Platform Fee:</span> Transparent & Predictable Pricing</div>
-              <div className="ticker-item">📲 <span className="highlight">Meta WhatsApp Retention Engine:</span> Active</div>
+              <div className="ticker-item">⚡ <span className="highlight">Live Platform GMV Tracked:</span> {globalMetrics ? `₹${Number(globalMetrics.grossVolumeGMV || 0).toLocaleString('en-IN')}` : '₹0'}</div>
+              <div className="ticker-item">📜 <span className="highlight">Registered Charities & NGOs:</span> {organizations.length > 0 ? `${organizations.length} Verified` : 'Active Hub'}</div>
+              <div className="ticker-item">💸 <span className="highlight">100% Direct Payouts:</span> Transparent & Predictable Giving</div>
+              <div className="ticker-item">📲 <span className="highlight">Meta & Evolution WhatsApp:</span> Active Dispatch Engine</div>
               <div className="ticker-item">🛡️ <span className="highlight">Cryptographic Security:</span> SHA256 & 256-Bit SSL</div>
 
               {/* Duplicate track for seamless infinite scroll */}
-              <div className="ticker-item">⚡ <span className="highlight">Live Platform GMV Tracked:</span> ₹1,48,50,000+</div>
-              <div className="ticker-item">📜 <span className="highlight">100% Automated 80G Tax Receipts:</span> 12,450 Issued</div>
-              <div className="ticker-item">💸 <span className="highlight">8% Platform Fee:</span> Transparent & Predictable Pricing</div>
-              <div className="ticker-item">📲 <span className="highlight">Meta WhatsApp Retention Engine:</span> Active</div>
+              <div className="ticker-item">⚡ <span className="highlight">Live Platform GMV Tracked:</span> {globalMetrics ? `₹${Number(globalMetrics.grossVolumeGMV || 0).toLocaleString('en-IN')}` : '₹0'}</div>
+              <div className="ticker-item">📜 <span className="highlight">Registered Charities & NGOs:</span> {organizations.length > 0 ? `${organizations.length} Verified` : 'Active Hub'}</div>
+              <div className="ticker-item">💸 <span className="highlight">100% Direct Payouts:</span> Transparent & Predictable Giving</div>
+              <div className="ticker-item">📲 <span className="highlight">Meta & Evolution WhatsApp:</span> Active Dispatch Engine</div>
               <div className="ticker-item">🛡️ <span className="highlight">Cryptographic Security:</span> SHA256 & 256-Bit SSL</div>
             </div>
           </div>
@@ -3370,7 +3368,7 @@ export default function App() {
                         <div>
                           <h3 style={{ marginBottom: '12px' }}>Submit New Campaign</h3>
                           <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-                            Upon submission, notification emails will be sent to <code>lakshayb057@gmail.com</code> & <code>spikemarketingsolutions@gmail.com</code> for Superadmin verification & final key configuration.
+                            Upon submission, a notification will be dispatched to the Superadmin for verification and activation.
                           </p>
                           <form onSubmit={handleCreateNgoCampaign} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                             <div className="form-group">
@@ -5229,7 +5227,7 @@ export default function App() {
                               className="form-input" 
                               value={sysSmtpUser} 
                               onChange={(e) => setSysSmtpUser(e.target.value)} 
-                              placeholder="lakshayb057@gmail.com"
+                              placeholder="notifications@yourdomain.org"
                               required 
                             />
                             <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Your Gmail address used to authenticate SMTP dispatches</span>
@@ -5243,7 +5241,7 @@ export default function App() {
                                 className="form-input" 
                                 value={sysSmtpPass} 
                                 onChange={(e) => setSysSmtpPass(e.target.value)} 
-                                placeholder="angz efnw aziw mlzz"
+                                placeholder="xxxx xxxx xxxx xxxx"
                                 autoComplete="off"
                                 required
                               />
@@ -5285,7 +5283,7 @@ export default function App() {
                                 className="form-input" 
                                 value={sysAwsSenderEmail} 
                                 onChange={(e) => setSysAwsSenderEmail(e.target.value)} 
-                                placeholder="lakshayb057@gmail.com"
+                                placeholder="donations@yourdomain.org"
                                 required 
                               />
                               <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Must be verified in AWS SES Console</span>
@@ -5335,7 +5333,7 @@ export default function App() {
                               className="form-input" 
                               value={testEmailRecipient} 
                               onChange={(e) => setTestEmailRecipient(e.target.value)} 
-                              placeholder="lakshayb057@gmail.com"
+                              placeholder="donor@example.org"
                               style={{ height: '36px', fontSize: '0.82rem' }}
                             />
                           </div>
@@ -5446,7 +5444,7 @@ export default function App() {
                                     className="form-input" 
                                     value={sysRazorpayId} 
                                     onChange={(e) => setSysRazorpayId(e.target.value)} 
-                                    placeholder="rzp_test_TIAIr4GaDu23Uq"
+                                    placeholder="e.g. rzp_live_xxxxxxxx"
                                   />
                                   <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Live/Test Key ID from Razorpay Dashboard</span>
                                 </div>
@@ -5482,7 +5480,7 @@ export default function App() {
                                     className="form-input" 
                                     value={sysRazorpayWebhookSecret} 
                                     onChange={(e) => setSysRazorpayWebhookSecret(e.target.value)} 
-                                    placeholder="whsec_8f93a1029e..."
+                                    placeholder="whsec_..."
                                     autoComplete="off"
                                   />
                                   <button 
@@ -5531,7 +5529,7 @@ export default function App() {
                                     className="form-input" 
                                     value={sysPayuKey} 
                                     onChange={(e) => setSysPayuKey(e.target.value)} 
-                                    placeholder="gtKFFx"
+                                    placeholder="e.g. your_merchant_key"
                                   />
                                   <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>PayU merchant key identifier</span>
                                 </div>
@@ -5567,7 +5565,7 @@ export default function App() {
                                     className="form-input" 
                                     value={sysPayuWebhookSecret} 
                                     onChange={(e) => setSysPayuWebhookSecret(e.target.value)} 
-                                    placeholder="payu_whsec_908123"
+                                    placeholder="payu_whsec_..."
                                   />
                                 </div>
                                 <div className="form-group">
@@ -5617,7 +5615,7 @@ export default function App() {
                                     className="form-input" 
                                     value={sysCcavenueMerchantId} 
                                     onChange={(e) => setSysCcavenueMerchantId(e.target.value)} 
-                                    placeholder="2849102"
+                                    placeholder="e.g. 1234567"
                                   />
                                   <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Assigned CCAvenue Merchant Account ID</span>
                                 </div>
@@ -5629,7 +5627,7 @@ export default function App() {
                                     className="form-input" 
                                     value={sysCcavenueAccessCode} 
                                     onChange={(e) => setSysCcavenueAccessCode(e.target.value)} 
-                                    placeholder="AVIN02KJ91BC02"
+                                    placeholder="e.g. AVIN00XX00XX00"
                                   />
                                   <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Merchant access code for payment URL redirection</span>
                                 </div>
@@ -5643,7 +5641,7 @@ export default function App() {
                                     className="form-input" 
                                     value={sysCcavenueWorkingKey} 
                                     onChange={(e) => setSysCcavenueWorkingKey(e.target.value)} 
-                                    placeholder="8B9F04D92841CA902E41829B0482910F"
+                                    placeholder="e.g. 128-bit Working Key"
                                     autoComplete="off"
                                   />
                                   <button 
@@ -5690,7 +5688,7 @@ export default function App() {
                                     className="form-input" 
                                     value={sysWorldlineMerchantId} 
                                     onChange={(e) => setSysWorldlineMerchantId(e.target.value)} 
-                                    placeholder="WL_AUBANK_89210"
+                                    placeholder="e.g. WL_MERCHANT_ID"
                                   />
                                   <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>AU Bank direct merchant identification code</span>
                                 </div>
@@ -5702,7 +5700,7 @@ export default function App() {
                                     className="form-input" 
                                     value={sysWorldlineTerminalId} 
                                     onChange={(e) => setSysWorldlineTerminalId(e.target.value)} 
-                                    placeholder="AUB_TID_00192"
+                                    placeholder="e.g. TID_00001"
                                   />
                                   <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Virtual POS terminal identifier</span>
                                 </div>
@@ -5716,7 +5714,7 @@ export default function App() {
                                     className="form-input" 
                                     value={sysWorldlineSecretKey} 
                                     onChange={(e) => setSysWorldlineSecretKey(e.target.value)} 
-                                    placeholder="sec_aubank_worldline_891023"
+                                    placeholder="••••••••••••••••••••••••"
                                     autoComplete="off"
                                   />
                                   <button 
@@ -5763,7 +5761,7 @@ export default function App() {
                                     className="form-input" 
                                     value={sysCashfreeAppId} 
                                     onChange={(e) => setSysCashfreeAppId(e.target.value)} 
-                                    placeholder="CF_APP_91029384"
+                                    placeholder="e.g. CF_APP_XXXXXXXX"
                                   />
                                 </div>
 
@@ -5775,7 +5773,7 @@ export default function App() {
                                       className="form-input" 
                                       value={sysCashfreeSecretKey} 
                                       onChange={(e) => setSysCashfreeSecretKey(e.target.value)} 
-                                      placeholder="cf_sec_91823901823901283"
+                                      placeholder="••••••••••••••••••••••••"
                                       autoComplete="off"
                                     />
                                     <button 

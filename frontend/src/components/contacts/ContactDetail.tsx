@@ -38,10 +38,10 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({ contactId, onBack 
   const [pinLookupStatus, setPinLookupStatus] = useState<{ loading: boolean; success: boolean; text?: string }>({ loading: false, success: false });
 
   const [monthlyForm, setMonthlyForm] = useState<any>({
-    amount: 1000,
+    amount: '',
     payment_gateway: 'RAZORPAY',
     payment_method: 'UPI AUTOPAY',
-    bank_name: 'HDFC Bank',
+    bank_name: '',
     signup_date: new Date().toISOString().split('T')[0],
     next_payment_due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   });
@@ -49,25 +49,25 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({ contactId, onBack 
   const [manageForm, setManageForm] = useState<any>({
     action: 'pause',
     paused_period: 3,
-    upgraded_value: 2000,
-    amount: 500,
-    end_reason: 'Donor requested cancellation',
+    upgraded_value: '',
+    amount: '',
+    end_reason: '',
     helpdesk_ticket_id: ''
   });
 
   const [commForm, setCommForm] = useState<any>({
-    subject: 'Thank you for your generous contribution',
+    subject: '',
     message: '',
-    template_name: 'donation_thank_you_80g'
+    template_name: ''
   });
 
   const [offlineForm, setOfflineForm] = useState<any>({
-    amount: 5000,
+    amount: '',
     payment_method: 'CHEQUE',
     payment_date: new Date().toISOString().split('T')[0],
     gateway_transaction_id: '',
     generate_receipt: true,
-    notes: 'Cheque received during outreach drive'
+    notes: ''
   });
 
   const [noteForm, setNoteForm] = useState<any>({
@@ -781,7 +781,7 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({ contactId, onBack 
                         </td>
                         <td style={{ padding: '8px 12px' }}>{sub.payment_gateway || 'RAZORPAY'}</td>
                         <td style={{ padding: '8px 12px' }}>{sub.payment_method || 'UPI AUTOPAY'}</td>
-                        <td style={{ padding: '8px 12px' }}>{sub.bank_name || sub.mandate_bank_name || 'HDFC Bank'}</td>
+                        <td style={{ padding: '8px 12px' }}>{sub.bank_name || sub.mandate_bank_name || '—'}</td>
                         <td style={{ padding: '8px 12px' }}>
                           {sub.next_payment_due_date ? new Date(sub.next_payment_due_date).toLocaleDateString() : 'Active'}
                         </td>
@@ -985,7 +985,7 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({ contactId, onBack 
                     emailComms.map((e, idx) => (
                       <tr key={e.id} style={{ borderBottom: '1px solid #DDDBDA', background: idx % 2 === 0 ? '#FFFFFF' : '#FAFCFF' }}>
                         <td style={{ padding: '8px 12px' }}>{e.sent_at || e.created_at ? new Date(e.sent_at || e.created_at!).toLocaleString() : 'Recent'}</td>
-                        <td style={{ padding: '8px 12px', fontWeight: 600 }}>{e.subject_line || 'Thank you for your donation'}</td>
+                        <td style={{ padding: '8px 12px', fontWeight: 600 }}>{e.subject_line || '—'}</td>
                         <td style={{ padding: '8px 12px' }}>{e.communication_type || 'Event'}</td>
                         <td style={{ padding: '8px 12px' }}>{e.status || 'delivered'}</td>
                       </tr>
@@ -1027,7 +1027,7 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({ contactId, onBack 
                     whatsappComms.map((w, idx) => (
                       <tr key={w.id} style={{ borderBottom: '1px solid #DDDBDA', background: idx % 2 === 0 ? '#FFFFFF' : '#FAFCFF' }}>
                         <td style={{ padding: '8px 12px' }}>{w.sent_at || w.created_at ? new Date(w.sent_at || w.created_at!).toLocaleString() : 'Recent'}</td>
-                        <td style={{ padding: '8px 12px', fontWeight: 600 }}>{w.template_name || 'donation_success_80g_instant'}</td>
+                        <td style={{ padding: '8px 12px', fontWeight: 600 }}>{w.template_name || '—'}</td>
                         <td style={{ padding: '8px 12px' }}>{w.recipient_number || contact.phone}</td>
                         <td style={{ padding: '8px 12px' }}>{w.status || 'delivered'}</td>
                       </tr>

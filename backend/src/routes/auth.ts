@@ -11,31 +11,88 @@ const JWT_SECRET = process.env.JWT_SECRET || 'danapro_local_jwt_secret_token_cha
 router.post('/register', async (req: Request, res: Response) => {
   const { orgName, orgSlug, country, email, password } = req.body;
 
+  if (!orgName || !orgSlug || !country || !email || !password) {
+    return res.status(400).json({ success: false, message: 'Missing required registration fields' });
+  }
+
+  const client = await pool.connect();
   try {
-    // Basic validations
-    if (!orgName || !orgSlug || !country || !email || !password) {
-      return res.status(400).json({ success: false, message: 'Missing required registration fields' });
+    await client.query('BEGIN');
+
+    // Check for existing slug or member email
+    const existingOrg = await client.query('SELECT id FROM organizations WHERE LOWER(slug) = LOWER($1)', [orgSlug.trim()]);
+    if (existingOrg.rows.length > 0) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ success: false, message: 'An organization with this slug already exists.' });
     }
 
-    // Hash password
+    const existingMember = await client.query('SELECT id FROM organization_members WHERE LOWER(email) = LOWER($1)', [email.trim()]);
+    if (existingMember.rows.length > 0) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ success: false, message: 'A user with this email address already exists.' });
+    }
+
+    // Insert Organization
+    const defaultPermissions = {
+      can_accept_donations: true,
+      can_issue_80g_receipts: true,
+      can_export_data: true,
+      can_run_ai_analytics: true,
+      platform_fee_percent: 0.0
+    };
+
+    const orgInsertRes = await client.query(
+      `INSERT INTO organizations (name, slug, tax_id_country, primary_currency, status, permissions)
+       VALUES ($1, $2, $3, 'INR', 'active', $4)
+       RETURNING id, name, slug, tax_id_country, primary_currency, status, permissions, created_at`,
+      [orgName.trim(), orgSlug.trim().toLowerCase(), country.trim().toUpperCase(), JSON.stringify(defaultPermissions)]
+    );
+    const newOrg = orgInsertRes.rows[0];
+
+    // Hash password & Insert Member
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
-    // Save transactionally in Postgres
-    // (In actual execution, we execute these database operations)
-    console.log(`Mock Registering NGO: ${orgName} (${orgSlug}) for ${email}`);
-    
+    const memberInsertRes = await client.query(
+      `INSERT INTO organization_members (organization_id, email, password_hash, role)
+       VALUES ($1, $2, $3, 'admin')
+       RETURNING id, organization_id, email, role, created_at`,
+      [newOrg.id, email.trim().toLowerCase(), passwordHash]
+    );
+    const newMember = memberInsertRes.rows[0];
+
+    await client.query('COMMIT');
+
+    const isProd = Boolean(process.env.NODE_ENV === 'production' || (req.headers.host && req.headers.host.includes('onrender.com')));
+    const token = jwt.sign(
+      { email: newMember.email, role: 'admin', organizationId: newOrg.id, orgSlug: newOrg.slug },
+      JWT_SECRET,
+      { expiresIn: '8h' }
+    );
+
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: isProd ? 'none' : 'lax',
+      path: '/',
+      maxAge: 8 * 60 * 60 * 1000
+    });
+
     return res.status(201).json({
       success: true,
-      message: 'NGO Registered successfully! Proceed to log in.',
+      message: 'NGO Registered successfully!',
+      token,
       data: {
-        org: { name: orgName, slug: orgSlug, country },
-        user: { email, role: 'owner' }
+        org: newOrg,
+        user: { email: newMember.email, role: 'admin', orgId: newOrg.id, orgName: newOrg.name, orgSlug: newOrg.slug }
       }
     });
   } catch (error: any) {
+    await client.query('ROLLBACK');
     console.error('Registration error:', error);
-    return res.status(500).json({ success: false, message: 'Server registration failed' });
+    return res.status(500).json({ success: false, message: 'Server registration failed: ' + error.message });
+  } finally {
+    client.release();
   }
 });
 
@@ -49,24 +106,12 @@ router.post('/login', async (req: Request, res: Response) => {
     }
 
     // 1. Check if user is Superadmin dynamically in superadmins table
-    const superadminRes = await pool.query('SELECT * FROM superadmins WHERE LOWER(email) = LOWER($1)', [email]);
+    const superadminRes = await pool.query('SELECT * FROM superadmins WHERE LOWER(email) = LOWER($1)', [email.trim()]);
     let isSuperadminMatch = false;
     let superadminRecord = superadminRes.rows[0];
 
     if (superadminRecord) {
       isSuperadminMatch = await bcrypt.compare(password, superadminRecord.password_hash);
-    }
-
-    // Fallback self-healing for default superadmin (supports both Lakshay@123 and Superlucky@123)
-    if (!isSuperadminMatch && email.toLowerCase() === 'superlucky@gmail.com' && (password === 'Lakshay@123' || password === 'Superlucky@123')) {
-      const passHash = await bcrypt.hash(password, 10);
-      await pool.query(`
-        INSERT INTO superadmins (email, password_hash)
-        VALUES ('Superlucky@gmail.com', $1)
-        ON CONFLICT (email) DO UPDATE SET password_hash = $1
-      `, [passHash]);
-      isSuperadminMatch = true;
-      superadminRecord = { email: 'Superlucky@gmail.com' };
     }
 
     const isProd = Boolean(process.env.NODE_ENV === 'production' || (req.headers.host && req.headers.host.includes('onrender.com')));
@@ -95,7 +140,7 @@ router.post('/login', async (req: Request, res: Response) => {
        FROM organization_members m
        JOIN organizations o ON m.organization_id = o.id
        WHERE LOWER(m.email) = LOWER($1)`,
-      [email]
+      [email.trim()]
     );
 
     if (memberRes.rows.length === 0) {
@@ -109,7 +154,7 @@ router.post('/login', async (req: Request, res: Response) => {
     }
 
     const token = jwt.sign(
-      { email, role: 'admin', organizationId: member.organization_id, orgSlug: member.org_slug },
+      { email: member.email, role: 'admin', organizationId: member.organization_id, orgSlug: member.org_slug },
       JWT_SECRET,
       { expiresIn: '8h' }
     );
@@ -122,13 +167,11 @@ router.post('/login', async (req: Request, res: Response) => {
       maxAge: 8 * 60 * 60 * 1000
     });
 
-
-
     return res.status(200).json({
       success: true,
       token,
       user: {
-        email,
+        email: member.email,
         role: 'admin',
         orgId: member.organization_id,
         organizationId: member.organization_id,
@@ -187,17 +230,22 @@ router.get('/me', authenticate, async (req: AuthenticatedRequest, res: Response)
   }
 });
 
-// GET /api/auth/roles — list RBAC roles
+// GET /api/auth/roles — list RBAC roles from PostgreSQL database
 router.get('/roles', authenticate, async (req: Request, res: Response) => {
   try {
-    const roles = [
-      { id: 'superadmin', name: 'Super Admin', is_system: true, description: 'Unrestricted master access to all charities and global payment configurations.' },
-      { id: 'ngo_admin', name: 'NGO Admin', is_system: true, description: 'Organization administrator with full campaign, CRM, and 80G access.' },
-      { id: 'ngo_manager', name: 'Campaign Manager', is_system: false, description: 'Can create campaigns, broadcast messages, and build donor journeys.' },
-      { id: 'ngo_finance', name: 'Finance & Auditor', is_system: false, description: 'Access to ledger, 80G tax receipts, and Form 10BD reports.' },
-      { id: 'ngo_viewer', name: 'Viewer / Read-Only', is_system: false, description: 'Read-only analytics access across donations and campaigns.' }
-    ];
-    res.json({ success: true, data: roles });
+    const user = (req as any).user;
+    const targetOrgId = user?.role === 'superadmin'
+      ? (req.query.organizationId as string | undefined)
+      : (user?.organizationId || user?.organization_id);
+
+    const result = await pool.query(
+      `SELECT id, name, display_name, description, is_system, permissions, created_at 
+       FROM roles 
+       WHERE is_system = true ${targetOrgId ? 'OR organization_id = $1' : ''} 
+       ORDER BY is_system DESC, created_at ASC`,
+      targetOrgId ? [targetOrgId] : []
+    );
+    res.json({ success: true, data: result.rows });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }

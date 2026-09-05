@@ -163,8 +163,8 @@ export function extractNgoGatewayRails(orgPaymentConfig: any, sysSettings: Recor
         name: 'Razorpay Platform Master',
         is_active: true,
         credentials: {
-          key_id: sysSettings.RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID || 'rzp_test_TIAIr4GaDu23Uq',
-          key_secret: sysSettings.RAZORPAY_KEY_SECRET || process.env.RAZORPAY_KEY_SECRET || 'mock_secret',
+          key_id: sysSettings.RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID || '',
+          key_secret: sysSettings.RAZORPAY_KEY_SECRET || process.env.RAZORPAY_KEY_SECRET || '',
           webhook_secret: sysSettings.RAZORPAY_WEBHOOK_SECRET || ''
         }
       });
@@ -176,8 +176,8 @@ export function extractNgoGatewayRails(orgPaymentConfig: any, sysSettings: Recor
         name: 'PayU India Platform Master',
         is_active: true,
         credentials: {
-          merchant_key: sysSettings.PAYU_MERCHANT_KEY || 'gtKFFx',
-          merchant_salt: sysSettings.PAYU_MERCHANT_SALT || 'eCwWELxi',
+          merchant_key: sysSettings.PAYU_MERCHANT_KEY || process.env.PAYU_MERCHANT_KEY || '',
+          merchant_salt: sysSettings.PAYU_MERCHANT_SALT || process.env.PAYU_MERCHANT_SALT || '',
           webhook_secret: sysSettings.PAYU_WEBHOOK_SECRET || '',
           mode: (sysSettings.PAYU_MODE as any) || 'test'
         }
@@ -190,9 +190,9 @@ export function extractNgoGatewayRails(orgPaymentConfig: any, sysSettings: Recor
         name: 'CCAvenue Platform Master',
         is_active: true,
         credentials: {
-          merchant_id: sysSettings.CCAVENUE_MERCHANT_ID || '2849102',
-          access_code: sysSettings.CCAVENUE_ACCESS_CODE || 'AVIN02KJ91BC02',
-          working_key: sysSettings.CCAVENUE_WORKING_KEY || '8B9F04D92841CA902E41829B0482910F'
+          merchant_id: sysSettings.CCAVENUE_MERCHANT_ID || '',
+          access_code: sysSettings.CCAVENUE_ACCESS_CODE || '',
+          working_key: sysSettings.CCAVENUE_WORKING_KEY || ''
         }
       });
     }
@@ -203,9 +203,9 @@ export function extractNgoGatewayRails(orgPaymentConfig: any, sysSettings: Recor
         name: 'AU Bank / Worldline Master',
         is_active: true,
         credentials: {
-          merchant_id: sysSettings.WORLDLINE_MERCHANT_ID || 'WL_AUBANK_89210',
-          terminal_id: sysSettings.WORLDLINE_TERMINAL_ID || 'AUB_TID_00192',
-          secret_key: sysSettings.WORLDLINE_SECRET_KEY || 'sec_aubank_worldline_891023'
+          merchant_id: sysSettings.WORLDLINE_MERCHANT_ID || '',
+          terminal_id: sysSettings.WORLDLINE_TERMINAL_ID || '',
+          secret_key: sysSettings.WORLDLINE_SECRET_KEY || ''
         }
       });
     }
@@ -216,8 +216,8 @@ export function extractNgoGatewayRails(orgPaymentConfig: any, sysSettings: Recor
         name: 'Cashfree Platform Master',
         is_active: true,
         credentials: {
-          app_id: sysSettings.CASHFREE_APP_ID || 'CF_APP_91029384',
-          secret_key: sysSettings.CASHFREE_SECRET_KEY || 'cf_sec_91823901823901283'
+          app_id: sysSettings.CASHFREE_APP_ID || '',
+          secret_key: sysSettings.CASHFREE_SECRET_KEY || ''
         }
       });
     }
@@ -449,8 +449,8 @@ export async function initiateMultiGatewayPayment(params: {
 
   // 1. RAZORPAY RAIL
   if (activeGw === 'razorpay') {
-    const keyId = activeCreds.key_id || activeCreds.razorpay_key_id || sysSettings.RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID || 'rzp_test_TIAIr4GaDu23Uq';
-    const keySecret = activeCreds.key_secret || activeCreds.razorpay_key_secret || sysSettings.RAZORPAY_KEY_SECRET || process.env.RAZORPAY_KEY_SECRET || 'mock_secret';
+    const keyId = activeCreds.key_id || activeCreds.razorpay_key_id || sysSettings.RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID || '';
+    const keySecret = activeCreds.key_secret || activeCreds.razorpay_key_secret || sysSettings.RAZORPAY_KEY_SECRET || process.env.RAZORPAY_KEY_SECRET || '';
 
     let rzpOrderId = `order_rzp_${Date.now()}`;
     let rzpError: string | null = null;
@@ -643,7 +643,7 @@ export async function initiateMultiGatewayPayment(params: {
     const cfOrderId = `order_cf_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
     const donorPhone = (params.donorPhone && params.donorPhone.replace(/\D/g, '').slice(-10)) || '9876543210';
 
-    if (appId && secretKey && !appId.includes('mock') && !appId.includes('sandbox_key') && !appId.includes('CF_APP_91029384')) {
+    if (appId && secretKey) {
       try {
         const cfRes = await fetch(cfBaseUrl, {
           method: 'POST',

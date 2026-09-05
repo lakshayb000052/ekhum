@@ -76,16 +76,20 @@ import { sendCampaignApprovalNotificationEmail } from '../services/notification'
 router.post('/', authenticate, async (req: AuthenticatedRequest, res: Response) => {
   const { title, description, slug, formFields, organizationId } = req.body;
   try {
-    let orgId = organizationId || 'f728c312-d961-460d-a3df-6a982f1b0cd9';
+    let orgId = req.user?.role === 'admin' 
+      ? req.user.organizationId 
+      : (organizationId || req.user?.organizationId);
+
+    if (!orgId) {
+      return res.status(400).json({ success: false, message: 'Organization ID is required to create a campaign.' });
+    }
+
     let isPendingApproval = false;
     let approvalStatus = 'approved';
     let isActive = true;
 
     // Enforce multi-tenant isolation and pending approval workflow for NGO workers
     if (req.user?.role === 'admin') {
-      if (req.user.organizationId) {
-        orgId = req.user.organizationId;
-      }
       isPendingApproval = true;
       approvalStatus = 'pending';
       isActive = false; // Must be verified and activated by Superadmin
@@ -114,13 +118,12 @@ router.post('/', authenticate, async (req: AuthenticatedRequest, res: Response) 
     const createdCamp = rows[0];
 
     if (isPendingApproval) {
-      // Trigger instant email notification to lakshayb057@gmail.com & spikemarketingsolutions@gmail.com
       sendCampaignApprovalNotificationEmail(title, orgName, slug, createdCamp.id);
 
       return res.status(201).json({
         success: true,
         isPendingApproval: true,
-        message: 'Campaign submitted successfully! Superadmin verification request sent to lakshayb057@gmail.com & spikemarketingsolutions@gmail.com. Superadmin will verify and configure final gateway keys.',
+        message: 'Campaign submitted successfully! A verification request has been dispatched to Superadmin for review.',
         campaign: createdCamp
       });
     }

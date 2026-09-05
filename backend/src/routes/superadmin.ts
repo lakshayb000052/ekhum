@@ -576,11 +576,11 @@ router.post('/gateways/health-check', async (req: Request, res: Response) => {
     const settingsMap: Record<string, string> = {};
     settingsRows.forEach((r: any) => { settingsMap[r.key] = r.value; });
 
-    const razorpayKey = settingsMap['RAZORPAY_KEY_ID'] || process.env.RAZORPAY_KEY_ID || 'rzp_test_mock';
-    const payuKey = settingsMap['PAYU_MERCHANT_KEY'] || process.env.PAYU_MERCHANT_KEY || 'gtKFFx';
-    const ccavenueMid = settingsMap['CCAVENUE_MERCHANT_ID'] || '2849102';
-    const worldlineMid = settingsMap['WORLDLINE_MERCHANT_ID'] || 'WL_AUBANK_89210';
-    const cashfreeAppId = settingsMap['CASHFREE_APP_ID'] || 'CF_APP_91029384';
+    const razorpayKey = settingsMap['RAZORPAY_KEY_ID'] || process.env.RAZORPAY_KEY_ID || '';
+    const payuKey = settingsMap['PAYU_MERCHANT_KEY'] || process.env.PAYU_MERCHANT_KEY || '';
+    const ccavenueMid = settingsMap['CCAVENUE_MERCHANT_ID'] || '';
+    const worldlineMid = settingsMap['WORLDLINE_MERCHANT_ID'] || '';
+    const cashfreeAppId = settingsMap['CASHFREE_APP_ID'] || '';
 
     const healthResults = {
       timestamp: new Date().toISOString(),
@@ -590,7 +590,7 @@ router.post('/gateways/health-check', async (req: Request, res: Response) => {
           status: 'operational',
           uptime: '99.98%',
           latencyMs: Math.floor(Math.random() * 25) + 45,
-          configured: !!razorpayKey && !razorpayKey.includes('mock'),
+          configured: !!razorpayKey,
           railType: 'Domestic UPI / Cards / Subscriptions',
           badge: '🟢 99.98% Live'
         },

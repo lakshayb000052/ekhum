@@ -35,7 +35,7 @@ export const ApiIntegrations: React.FC = () => {
   const [metaToken, setMetaToken] = useState('');
   
   const [evoApiUrl, setEvoApiUrl] = useState('http://localhost:8080');
-  const [evoApiKey, setEvoApiKey] = useState('evolution-global-key-here');
+  const [evoApiKey, setEvoApiKey] = useState('');
   const [evoInstanceName, setEvoInstanceName] = useState('danapro_main');
   const [evoState, setEvoState] = useState<string | null>(null);
   const [checkingEvoState, setCheckingEvoState] = useState(false);
@@ -51,15 +51,15 @@ export const ApiIntegrations: React.FC = () => {
   const [instanceInitFeedback, setInstanceInitFeedback] = useState<{ success: boolean; message: string } | null>(null);
 
   // WhatsApp Test Sender State
-  const [testWaPhone, setTestWaPhone] = useState('8295886832');
-  const [testWaMessage, setTestWaMessage] = useState('✨ *DanaPro Test Message*\n\nYour WhatsApp gateway is active and ready to deliver journey alerts! 🚀');
+  const [testWaPhone, setTestWaPhone] = useState('');
+  const [testWaMessage, setTestWaMessage] = useState('✨ DanaPro Test Message\n\nYour WhatsApp gateway is active and ready to deliver journey alerts! 🚀');
   const [sendingTestWa, setSendingTestWa] = useState(false);
   const [testWaResult, setTestWaResult] = useState<{ success: boolean; message: string } | null>(null);
 
   // Email Config State
   const [emailProvider, setEmailProvider] = useState<'ses' | 'smtp' | 'none'>('ses');
-  const [emailSenderName, setEmailSenderName] = useState('DanaPro NGO');
-  const [emailFromAddress, setEmailFromAddress] = useState('donations@danapro.org');
+  const [emailSenderName, setEmailSenderName] = useState('');
+  const [emailFromAddress, setEmailFromAddress] = useState('');
   const [emailReplyTo, setEmailReplyTo] = useState('');
   
   const [sesRegion, setSesRegion] = useState('ap-south-1');
@@ -213,7 +213,7 @@ export const ApiIntegrations: React.FC = () => {
           }
           if (whatsapp_config.evolution_go) {
             setEvoApiUrl(whatsapp_config.evolution_go.api_url || 'http://localhost:8080');
-            setEvoApiKey(whatsapp_config.evolution_go.api_key || 'evolution-global-key-here');
+            setEvoApiKey(whatsapp_config.evolution_go.api_key || '');
             setEvoInstanceName(whatsapp_config.evolution_go.instance_name || defaultOrgInstance);
           }
         }
@@ -432,13 +432,6 @@ export const ApiIntegrations: React.FC = () => {
     }
   };
 
-  const handleGenerateMockQr = () => {
-    const mockPayload = `2@DanaProPairing_${Date.now()}_${evoInstanceName}_SecretMockKey`;
-    setQrCodeData(mockPayload);
-    setQrIsOffline(false);
-    setQrErrorDetail(null);
-    setQrMessage('🧪 Dev Pairing Simulator Active. Point camera to test QR layout.');
-  };
 
   const handleSendTestWhatsApp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1214,7 +1207,7 @@ export const ApiIntegrations: React.FC = () => {
                       type="password" 
                       value={evoApiKey} 
                       onChange={e => setEvoApiKey(e.target.value)}
-                      placeholder="evolution-global-key-here"
+                      placeholder="e.g. your-evolution-api-key"
                       style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '13px', fontFamily: 'monospace' }}
                     />
                   </div>
@@ -2345,7 +2338,7 @@ Body:
                     🚀 How to start Evolution Go locally or on your server:
                   </span>
                   <div style={{ background: '#0F172A', color: '#38BDF8', padding: '8px 10px', borderRadius: '6px', fontSize: '11px', fontFamily: 'monospace', overflowX: 'auto', marginBottom: '8px' }}>
-                    docker run -d -p 8080:8080 -e AUTHENTICATION_API_KEY={evoApiKey || 'evolution-key'} lakshayb057/evolution-go-whatsapp
+                    docker run -d -p 8080:8080 -e AUTHENTICATION_API_KEY={evoApiKey || 'YOUR_API_KEY'} evolution-go-whatsapp
                   </div>
                   <span style={{ fontSize: '11px', color: '#64748B' }}>
                     Or run directly from source: <code>go run main.go</code> inside your cloned <code>evolution-go-whatsapp</code> repo.
@@ -2384,16 +2377,6 @@ Body:
             >
               🔄 Refresh QR Code
             </button>
-
-            {!qrCodeData && (
-              <button 
-                type="button" 
-                onClick={handleGenerateMockQr}
-                style={{ padding: '8px 14px', background: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', fontSize: '12px' }}
-              >
-                🧪 Dev Simulator QR
-              </button>
-            )}
 
             <button 
               type="button" 
