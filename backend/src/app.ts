@@ -36,6 +36,10 @@ const app = express();
 
 import path from 'path';
 import fs from 'fs';
+import { securityHeadersMiddleware } from './middleware/security';
+
+// Apply strict defense headers (HSTS, CSP, X-Frame-Options, X-Content-Type-Options)
+app.use(securityHeadersMiddleware);
 
 // Standard Middlewares - allow cross-origin requests from external NGO landing pages
 app.use(cors({
