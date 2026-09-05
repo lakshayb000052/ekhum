@@ -10,7 +10,10 @@ export const getWsUrl = () => {
   if (base) return base.replace('http://', 'ws://').replace('https://', 'wss://');
   if (typeof window !== 'undefined') {
     const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    return `${proto}//${window.location.host}`;
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      return `ws://${window.location.hostname}:5000`;
+    }
+    return `${proto}//${window.location.host}/api/`;
   }
   return '';
 };
