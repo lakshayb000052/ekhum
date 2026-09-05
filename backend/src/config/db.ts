@@ -3,16 +3,34 @@ import dotenv from 'dotenv';
 import path from 'path';
 import runMigrations from './migrations';
 
-// Load .env from project root (relative to compiled dist/config/db.js → ../../../.env)
-dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
-// Also try loading from CWD as fallback
-dotenv.config();
+// Load .env from multiple potential locations (project root, backend dir, CWD)
+const possibleEnvPaths = [
+  path.resolve(process.cwd(), '.env'),
+  path.resolve(process.cwd(), 'backend/.env'),
+  path.resolve(__dirname, '../../../.env'),
+  path.resolve(__dirname, '../../.env'),
+  path.resolve(__dirname, '../.env')
+];
+for (const p of possibleEnvPaths) {
+  dotenv.config({ path: p, override: true });
+}
 
-const connectionString = process.env.DATABASE_URL;
+let connectionString = (process.env.DATABASE_URL || '').trim();
+
+// If DATABASE_URL is not set or empty, construct from DB_* variables
+if (!connectionString && process.env.DB_USER && process.env.DB_PASSWORD) {
+  const host = process.env.DB_HOST || 'localhost';
+  const port = process.env.DB_PORT || '5432';
+  const user = encodeURIComponent(process.env.DB_USER);
+  const pass = encodeURIComponent(process.env.DB_PASSWORD);
+  const db = process.env.DB_NAME || 'DanaPro';
+  connectionString = `postgresql://${user}:${pass}@${host}:${port}/${db}?schema=public`;
+}
+
 if (!connectionString) {
   console.error('==========================================');
-  console.error(' FATAL: DATABASE_URL environment variable is not set.');
-  console.error(' Ensure .env file exists with DATABASE_URL or set it in the environment.');
+  console.error(' FATAL: DATABASE_URL or (DB_USER & DB_PASSWORD) not set.');
+  console.error(' Ensure .env file exists with valid database credentials.');
   console.error('==========================================');
   process.exit(1);
 }
