@@ -673,7 +673,7 @@ router.post('/donations/verify', async (req: Request, res: Response): Promise<vo
     const fy = month >= 4 ? `${year}-${String(year + 1).slice(2)}` : `${year - 1}-${String(year).slice(2)}`;
     const receiptNum = `80G-${resolvedGateway.toUpperCase().slice(0, 3)}-${fy}-${Date.now().toString().slice(-6)}`;
     const proto = req.get('x-forwarded-proto') || req.protocol || 'https';
-    const host = req.get('host') || 'api.ekhum.org';
+    const host = req.get('host') || 'ekhum.org';
     const pdfUrl = `${proto}://${host}/receipts/${receiptNum}.pdf`;
 
     const donorAddressSnapshot = [
@@ -876,7 +876,7 @@ async function processWebhookPaymentConfirmation(params: {
   }
 
   const receiptNum = `80G-${params.gateway.toUpperCase().slice(0, 3)}-${Date.now().toString().slice(-6)}`;
-  const baseUrl = process.env.API_BASE_URL || 'https://api.ekhum.org';
+  const baseUrl = process.env.API_BASE_URL || 'https://ekhum.org';
   const pdfUrl = `${baseUrl}/receipts/${receiptNum}.pdf`;
 
   if (targetDonation) {
@@ -1286,7 +1286,7 @@ router.post(['/webhooks/cashfree', '/webhooks/cashfree/test'], async (req: Reque
 router.get('/embed.js', (req: Request, res: Response) => {
   res.setHeader('Content-Type', 'application/javascript');
   const proto = req.get('x-forwarded-proto') || req.protocol || 'https';
-  const host = req.get('host') || 'api.ekhum.org';
+  const host = req.get('host') || 'ekhum.org';
   const serverOrigin = `${proto}://${host}`;
   res.send(`
 (function(window, document) {
@@ -1454,13 +1454,10 @@ router.get('/embed.js', (req: Request, res: Response) => {
       } catch (e) {}
     }
     if (!inferredServerUrl) {
-      inferredServerUrl = typeof _BACKEND_ORIGIN !== 'undefined' ? _BACKEND_ORIGIN : '';
-    }
-    if (window.location.hostname.indexOf('ekhum.org') !== -1 && (!inferredServerUrl || inferredServerUrl.indexOf('localhost') !== -1)) {
-      inferredServerUrl = 'https://api.ekhum.org';
+      inferredServerUrl = typeof _BACKEND_ORIGIN !== 'undefined' ? _BACKEND_ORIGIN : (typeof window !== 'undefined' ? window.location.origin : '');
     }
     
-    var baseServerUrl = config.serverUrl || inferredServerUrl || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:5000' : 'https://api.ekhum.org');
+    var baseServerUrl = config.serverUrl || inferredServerUrl || (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') ? 'http://localhost:5000' : (typeof window !== 'undefined' ? window.location.origin : ''));
     var endpoint = baseServerUrl + '/api/v1/external/donations/initiate';
     
     // Auto-detect fields from DOM / GTM as fallback

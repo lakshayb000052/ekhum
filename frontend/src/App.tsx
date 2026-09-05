@@ -330,9 +330,6 @@ function AnalyticsBarChart({ data }: { data: Array<{ ngo_name: string; total_amo
 const getApiBase = () => {
   if ((import.meta as any).env?.VITE_API_URL) return (import.meta as any).env.VITE_API_URL;
   if (typeof window !== 'undefined') {
-    if (window.location.hostname.includes('ekhum.org')) {
-      return 'https://api.ekhum.org';
-    }
     if (window.location.hostname.includes('onrender.com') || window.location.hostname.includes('render.com')) {
       const backendHost = window.location.hostname.replace('-frontend-', '-backend-');
       return `https://${backendHost}`;
@@ -344,15 +341,13 @@ const getApiBase = () => {
 const getWsUrl = () => {
   if ((import.meta as any).env?.VITE_WS_URL) return (import.meta as any).env.VITE_WS_URL;
   if (typeof window !== 'undefined') {
-    if (window.location.hostname.includes('ekhum.org')) {
-      return 'wss://api.ekhum.org';
+    const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      return `ws://${window.location.hostname}:5000`;
     }
-    if (window.location.protocol === 'https:') {
-      const backendHost = window.location.hostname.replace('-frontend-', '-backend-');
-      return `wss://${backendHost}`;
-    }
+    return `${proto}//${window.location.host}`;
   }
-  return `ws://${typeof window !== 'undefined' ? window.location.hostname : 'localhost'}:5000`;
+  return `ws://localhost:5000`;
 };
 
 const apiFetch = (path: string, options: RequestInit = {}) => {
